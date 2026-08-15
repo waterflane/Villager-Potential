@@ -37,6 +37,25 @@ public record ProfessionCareerState(
         );
     }
 
+    public ProfessionCareerState accumulateProfessionTime(long elapsedTicks) {
+        if (elapsedTicks < 0) {
+            throw new IllegalArgumentException("elapsedTicks must not be negative");
+        }
+        if (elapsedTicks == 0 || accumulatedProfessionTime == Long.MAX_VALUE) {
+            return this;
+        }
+
+        long accumulatedTime = Long.MAX_VALUE - accumulatedProfessionTime < elapsedTicks
+                ? Long.MAX_VALUE
+                : accumulatedProfessionTime + elapsedTicks;
+        return new ProfessionCareerState(
+                accumulatedTime,
+                learnedSkill,
+                firstAssignment,
+                latestAssignment
+        );
+    }
+
     public ProfessionCareerState withLearnedSkill(double skill) {
         return new ProfessionCareerState(
                 accumulatedProfessionTime,

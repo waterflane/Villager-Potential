@@ -32,6 +32,8 @@ import java.util.UUID;
 import java.util.random.RandomGenerator;
 
 public final class VillagerPotentialAttachments {
+    private static final ProfessionTenureEligibility TENURE_ELIGIBILITY =
+            ProfessionTenureEligibility.ADULT;
     static final AptitudeGenerationConfig APTITUDE_CONFIG = new AptitudeGenerationConfig(
             0.5,
             2.0,
@@ -121,6 +123,11 @@ public final class VillagerPotentialAttachments {
                         VillagerProfessionIds.fromMinecraft(profession),
                         assignmentTime
                 );
+
+        if (updatedState.activeProfession().isPresent()
+                && TENURE_ELIGIBILITY.canAccumulate(villager)) {
+            updatedState = updatedState.accumulateActiveProfessionTime(1L);
+        }
 
         if (updatedState != state) {
             villager.setData(POTENTIAL, updatedState);

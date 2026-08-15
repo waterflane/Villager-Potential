@@ -1,6 +1,7 @@
 package org.waterflane.villager_potential;
 
 import net.minecraft.server.level.ServerLevel;
+import net.minecraft.world.level.Level;
 import net.minecraft.world.entity.npc.Villager;
 import net.minecraft.world.entity.npc.VillagerData;
 import net.minecraft.world.entity.npc.VillagerProfession;
@@ -16,7 +17,6 @@ import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Supplier;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
@@ -38,7 +38,10 @@ class VillagerProfessionTrackingTest {
 
         VillagerPotentialState state = carrier.state().get();
         assertEquals(LIBRARIAN, state.activeProfession().orElseThrow());
-        assertEquals(ProfessionCareerState.firstAssignedAt(100L), state.careerFor(LIBRARIAN).orElseThrow());
+        assertEquals(
+                ProfessionCareerState.firstAssignedAt(100L).accumulateProfessionTime(1L),
+                state.careerFor(LIBRARIAN).orElseThrow()
+        );
         assertEquals(1.25, state.aptitudeFor(LIBRARIAN).orElseThrow());
         verify(carrier.villager(), times(1)).setData(any(Supplier.class), any());
         verify(carrier.villager(), never()).setVillagerData(any());
@@ -76,11 +79,14 @@ class VillagerProfessionTrackingTest {
         VillagerPotentialState changedState = carrier.state().get();
         tick(carrier);
 
-        assertSame(changedState, carrier.state().get());
-        assertEquals(FARMER, changedState.activeProfession().orElseThrow());
-        assertEquals(ProfessionCareerState.firstAssignedAt(140L), changedState.careerFor(FARMER).orElseThrow());
+        VillagerPotentialState secondTickState = carrier.state().get();
+        assertEquals(FARMER, secondTickState.activeProfession().orElseThrow());
+        assertEquals(
+                ProfessionCareerState.firstAssignedAt(140L).accumulateProfessionTime(2L),
+                secondTickState.careerFor(FARMER).orElseThrow()
+        );
         assertEquals(librarianCareer, changedState.careerFor(LIBRARIAN).orElseThrow());
-        verify(carrier.villager(), times(1)).setData(any(Supplier.class), any());
+        verify(carrier.villager(), times(2)).setData(any(Supplier.class), any());
     }
 
     @Test
@@ -98,11 +104,63 @@ class VillagerProfessionTrackingTest {
         VillagerPotentialState state = carrier.state().get();
         assertEquals(LIBRARIAN, state.activeProfession().orElseThrow());
         assertEquals(
-                new ProfessionCareerState(80L, 0.75, 20L, 200L),
+                new ProfessionCareerState(81L, 0.75, 20L, 200L),
                 state.careerFor(LIBRARIAN).orElseThrow()
         );
         assertTrue(state.careerFor(FARMER).isPresent());
         assertEquals(original.aptitudes(), state.aptitudes());
+    }
+
+    @Test
+    void activeAdultProfessionAccumulatesOneLoadedServerTickAtATime() {
+        CareerCarrier carrier = carrier(
+                VillagerProfession.LIBRARIAN,
+                baseState().assignProfession(LIBRARIAN, 20L),
+                100L
+        );
+
+        tick(carrier);
+        tick(carrier);
+
+        assertEquals(
+                2L,
+                carrier.state().get().careerFor(LIBRARIAN).orElseThrow()
+                        .accumulatedProfessionTime()
+        );
+    }
+
+    @Test
+    void unemployedAndBabyVillagersDoNotAccumulateTenure() {
+        CareerCarrier unemployed = carrier(VillagerProfession.NONE, baseState(), 100L);
+        tick(unemployed);
+
+        CareerCarrier baby = carrier(
+                VillagerProfession.LIBRARIAN,
+                baseState().assignProfession(LIBRARIAN, 20L),
+                100L
+        );
+        when(baby.villager().isBaby()).thenReturn(true);
+        tick(baby);
+
+        assertTrue(unemployed.state().get().careers().isEmpty());
+        assertEquals(
+                0L,
+                baby.state().get().careerFor(LIBRARIAN).orElseThrow()
+                        .accumulatedProfessionTime()
+        );
+        verify(unemployed.villager(), never()).setData(any(Supplier.class), any());
+        verify(baby.villager(), never()).setData(any(Supplier.class), any());
+    }
+
+    @Test
+    void clientTicksNeverAccessProfessionState() {
+        Villager villager = mock(Villager.class);
+        when(villager.level()).thenReturn(mock(Level.class));
+
+        VillagerPotentialEvents.onEntityTickPost(new EntityTickEvent.Post(villager));
+
+        verify(villager, never()).getData(any(Supplier.class));
+        verify(villager, never()).setData(any(Supplier.class), any());
     }
 
     private static VillagerPotentialState baseState() {

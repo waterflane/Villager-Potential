@@ -85,6 +85,34 @@ class VillagerPotentialStateTest {
     }
 
     @Test
+    void accumulatesOnlyTheActiveProfessionAndSaturatesSafely() {
+        ProfessionId librarian = ProfessionId.parse("minecraft:librarian");
+        ProfessionId farmer = ProfessionId.parse("minecraft:farmer");
+        VillagerPotentialState state = VillagerPotentialState.createDefault()
+                .assignProfession(librarian, 100L)
+                .withCareer(
+                        librarian,
+                        new ProfessionCareerState(Long.MAX_VALUE - 1L, 0.5, 100L, 100L)
+                )
+                .assignProfession(farmer, 200L)
+                .accumulateActiveProfessionTime(20L);
+
+        assertEquals(
+                Long.MAX_VALUE - 1L,
+                state.careerFor(librarian).orElseThrow().accumulatedProfessionTime()
+        );
+        assertEquals(20L, state.careerFor(farmer).orElseThrow().accumulatedProfessionTime());
+
+        VillagerPotentialState saturated = state
+                .assignProfession(librarian, 300L)
+                .accumulateActiveProfessionTime(20L);
+        assertEquals(
+                Long.MAX_VALUE,
+                saturated.careerFor(librarian).orElseThrow().accumulatedProfessionTime()
+        );
+    }
+
+    @Test
     void skillRemainsSeparateFromAptitude() {
         ProfessionId librarian = ProfessionId.parse("minecraft:librarian");
 

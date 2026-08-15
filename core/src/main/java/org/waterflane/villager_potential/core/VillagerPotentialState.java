@@ -128,6 +128,25 @@ public record VillagerPotentialState(
         return new VillagerPotentialState(schemaVersion, aptitudes, careers, Optional.empty());
     }
 
+    /**
+     * Adds loaded server ticks to the active career. Eligibility is deliberately
+     * decided by the platform layer so future activity rules do not alter this
+     * persisted representation.
+     */
+    public VillagerPotentialState accumulateActiveProfessionTime(long elapsedTicks) {
+        if (elapsedTicks < 0) {
+            throw new IllegalArgumentException("elapsedTicks must not be negative");
+        }
+        if (elapsedTicks == 0 || activeProfession.isEmpty()) {
+            return this;
+        }
+
+        ProfessionId professionId = activeProfession.orElseThrow();
+        ProfessionCareerState career = careers.get(professionId);
+        ProfessionCareerState updatedCareer = career.accumulateProfessionTime(elapsedTicks);
+        return updatedCareer == career ? this : withCareer(professionId, updatedCareer);
+    }
+
     public static VillagerPotentialState migrate(int persistedSchemaVersion) {
         return migrate(persistedSchemaVersion, Map.of());
     }

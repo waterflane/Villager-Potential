@@ -47,7 +47,9 @@ public final class VillagerPotentialEvents {
 
     /**
      * NeoForge has no profession-change event, so compare vanilla's final
-     * profession after its tick with the profession stored in Potential.
+     * profession after its tick with the profession stored in Potential. This
+     * per-entity server event also contributes one loaded tick of eligible
+     * tenure, without scanning every villager globally.
      */
     @SubscribeEvent
     static void onEntityTickPost(EntityTickEvent.Post event) {

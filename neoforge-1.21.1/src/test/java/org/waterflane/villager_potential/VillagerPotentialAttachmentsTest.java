@@ -131,7 +131,7 @@ class VillagerPotentialAttachmentsTest {
                 .assignProfession(librarian, 100L)
                 .withCareer(
                         librarian,
-                        new ProfessionCareerState(80L, 0.75, 100L, 100L)
+                        new ProfessionCareerState(12_345L, 0.75, 100L, 100L)
                 )
                 .assignProfession(farmer, 200L)
                 .assignProfession(librarian, 300L);
@@ -146,6 +146,10 @@ class VillagerPotentialAttachmentsTest {
         assertEquals(original, restored);
         assertEquals(2, restored.careers().size());
         assertEquals(librarian, restored.activeProfession().orElseThrow());
+        assertEquals(
+                12_345L,
+                restored.careerFor(librarian).orElseThrow().accumulatedProfessionTime()
+        );
         assertEquals(0.75, restored.careerFor(librarian).orElseThrow().learnedSkill());
         assertEquals(1.25, restored.aptitudeFor(librarian).orElseThrow());
     }
