@@ -183,10 +183,6 @@ public final class SpecializationDefinitionManager extends SimpleJsonResourceRel
                 });
                 specializations.add(new SpecializationDefinition(specializationId, weights));
             }
-            if (specializations.isEmpty()) {
-                throw malformed(source, "field 'specializations' must contain at least one definition");
-            }
-
             return new ProfessionSpecializationDefinition(
                     profession,
                     new SpecializationDefinition(general, Map.of()),

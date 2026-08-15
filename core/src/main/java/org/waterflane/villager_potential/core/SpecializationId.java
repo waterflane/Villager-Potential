@@ -8,6 +8,8 @@ import java.util.regex.Pattern;
 public record SpecializationId(String namespace, String path) {
     private static final Pattern VALID_NAMESPACE = Pattern.compile("[a-z0-9_.-]+");
     private static final Pattern VALID_PATH = Pattern.compile("[a-z0-9/._-]+");
+    public static final SpecializationId GENERAL =
+            new SpecializationId(VillagerPotential.MOD_ID, "general");
 
     public SpecializationId {
         if (namespace == null || !VALID_NAMESPACE.matcher(namespace).matches()) {

@@ -23,6 +23,7 @@ import org.waterflane.villager_potential.core.ProfessionActivityConfig;
 import org.waterflane.villager_potential.core.ProfessionActivityState;
 import org.waterflane.villager_potential.core.ProfessionCareerState;
 import org.waterflane.villager_potential.core.ProfessionId;
+import org.waterflane.villager_potential.core.ProfessionSpecializationAssignment;
 import org.waterflane.villager_potential.core.SkillProgression;
 import org.waterflane.villager_potential.core.SkillProgressionConfig;
 import org.waterflane.villager_potential.core.SpecializationId;
@@ -66,6 +67,7 @@ public final class VillagerPotentialAttachments {
     );
     private static final long INITIALIZATION_SALT = 0x56494C4C41474552L;
     private static final long INHERITANCE_SALT = 0x494E484552495453L;
+    private static final long SPECIALIZATION_SALT = 0x5350454349414C53L;
     private static final Codec<ProfessionId> PROFESSION_ID_CODEC = Codec.STRING.comapFlatMap(
             VillagerPotentialAttachments::parseProfessionId,
             ProfessionId::toString
@@ -164,7 +166,13 @@ public final class VillagerPotentialAttachments {
             updatedState = batch == null
                     ? state
                     : progressMatchingProfession(state, batch);
-            updatedState = assignProfession(updatedState, currentProfession, assignmentTime);
+            updatedState = assignProfession(
+                    updatedState,
+                    currentProfession,
+                    assignmentTime,
+                    worldSeed(villager),
+                    villager.getUUID()
+            );
             batch = new ProfessionProgressBatch(currentProfession, 0L, assignmentTime);
             PROFESSION_PROGRESS_BATCHES.put(villager, batch);
         }
@@ -235,11 +243,20 @@ public final class VillagerPotentialAttachments {
     private static VillagerPotentialState assignProfession(
             VillagerPotentialState state,
             ProfessionId profession,
-            long assignmentTime
+            long assignmentTime,
+            long worldSeed,
+            UUID villagerId
     ) {
-        return profession == null
-                ? state.clearActiveProfession()
-                : state.assignProfession(profession, assignmentTime);
+        if (profession == null) {
+            return state.clearActiveProfession();
+        }
+        return ProfessionSpecializationAssignment.enterProfession(
+                state,
+                profession,
+                assignmentTime,
+                SpecializationDefinitionManager.INSTANCE.definitionFor(profession),
+                new Random(specializationSeed(worldSeed, villagerId, profession))
+        );
     }
 
     private static VillagerPotentialState progressMatchingProfession(
@@ -391,6 +408,20 @@ public final class VillagerPotentialAttachments {
 
     private static long inheritanceSeed(long worldSeed, UUID villagerId) {
         return mixedSeed(worldSeed, villagerId, INHERITANCE_SALT);
+    }
+
+    private static long specializationSeed(
+            long worldSeed,
+            UUID villagerId,
+            ProfessionId professionId
+    ) {
+        long professionSalt = SPECIALIZATION_SALT;
+        String profession = professionId.toString();
+        for (int index = 0; index < profession.length(); index++) {
+            professionSalt ^= profession.charAt(index);
+            professionSalt *= 0x100000001B3L;
+        }
+        return mixedSeed(worldSeed, villagerId, professionSalt);
     }
 
     private static long mixedSeed(long worldSeed, UUID villagerId, long salt) {

@@ -99,7 +99,6 @@ public record VillagerPotentialState(
 
     /**
      * Stores a stable specialization on an existing profession career.
-     * Specialization selection itself belongs to a later policy layer.
      */
     public VillagerPotentialState withSpecialization(
             ProfessionId professionId,

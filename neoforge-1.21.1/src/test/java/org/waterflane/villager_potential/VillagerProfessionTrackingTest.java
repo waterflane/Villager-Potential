@@ -9,6 +9,7 @@ import net.neoforged.neoforge.event.tick.EntityTickEvent;
 import org.junit.jupiter.api.Test;
 import org.waterflane.villager_potential.core.ProfessionCareerState;
 import org.waterflane.villager_potential.core.ProfessionId;
+import org.waterflane.villager_potential.core.SpecializationId;
 import org.waterflane.villager_potential.core.VillagerPotentialState;
 
 import java.util.Map;
@@ -39,7 +40,8 @@ class VillagerProfessionTrackingTest {
         VillagerPotentialState state = carrier.state().get();
         assertEquals(LIBRARIAN, state.activeProfession().orElseThrow());
         assertEquals(
-                ProfessionCareerState.firstAssignedAt(100L),
+                ProfessionCareerState.firstAssignedAt(100L)
+                        .withSpecialization(SpecializationId.GENERAL),
                 state.careerFor(LIBRARIAN).orElseThrow()
         );
         assertEquals(1.25, state.aptitudeFor(LIBRARIAN).orElseThrow());
@@ -49,7 +51,8 @@ class VillagerProfessionTrackingTest {
 
     @Test
     void librarianToUnemployedClearsOnlyTheActiveProfession() {
-        ProfessionCareerState librarianCareer = new ProfessionCareerState(80L, 0.75, 20L, 20L);
+        ProfessionCareerState librarianCareer = new ProfessionCareerState(80L, 0.75, 20L, 20L)
+                .withSpecialization(SpecializationId.GENERAL);
         CareerCarrier carrier = carrier(
                 VillagerProfession.LIBRARIAN,
                 baseState().assignProfession(LIBRARIAN, 20L).withCareer(LIBRARIAN, librarianCareer),
@@ -67,7 +70,8 @@ class VillagerProfessionTrackingTest {
 
     @Test
     void librarianToFarmerCreatesSecondCareerWithoutGrowingOldSkill() {
-        ProfessionCareerState librarianCareer = new ProfessionCareerState(80L, 0.75, 20L, 20L);
+        ProfessionCareerState librarianCareer = new ProfessionCareerState(80L, 0.75, 20L, 20L)
+                .withSpecialization(SpecializationId.GENERAL);
         CareerCarrier carrier = carrier(
                 VillagerProfession.LIBRARIAN,
                 baseState().assignProfession(LIBRARIAN, 20L).withCareer(LIBRARIAN, librarianCareer),
@@ -82,7 +86,8 @@ class VillagerProfessionTrackingTest {
         VillagerPotentialState secondTickState = carrier.state().get();
         assertEquals(FARMER, secondTickState.activeProfession().orElseThrow());
         assertEquals(
-                ProfessionCareerState.firstAssignedAt(140L),
+                ProfessionCareerState.firstAssignedAt(140L)
+                        .withSpecialization(SpecializationId.GENERAL),
                 secondTickState.careerFor(FARMER).orElseThrow()
         );
         assertEquals(librarianCareer, changedState.careerFor(LIBRARIAN).orElseThrow());
@@ -91,7 +96,8 @@ class VillagerProfessionTrackingTest {
 
     @Test
     void farmerToLibrarianRestoresExistingCareerHistory() {
-        ProfessionCareerState librarianCareer = new ProfessionCareerState(80L, 0.75, 20L, 20L);
+        ProfessionCareerState librarianCareer = new ProfessionCareerState(80L, 0.75, 20L, 20L)
+                .withSpecialization(SpecializationId.GENERAL);
         VillagerPotentialState original = baseState()
                 .assignProfession(LIBRARIAN, 20L)
                 .withCareer(LIBRARIAN, librarianCareer)
@@ -104,7 +110,8 @@ class VillagerProfessionTrackingTest {
         VillagerPotentialState state = carrier.state().get();
         assertEquals(LIBRARIAN, state.activeProfession().orElseThrow());
         assertEquals(
-                new ProfessionCareerState(80L, 0.75, 20L, 200L),
+                new ProfessionCareerState(80L, 0.75, 20L, 200L)
+                        .withSpecialization(SpecializationId.GENERAL),
                 state.careerFor(LIBRARIAN).orElseThrow()
         );
         assertTrue(state.careerFor(FARMER).isPresent());
@@ -313,7 +320,17 @@ class VillagerProfessionTrackingTest {
         VillagerData villagerData = mock(VillagerData.class);
         ServerLevel level = mock(ServerLevel.class);
         AtomicReference<VillagerProfession> profession = new AtomicReference<>(initialProfession);
-        AtomicReference<VillagerPotentialState> state = new AtomicReference<>(initialState);
+        VillagerPotentialState persistedState = initialState;
+        for (Map.Entry<ProfessionId, ProfessionCareerState> career
+                : initialState.careers().entrySet()) {
+            if (career.getValue().specialization().isEmpty()) {
+                persistedState = persistedState.withSpecialization(
+                        career.getKey(),
+                        SpecializationId.GENERAL
+                );
+            }
+        }
+        AtomicReference<VillagerPotentialState> state = new AtomicReference<>(persistedState);
 
         when(level.getGameTime()).thenReturn(gameTime);
         when(villager.level()).thenReturn(level);

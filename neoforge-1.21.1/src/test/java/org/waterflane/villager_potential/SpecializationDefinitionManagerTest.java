@@ -161,6 +161,27 @@ class SpecializationDefinitionManagerTest {
         assertEquals(1, manager.definitions().size());
     }
 
+    @Test
+    void definitionMayUseOnlyItsGeneralSpecialization() {
+        SpecializationDefinitionManager manager = new SpecializationDefinitionManager();
+
+        reload(manager, Map.of("test:librarian", """
+                {
+                  "format_version": 1,
+                  "profession": "minecraft:librarian",
+                  "general_specialization": "test:librarian/general",
+                  "specializations": []
+                }
+                """));
+
+        var definition = manager.definitionFor(LIBRARIAN).orElseThrow();
+        assertTrue(definition.namedSpecializations().isEmpty());
+        assertEquals(
+                SpecializationId.parse("test:librarian/general"),
+                definition.defaultSpecialization()
+        );
+    }
+
     private static String definition(
             String profession,
             String specialization,
