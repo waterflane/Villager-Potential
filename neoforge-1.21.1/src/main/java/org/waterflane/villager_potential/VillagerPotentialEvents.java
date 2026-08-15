@@ -7,6 +7,7 @@ import net.minecraft.world.entity.npc.Villager;
 import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.fml.common.EventBusSubscriber;
 import net.neoforged.neoforge.event.entity.EntityJoinLevelEvent;
+import net.neoforged.neoforge.event.entity.EntityLeaveLevelEvent;
 import net.neoforged.neoforge.event.entity.living.LivingConversionEvent;
 import net.neoforged.neoforge.event.tick.EntityTickEvent;
 
@@ -48,14 +49,23 @@ public final class VillagerPotentialEvents {
     /**
      * NeoForge has no profession-change event, so compare vanilla's final
      * profession after its tick with the profession stored in Potential. This
-     * per-entity server event also contributes one loaded tick of eligible
-     * tenure, without scanning every villager globally.
+     * per-entity server event also contributes eligible loaded time to a small
+     * batch, without scanning every villager globally or rewriting its
+     * attachment every tick.
      */
     @SubscribeEvent
     static void onEntityTickPost(EntityTickEvent.Post event) {
         if (event.getEntity() instanceof Villager villager
                 && villager.level() instanceof ServerLevel serverLevel) {
             VillagerPotentialAttachments.trackProfession(villager, serverLevel.getGameTime());
+        }
+    }
+
+    @SubscribeEvent
+    static void onEntityLeaveLevel(EntityLeaveLevelEvent event) {
+        if (!event.getLevel().isClientSide()
+                && event.getEntity() instanceof Villager villager) {
+            VillagerPotentialAttachments.flushProfessionProgress(villager);
         }
     }
 
@@ -67,6 +77,7 @@ public final class VillagerPotentialEvents {
 
         if (event.getEntity() instanceof Villager villager
                 && event.getOutcome() == EntityType.ZOMBIE_VILLAGER) {
+            VillagerPotentialAttachments.flushProfessionProgress(villager);
             VillagerPotentialAttachments.get(villager);
         } else if (event.getEntity() instanceof ZombieVillager zombieVillager
                 && event.getOutcome() == EntityType.VILLAGER) {

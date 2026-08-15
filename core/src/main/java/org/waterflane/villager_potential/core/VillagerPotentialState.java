@@ -147,6 +147,39 @@ public record VillagerPotentialState(
         return updatedCareer == career ? this : withCareer(professionId, updatedCareer);
     }
 
+    /**
+     * Advances tenure and skill for the active profession through the core
+     * progression model. Inactive careers are never considered by this operation.
+     */
+    public VillagerPotentialState progressActiveProfession(
+            long elapsedProfessionTime,
+            SkillProgressionConfig config
+    ) {
+        Objects.requireNonNull(config, "config");
+        if (elapsedProfessionTime < 0L) {
+            throw new IllegalArgumentException("elapsedProfessionTime must not be negative");
+        }
+        if (elapsedProfessionTime == 0L || activeProfession.isEmpty()) {
+            return this;
+        }
+
+        ProfessionId professionId = activeProfession.orElseThrow();
+        Double aptitude = aptitudes.get(professionId);
+        if (aptitude == null) {
+            throw new IllegalStateException(
+                    "Active profession must have an aptitude: " + professionId
+            );
+        }
+
+        ProfessionCareerState career = careers.get(professionId);
+        ProfessionCareerState updatedCareer = career.progressSkill(
+                elapsedProfessionTime,
+                aptitude,
+                config
+        );
+        return updatedCareer == career ? this : withCareer(professionId, updatedCareer);
+    }
+
     public static VillagerPotentialState migrate(int persistedSchemaVersion) {
         return migrate(persistedSchemaVersion, Map.of());
     }

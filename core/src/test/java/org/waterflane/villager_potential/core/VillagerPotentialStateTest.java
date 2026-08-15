@@ -3,6 +3,7 @@ package org.waterflane.villager_potential.core;
 import org.junit.jupiter.api.Test;
 
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -126,6 +127,30 @@ class VillagerPotentialStateTest {
 
         assertEquals(1.25, state.aptitudeFor(librarian).orElseThrow());
         assertEquals(0.5, state.careerFor(librarian).orElseThrow().learnedSkill());
+    }
+
+    @Test
+    void activeProfessionProgressUsesItsAptitudeAndLeavesInactiveCareerUnchanged() {
+        ProfessionId librarian = ProfessionId.parse("minecraft:librarian");
+        ProfessionId farmer = ProfessionId.parse("minecraft:farmer");
+        ProfessionCareerState farmerCareer = new ProfessionCareerState(40L, 0.2, 5L, 5L);
+        SkillProgressionConfig progression = new SkillProgressionConfig(
+                0.001,
+                0.0,
+                1.0,
+                List.of(0.2, 0.5, 0.8, 1.0)
+        );
+        VillagerPotentialState state = new VillagerPotentialState(
+                VillagerPotentialState.CURRENT_SCHEMA_VERSION,
+                Map.of(librarian, 1.5, farmer, 0.5)
+        ).assignProfession(farmer, 5L)
+                .withCareer(farmer, farmerCareer)
+                .assignProfession(librarian, 10L);
+
+        VillagerPotentialState progressed = state.progressActiveProfession(20L, progression);
+
+        assertEquals(0.03, progressed.careerFor(librarian).orElseThrow().learnedSkill(), 0.000_000_1);
+        assertEquals(farmerCareer, progressed.careerFor(farmer).orElseThrow());
     }
 
     @Test

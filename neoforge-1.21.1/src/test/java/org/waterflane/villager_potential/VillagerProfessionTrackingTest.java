@@ -39,7 +39,7 @@ class VillagerProfessionTrackingTest {
         VillagerPotentialState state = carrier.state().get();
         assertEquals(LIBRARIAN, state.activeProfession().orElseThrow());
         assertEquals(
-                ProfessionCareerState.firstAssignedAt(100L).accumulateProfessionTime(1L),
+                ProfessionCareerState.firstAssignedAt(100L),
                 state.careerFor(LIBRARIAN).orElseThrow()
         );
         assertEquals(1.25, state.aptitudeFor(LIBRARIAN).orElseThrow());
@@ -66,7 +66,7 @@ class VillagerProfessionTrackingTest {
     }
 
     @Test
-    void librarianToFarmerCreatesSecondCareerAndIgnoresDuplicateTicks() {
+    void librarianToFarmerCreatesSecondCareerWithoutGrowingOldSkill() {
         ProfessionCareerState librarianCareer = new ProfessionCareerState(80L, 0.75, 20L, 20L);
         CareerCarrier carrier = carrier(
                 VillagerProfession.LIBRARIAN,
@@ -82,11 +82,11 @@ class VillagerProfessionTrackingTest {
         VillagerPotentialState secondTickState = carrier.state().get();
         assertEquals(FARMER, secondTickState.activeProfession().orElseThrow());
         assertEquals(
-                ProfessionCareerState.firstAssignedAt(140L).accumulateProfessionTime(2L),
+                ProfessionCareerState.firstAssignedAt(140L),
                 secondTickState.careerFor(FARMER).orElseThrow()
         );
         assertEquals(librarianCareer, changedState.careerFor(LIBRARIAN).orElseThrow());
-        verify(carrier.villager(), times(2)).setData(any(Supplier.class), any());
+        verify(carrier.villager(), times(1)).setData(any(Supplier.class), any());
     }
 
     @Test
@@ -104,7 +104,7 @@ class VillagerProfessionTrackingTest {
         VillagerPotentialState state = carrier.state().get();
         assertEquals(LIBRARIAN, state.activeProfession().orElseThrow());
         assertEquals(
-                new ProfessionCareerState(81L, 0.75, 20L, 200L),
+                new ProfessionCareerState(80L, 0.75, 20L, 200L),
                 state.careerFor(LIBRARIAN).orElseThrow()
         );
         assertTrue(state.careerFor(FARMER).isPresent());
@@ -112,27 +112,91 @@ class VillagerProfessionTrackingTest {
     }
 
     @Test
-    void activeAdultProfessionAccumulatesOneLoadedServerTickAtATime() {
+    void activeLibrarianSkillIncreasesInBatchedIntervals() {
         CareerCarrier carrier = carrier(
                 VillagerProfession.LIBRARIAN,
                 baseState().assignProfession(LIBRARIAN, 20L),
                 100L
         );
 
-        tick(carrier);
+        tick(carrier, 19);
+
+        ProfessionCareerState beforeInterval = carrier.state().get()
+                .careerFor(LIBRARIAN).orElseThrow();
+        assertEquals(0L, beforeInterval.accumulatedProfessionTime());
+        assertEquals(0.0, beforeInterval.learnedSkill());
+        verify(carrier.villager(), never()).setData(any(Supplier.class), any());
+
         tick(carrier);
 
-        assertEquals(
-                2L,
-                carrier.state().get().careerFor(LIBRARIAN).orElseThrow()
-                        .accumulatedProfessionTime()
-        );
+        ProfessionCareerState progressed = carrier.state().get()
+                .careerFor(LIBRARIAN).orElseThrow();
+        assertEquals(20L, progressed.accumulatedProfessionTime());
+        assertEquals(0.025, progressed.learnedSkill(), 0.000_000_1);
+        verify(carrier.villager(), times(1)).setData(any(Supplier.class), any());
+        verify(carrier.villager(), never()).setVillagerData(any());
     }
 
     @Test
-    void unemployedAndBabyVillagersDoNotAccumulateTenure() {
+    void unemployedVillagerDoesNotGainSkill() {
         CareerCarrier unemployed = carrier(VillagerProfession.NONE, baseState(), 100L);
-        tick(unemployed);
+        tick(unemployed, 40);
+
+        assertTrue(unemployed.state().get().careers().isEmpty());
+        verify(unemployed.villager(), never()).setData(any(Supplier.class), any());
+    }
+
+    @Test
+    void higherAptitudeProgressesFasterForEqualProfessionTime() {
+        CareerCarrier ordinary = carrier(
+                VillagerProfession.LIBRARIAN,
+                stateWithAptitudes(0.75, 0.8).assignProfession(LIBRARIAN, 20L),
+                100L
+        );
+        CareerCarrier talented = carrier(
+                VillagerProfession.LIBRARIAN,
+                stateWithAptitudes(1.5, 0.8).assignProfession(LIBRARIAN, 20L),
+                100L
+        );
+
+        tick(ordinary, 20);
+        tick(talented, 20);
+
+        double ordinarySkill = ordinary.state().get().careerFor(LIBRARIAN)
+                .orElseThrow().learnedSkill();
+        double talentedSkill = talented.state().get().careerFor(LIBRARIAN)
+                .orElseThrow().learnedSkill();
+        assertEquals(0.015, ordinarySkill, 0.000_000_1);
+        assertEquals(0.03, talentedSkill, 0.000_000_1);
+        assertTrue(talentedSkill > ordinarySkill);
+    }
+
+    @Test
+    void switchingProfessionStopsOldSkillGrowth() {
+        CareerCarrier carrier = carrier(
+                VillagerProfession.LIBRARIAN,
+                baseState().assignProfession(LIBRARIAN, 20L),
+                100L
+        );
+        tick(carrier, 10);
+        double librarianSkillAtSwitch = carrier.state().get().careerFor(LIBRARIAN)
+                .orElseThrow().learnedSkill();
+        assertEquals(0.0, librarianSkillAtSwitch);
+
+        carrier.profession().set(VillagerProfession.FARMER);
+        tick(carrier, 20);
+
+        VillagerPotentialState state = carrier.state().get();
+        assertEquals(
+                0.0125,
+                state.careerFor(LIBRARIAN).orElseThrow().learnedSkill(),
+                0.000_000_1
+        );
+        assertEquals(0.016, state.careerFor(FARMER).orElseThrow().learnedSkill(), 0.000_000_1);
+    }
+
+    @Test
+    void babyVillagerDoesNotAccumulateTenureOrSkill() {
 
         CareerCarrier baby = carrier(
                 VillagerProfession.LIBRARIAN,
@@ -140,15 +204,17 @@ class VillagerProfessionTrackingTest {
                 100L
         );
         when(baby.villager().isBaby()).thenReturn(true);
-        tick(baby);
+        tick(baby, 40);
 
-        assertTrue(unemployed.state().get().careers().isEmpty());
         assertEquals(
                 0L,
                 baby.state().get().careerFor(LIBRARIAN).orElseThrow()
                         .accumulatedProfessionTime()
         );
-        verify(unemployed.villager(), never()).setData(any(Supplier.class), any());
+        assertEquals(
+                0.0,
+                baby.state().get().careerFor(LIBRARIAN).orElseThrow().learnedSkill()
+        );
         verify(baby.villager(), never()).setData(any(Supplier.class), any());
     }
 
@@ -164,14 +230,27 @@ class VillagerProfessionTrackingTest {
     }
 
     private static VillagerPotentialState baseState() {
+        return stateWithAptitudes(1.25, 0.8);
+    }
+
+    private static VillagerPotentialState stateWithAptitudes(
+            double librarianAptitude,
+            double farmerAptitude
+    ) {
         return new VillagerPotentialState(
                 VillagerPotentialState.CURRENT_SCHEMA_VERSION,
-                Map.of(LIBRARIAN, 1.25, FARMER, 0.8)
+                Map.of(LIBRARIAN, librarianAptitude, FARMER, farmerAptitude)
         );
     }
 
     private static void tick(CareerCarrier carrier) {
         VillagerPotentialEvents.onEntityTickPost(new EntityTickEvent.Post(carrier.villager()));
+    }
+
+    private static void tick(CareerCarrier carrier, int ticks) {
+        for (int tick = 0; tick < ticks; tick++) {
+            tick(carrier);
+        }
     }
 
     @SuppressWarnings({"unchecked", "rawtypes"})

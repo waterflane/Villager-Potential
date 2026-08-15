@@ -21,19 +21,31 @@ import org.waterflane.villager_potential.core.AptitudeInheritance;
 import org.waterflane.villager_potential.core.AptitudeInheritanceConfig;
 import org.waterflane.villager_potential.core.ProfessionCareerState;
 import org.waterflane.villager_potential.core.ProfessionId;
+import org.waterflane.villager_potential.core.SkillProgressionConfig;
 import org.waterflane.villager_potential.core.VillagerPotentialState;
 
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Random;
 import java.util.UUID;
+import java.util.WeakHashMap;
 import java.util.random.RandomGenerator;
 
 public final class VillagerPotentialAttachments {
     private static final ProfessionTenureEligibility TENURE_ELIGIBILITY =
             ProfessionTenureEligibility.ADULT;
+    static final long PROFESSION_PROGRESS_INTERVAL_TICKS = 20L;
+    static final SkillProgressionConfig SKILL_PROGRESSION_CONFIG = new SkillProgressionConfig(
+            0.001,
+            0.0,
+            1.0,
+            List.of(0.2, 0.5, 0.8, 1.0)
+    );
+    private static final Map<Villager, ProfessionProgressBatch> PROFESSION_PROGRESS_BATCHES =
+            new WeakHashMap<>();
     static final AptitudeGenerationConfig APTITUDE_CONFIG = new AptitudeGenerationConfig(
             0.5,
             2.0,
@@ -112,27 +124,84 @@ public final class VillagerPotentialAttachments {
         return getOrInitialize(zombieVillager);
     }
 
-    static VillagerPotentialState trackProfession(Villager villager, long assignmentTime) {
+    static void trackProfession(Villager villager, long assignmentTime) {
         Objects.requireNonNull(villager, "villager");
-        VillagerPotentialState state = get(villager);
         VillagerProfession profession = villager.getVillagerData().getProfession();
-        VillagerPotentialState updatedState = profession == VillagerProfession.NONE
-                || profession == VillagerProfession.NITWIT
-                ? state.clearActiveProfession()
-                : state.assignProfession(
-                        VillagerProfessionIds.fromMinecraft(profession),
-                        assignmentTime
-                );
+        ProfessionId currentProfession = toCareerProfession(profession);
+        ProfessionProgressBatch batch = PROFESSION_PROGRESS_BATCHES.get(villager);
+        VillagerPotentialState state = null;
+        VillagerPotentialState updatedState = null;
 
-        if (updatedState.activeProfession().isPresent()
-                && TENURE_ELIGIBILITY.canAccumulate(villager)) {
-            updatedState = updatedState.accumulateActiveProfessionTime(1L);
+        if (batch == null || !Objects.equals(batch.profession(), currentProfession)) {
+            state = get(villager);
+            updatedState = batch == null
+                    ? state
+                    : progressMatchingProfession(state, batch);
+            updatedState = assignProfession(updatedState, currentProfession, assignmentTime);
+            batch = new ProfessionProgressBatch(currentProfession, 0L);
+            PROFESSION_PROGRESS_BATCHES.put(villager, batch);
         }
 
+        if (currentProfession != null && TENURE_ELIGIBILITY.canAccumulate(villager)) {
+            batch.addElapsedTick();
+        }
+
+        if (batch.elapsedProfessionTime() >= PROFESSION_PROGRESS_INTERVAL_TICKS) {
+            if (state == null) {
+                state = get(villager);
+                updatedState = state;
+            }
+            updatedState = progressMatchingProfession(updatedState, batch);
+            batch.clearElapsedTime();
+        }
+
+        if (state != null && updatedState != state) {
+            villager.setData(POTENTIAL, updatedState);
+        }
+    }
+
+    static void flushProfessionProgress(Villager villager) {
+        Objects.requireNonNull(villager, "villager");
+        ProfessionProgressBatch batch = PROFESSION_PROGRESS_BATCHES.remove(villager);
+        if (batch == null || batch.elapsedProfessionTime() == 0L) {
+            return;
+        }
+
+        VillagerPotentialState state = get(villager);
+        VillagerPotentialState updatedState = progressMatchingProfession(state, batch);
         if (updatedState != state) {
             villager.setData(POTENTIAL, updatedState);
         }
-        return updatedState;
+    }
+
+    private static ProfessionId toCareerProfession(VillagerProfession profession) {
+        return profession == VillagerProfession.NONE || profession == VillagerProfession.NITWIT
+                ? null
+                : VillagerProfessionIds.fromMinecraft(profession);
+    }
+
+    private static VillagerPotentialState assignProfession(
+            VillagerPotentialState state,
+            ProfessionId profession,
+            long assignmentTime
+    ) {
+        return profession == null
+                ? state.clearActiveProfession()
+                : state.assignProfession(profession, assignmentTime);
+    }
+
+    private static VillagerPotentialState progressMatchingProfession(
+            VillagerPotentialState state,
+            ProfessionProgressBatch batch
+    ) {
+        if (batch.elapsedProfessionTime() == 0L
+                || !state.activeProfession().equals(Optional.ofNullable(batch.profession()))) {
+            return state;
+        }
+        return state.progressActiveProfession(
+                batch.elapsedProfessionTime(),
+                SKILL_PROGRESSION_CONFIG
+        );
     }
 
     private static VillagerPotentialState getOrInitialize(Entity entity) {
@@ -279,5 +348,31 @@ public final class VillagerPotentialAttachments {
             Map<ProfessionId, ProfessionCareerState> careers,
             Optional<ProfessionId> activeProfession
     ) {
+    }
+
+    private static final class ProfessionProgressBatch {
+        private final ProfessionId profession;
+        private long elapsedProfessionTime;
+
+        private ProfessionProgressBatch(ProfessionId profession, long elapsedProfessionTime) {
+            this.profession = profession;
+            this.elapsedProfessionTime = elapsedProfessionTime;
+        }
+
+        private ProfessionId profession() {
+            return profession;
+        }
+
+        private long elapsedProfessionTime() {
+            return elapsedProfessionTime;
+        }
+
+        private void addElapsedTick() {
+            elapsedProfessionTime++;
+        }
+
+        private void clearElapsedTime() {
+            elapsedProfessionTime = 0L;
+        }
     }
 }
