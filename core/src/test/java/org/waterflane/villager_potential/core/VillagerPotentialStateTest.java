@@ -154,6 +154,56 @@ class VillagerPotentialStateTest {
     }
 
     @Test
+    void inactiveTradingBaselineStillProgressesAndActivityCapLimitsAcceleration() {
+        ProfessionId librarian = ProfessionId.parse("minecraft:librarian");
+        SkillProgressionConfig progression = new SkillProgressionConfig(
+                0.001,
+                0.0,
+                1.0,
+                List.of(0.2, 0.5, 0.8, 1.0)
+        );
+        ProfessionActivityConfig activity = new ProfessionActivityConfig(
+                0.5,
+                1.0,
+                1.5,
+                0.25,
+                0.001
+        );
+        VillagerPotentialState inactive = new VillagerPotentialState(
+                VillagerPotentialState.CURRENT_SCHEMA_VERSION,
+                Map.of(librarian, 1.0)
+        ).assignProfession(librarian, 0L);
+        VillagerPotentialState active = inactive;
+        for (int trade = 0; trade < 20; trade++) {
+            active = active.recordProfessionTrade(librarian, 100L, activity);
+        }
+
+        VillagerPotentialState inactiveProgress = inactive.progressActiveProfession(
+                100L,
+                100L,
+                progression,
+                activity
+        );
+        VillagerPotentialState activeProgress = active.progressActiveProfession(
+                100L,
+                100L,
+                progression,
+                activity
+        );
+
+        assertEquals(
+                0.1,
+                inactiveProgress.careerFor(librarian).orElseThrow().learnedSkill(),
+                0.000_000_1
+        );
+        assertEquals(
+                0.15,
+                activeProgress.careerFor(librarian).orElseThrow().learnedSkill(),
+                0.000_000_1
+        );
+    }
+
+    @Test
     void missingProfessionHasNoGeneratedAptitude() {
         VillagerPotentialState state = VillagerPotentialState.createDefault();
 
@@ -223,6 +273,25 @@ class VillagerPotentialStateTest {
                 Map.of(librarian, 1.25),
                 Map.of(librarian, career),
                 java.util.Optional.of(librarian)
+        );
+
+        assertEquals(career, migrated.careerFor(librarian).orElseThrow());
+        assertTrue(migrated.professionActivities().isEmpty());
+        assertEquals(VillagerPotentialState.CURRENT_SCHEMA_VERSION, migrated.schemaVersion());
+    }
+
+    @Test
+    void migratesVersionFourWithoutReusingNormalizedActivityAsAMultiplier() {
+        ProfessionId librarian = ProfessionId.parse("minecraft:librarian");
+        ProfessionCareerState career = ProfessionCareerState.firstAssignedAt(100L)
+                .withLearnedSkill(0.4);
+
+        VillagerPotentialState migrated = VillagerPotentialState.migrate(
+                4,
+                Map.of(librarian, 1.25),
+                Map.of(librarian, career),
+                java.util.Optional.of(librarian),
+                Map.of(librarian, new ProfessionActivityState(0.5, 100L))
         );
 
         assertEquals(career, migrated.careerFor(librarian).orElseThrow());

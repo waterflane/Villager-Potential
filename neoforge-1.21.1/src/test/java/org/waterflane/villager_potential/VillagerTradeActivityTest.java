@@ -54,7 +54,8 @@ class VillagerTradeActivityTest {
 
         VillagerPotentialState updated = state.get();
         assertEquals(
-                VillagerPotentialAttachments.PROFESSION_ACTIVITY_CONFIG.increasePerTrade(),
+                VillagerPotentialAttachments.PROFESSION_ACTIVITY_CONFIG.baseline()
+                        + VillagerPotentialAttachments.PROFESSION_ACTIVITY_CONFIG.increasePerTrade(),
                 updated.professionActivityFor(
                         LIBRARIAN,
                         100L,

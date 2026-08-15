@@ -5,13 +5,15 @@ import org.junit.jupiter.api.Test;
 import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 class ProfessionActivityStateTest {
     private static final ProfessionId LIBRARIAN = ProfessionId.parse("minecraft:librarian");
     private static final ProfessionId FARMER = ProfessionId.parse("minecraft:farmer");
     private static final ProfessionActivityConfig CONFIG = new ProfessionActivityConfig(
-            0.2,
-            0.8,
+            0.5,
+            1.0,
+            2.0,
             0.15,
             0.01
     );
@@ -27,7 +29,7 @@ class ProfessionActivityStateTest {
 
         VillagerPotentialState traded = state.recordProfessionTrade(LIBRARIAN, 100L, CONFIG);
 
-        assertEquals(0.35, traded.professionActivityFor(LIBRARIAN, 100L, CONFIG));
+        assertEquals(1.15, traded.professionActivityFor(LIBRARIAN, 100L, CONFIG));
         assertEquals(career, traded.careerFor(LIBRARIAN).orElseThrow());
     }
 
@@ -47,7 +49,7 @@ class ProfessionActivityStateTest {
         VillagerPotentialState traded = VillagerPotentialState.createDefault()
                 .recordProfessionTrade(LIBRARIAN, 100L, CONFIG);
 
-        assertEquals(0.30, traded.professionActivityFor(LIBRARIAN, 105L, CONFIG), 0.000_000_1);
+        assertEquals(1.10, traded.professionActivityFor(LIBRARIAN, 105L, CONFIG), 0.000_000_1);
         assertEquals(CONFIG.baseline(), traded.professionActivityFor(LIBRARIAN, 1_000L, CONFIG));
     }
 
@@ -60,7 +62,37 @@ class ProfessionActivityStateTest {
         VillagerPotentialState traded = state.recordProfessionTrade(LIBRARIAN, 100L, CONFIG);
 
         assertEquals(farmerActivity, traded.professionActivities().get(FARMER));
-        assertEquals(0.35, traded.professionActivityFor(FARMER, 100L, CONFIG));
-        assertEquals(0.35, traded.professionActivityFor(LIBRARIAN, 100L, CONFIG));
+        assertEquals(1.15, traded.professionActivityFor(FARMER, 100L, CONFIG));
+        assertEquals(1.15, traded.professionActivityFor(LIBRARIAN, 100L, CONFIG));
+    }
+
+    @Test
+    void configuredMinimumBaselineAndMaximumAreApplied() {
+        ProfessionActivityState belowMinimum = new ProfessionActivityState(0.25, 100L);
+        ProfessionActivityState aboveMaximum = new ProfessionActivityState(3.0, 100L);
+
+        assertEquals(CONFIG.minimum(), belowMinimum.scoreAt(100L, CONFIG));
+        assertEquals(CONFIG.maximum(), aboveMaximum.scoreAt(100L, CONFIG));
+        assertEquals(
+                CONFIG.baseline(),
+                VillagerPotentialState.createDefault()
+                        .professionActivityFor(LIBRARIAN, 100L, CONFIG)
+        );
+    }
+
+    @Test
+    void activityBoundsRequireAPositiveProgressingBaseline() {
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> new ProfessionActivityConfig(0.0, 0.0, 2.0, 0.1, 0.01)
+        );
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> new ProfessionActivityConfig(1.1, 1.0, 2.0, 0.1, 0.01)
+        );
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> new ProfessionActivityConfig(0.5, 1.0, 0.9, 0.1, 0.01)
+        );
     }
 }

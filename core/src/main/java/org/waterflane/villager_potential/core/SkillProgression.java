@@ -12,8 +12,8 @@ public final class SkillProgression {
     }
 
     /**
-     * Advances skill using elapsed profession time as the direct input. Trading
-     * is deliberately absent from this API and therefore cannot award skill.
+     * Advances skill at the neutral activity factor for callers without an
+     * activity model.
      */
     public static double advance(
             double learnedSkill,
@@ -21,9 +21,24 @@ public final class SkillProgression {
             double aptitude,
             SkillProgressionConfig config
     ) {
+        return advance(learnedSkill, elapsedProfessionTime, aptitude, 1.0, config);
+    }
+
+    /**
+     * Advances skill according to time rate x aptitude x professional activity.
+     * Activity changes the value of elapsed time; it is never skill by itself.
+     */
+    public static double advance(
+            double learnedSkill,
+            long elapsedProfessionTime,
+            double aptitude,
+            double activityFactor,
+            SkillProgressionConfig config
+    ) {
         Objects.requireNonNull(config, "config");
         requireFiniteNonNegative("learnedSkill", learnedSkill);
         requireFiniteNonNegative("aptitude", aptitude);
+        requireFiniteNonNegative("activityFactor", activityFactor);
         if (elapsedProfessionTime < 0L) {
             throw new IllegalArgumentException("elapsedProfessionTime must not be negative");
         }
@@ -33,11 +48,17 @@ public final class SkillProgression {
                 config.minimumSkill(),
                 config.maximumSkill()
         );
-        if (elapsedProfessionTime == 0L || aptitude == 0.0 || config.progressionRate() == 0.0) {
+        if (elapsedProfessionTime == 0L
+                || aptitude == 0.0
+                || activityFactor == 0.0
+                || config.progressionRate() == 0.0) {
             return boundedSkill;
         }
 
-        double gainedSkill = elapsedProfessionTime * config.progressionRate() * aptitude;
+        double gainedSkill = elapsedProfessionTime
+                * config.progressionRate()
+                * aptitude
+                * activityFactor;
         if (!Double.isFinite(gainedSkill)
                 || gainedSkill >= config.maximumSkill() - boundedSkill) {
             return config.maximumSkill();

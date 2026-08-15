@@ -179,7 +179,8 @@ class VillagerPotentialAttachmentsTest {
         assertEquals(Set.of("score", "last_update_game_time"), activity.getAllKeys());
         assertEquals(original, restored);
         assertEquals(
-                VillagerPotentialAttachments.PROFESSION_ACTIVITY_CONFIG.increasePerTrade(),
+                VillagerPotentialAttachments.PROFESSION_ACTIVITY_CONFIG.baseline()
+                        + VillagerPotentialAttachments.PROFESSION_ACTIVITY_CONFIG.increasePerTrade(),
                 restored.professionActivityFor(
                         librarian,
                         500L,

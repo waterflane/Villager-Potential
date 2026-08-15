@@ -16,7 +16,7 @@ public record VillagerPotentialState(
         Optional<ProfessionId> activeProfession,
         Map<ProfessionId, ProfessionActivityState> professionActivities
 ) {
-    public static final int CURRENT_SCHEMA_VERSION = 4;
+    public static final int CURRENT_SCHEMA_VERSION = 5;
 
     public VillagerPotentialState {
         if (schemaVersion < 1) {
@@ -225,6 +225,17 @@ public record VillagerPotentialState(
             long elapsedProfessionTime,
             SkillProgressionConfig config
     ) {
+        return progressActiveProfession(elapsedProfessionTime, 1.0, config);
+    }
+
+    /**
+     * Advances only time-based skill, scaled by the supplied activity factor.
+     */
+    public VillagerPotentialState progressActiveProfession(
+            long elapsedProfessionTime,
+            double activityFactor,
+            SkillProgressionConfig config
+    ) {
         Objects.requireNonNull(config, "config");
         if (elapsedProfessionTime < 0L) {
             throw new IllegalArgumentException("elapsedProfessionTime must not be negative");
@@ -245,9 +256,36 @@ public record VillagerPotentialState(
         ProfessionCareerState updatedCareer = career.progressSkill(
                 elapsedProfessionTime,
                 aptitude,
+                activityFactor,
                 config
         );
         return updatedCareer == career ? this : withCareer(professionId, updatedCareer);
+    }
+
+    /**
+     * Resolves the active profession's lazily decayed activity multiplier and
+     * applies it to the elapsed profession-time batch.
+     */
+    public VillagerPotentialState progressActiveProfession(
+            long elapsedProfessionTime,
+            long gameTime,
+            SkillProgressionConfig progressionConfig,
+            ProfessionActivityConfig activityConfig
+    ) {
+        Objects.requireNonNull(activityConfig, "activityConfig");
+        if (activeProfession.isEmpty()) {
+            return progressActiveProfession(elapsedProfessionTime, 1.0, progressionConfig);
+        }
+        double activityFactor = professionActivityFor(
+                activeProfession.orElseThrow(),
+                gameTime,
+                activityConfig
+        );
+        return progressActiveProfession(
+                elapsedProfessionTime,
+                activityFactor,
+                progressionConfig
+        );
     }
 
     public static VillagerPotentialState migrate(int persistedSchemaVersion) {
@@ -296,6 +334,13 @@ public record VillagerPotentialState(
                     persistedCareers,
                     persistedActiveProfession,
                     persistedProfessionActivities
+            );
+            case 4 -> new VillagerPotentialState(
+                    CURRENT_SCHEMA_VERSION,
+                    persistedAptitudes,
+                    persistedCareers,
+                    persistedActiveProfession,
+                    Map.of()
             );
             case 3 -> new VillagerPotentialState(
                     CURRENT_SCHEMA_VERSION,

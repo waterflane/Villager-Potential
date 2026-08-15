@@ -3,18 +3,15 @@ package org.waterflane.villager_potential.core;
 import java.util.Objects;
 
 /**
- * Minimal restart-safe state for recent trade activity in one profession.
+ * Minimal restart-safe multiplier state for recent trade activity in one profession.
  *
  * <p>The score is evaluated lazily from its last update time, avoiding
  * per-tick persistent writes.</p>
  */
 public record ProfessionActivityState(double score, long lastUpdateGameTime) {
-    public static final double MINIMUM_SCORE = 0.0;
-    public static final double MAXIMUM_SCORE = 1.0;
-
     public ProfessionActivityState {
-        if (!Double.isFinite(score) || score < MINIMUM_SCORE || score > MAXIMUM_SCORE) {
-            throw new IllegalArgumentException("score must be finite and between 0.0 and 1.0");
+        if (!Double.isFinite(score) || score < 0.0) {
+            throw new IllegalArgumentException("score must be finite and non-negative");
         }
         if (lastUpdateGameTime < 0L) {
             throw new IllegalArgumentException("lastUpdateGameTime must not be negative");
@@ -34,18 +31,22 @@ public record ProfessionActivityState(double score, long lastUpdateGameTime) {
     }
 
     /**
-     * Returns the score after elapsed game time has moved it toward baseline.
+     * Returns the activity multiplier after elapsed game time has moved it
+     * toward the configured baseline and all bounds have been applied.
      */
     public double scoreAt(long gameTime, ProfessionActivityConfig config) {
         Objects.requireNonNull(config, "config");
         validateGameTime(gameTime);
 
-        double boundedScore = Math.max(config.baseline(), Math.min(config.maximum(), score));
+        double boundedScore = Math.max(config.minimum(), Math.min(config.maximum(), score));
         long elapsedTicks = gameTime <= lastUpdateGameTime
                 ? 0L
                 : gameTime - lastUpdateGameTime;
-        double decay = config.decayPerTick() * elapsedTicks;
-        return Math.max(config.baseline(), boundedScore - decay);
+        double movement = config.decayPerTick() * elapsedTicks;
+        if (boundedScore > config.baseline()) {
+            return Math.max(config.baseline(), boundedScore - movement);
+        }
+        return Math.min(config.baseline(), boundedScore + movement);
     }
 
     /**

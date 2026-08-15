@@ -138,6 +138,56 @@ class VillagerProfessionTrackingTest {
     }
 
     @Test
+    void recentTradingAcceleratesSubsequentTimeBasedProgression() {
+        CareerCarrier inactive = carrier(
+                VillagerProfession.LIBRARIAN,
+                baseState().assignProfession(LIBRARIAN, 20L),
+                100L
+        );
+        CareerCarrier active = carrier(
+                VillagerProfession.LIBRARIAN,
+                baseState().assignProfession(LIBRARIAN, 20L),
+                100L
+        );
+        VillagerPotentialAttachments.recordTrade(active.villager(), 100L);
+
+        tick(inactive, 20);
+        tick(active, 20);
+
+        double inactiveSkill = inactive.state().get().careerFor(LIBRARIAN)
+                .orElseThrow().learnedSkill();
+        double activeSkill = active.state().get().careerFor(LIBRARIAN)
+                .orElseThrow().learnedSkill();
+        assertEquals(0.025, inactiveSkill, 0.000_000_1);
+        assertEquals(0.0275, activeSkill, 0.000_000_1);
+        assertTrue(activeSkill > inactiveSkill);
+    }
+
+    @Test
+    void burstTradesCannotExceedTheActivityMultiplierCap() {
+        CareerCarrier active = carrier(
+                VillagerProfession.LIBRARIAN,
+                baseState().assignProfession(LIBRARIAN, 20L),
+                100L
+        );
+        for (int trade = 0; trade < 100; trade++) {
+            VillagerPotentialAttachments.recordTrade(active.villager(), 100L);
+        }
+
+        assertEquals(
+                0.0,
+                active.state().get().careerFor(LIBRARIAN).orElseThrow().learnedSkill()
+        );
+        tick(active, 20);
+
+        assertEquals(
+                0.05,
+                active.state().get().careerFor(LIBRARIAN).orElseThrow().learnedSkill(),
+                0.000_000_1
+        );
+    }
+
+    @Test
     void unemployedVillagerDoesNotGainSkill() {
         CareerCarrier unemployed = carrier(VillagerProfession.NONE, baseState(), 100L);
         tick(unemployed, 40);

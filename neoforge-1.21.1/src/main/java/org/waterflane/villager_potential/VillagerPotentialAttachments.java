@@ -47,7 +47,7 @@ public final class VillagerPotentialAttachments {
             List.of(0.2, 0.5, 0.8, 1.0)
     );
     static final ProfessionActivityConfig PROFESSION_ACTIVITY_CONFIG =
-            new ProfessionActivityConfig(0.0, 1.0, 0.1, 0.0001);
+            new ProfessionActivityConfig(0.5, 1.0, 2.0, 0.1, 0.0001);
     private static final Map<Villager, ProfessionProgressBatch> PROFESSION_PROGRESS_BATCHES =
             new WeakHashMap<>();
     static final AptitudeGenerationConfig APTITUDE_CONFIG = new AptitudeGenerationConfig(
@@ -157,9 +157,11 @@ public final class VillagerPotentialAttachments {
                     ? state
                     : progressMatchingProfession(state, batch);
             updatedState = assignProfession(updatedState, currentProfession, assignmentTime);
-            batch = new ProfessionProgressBatch(currentProfession, 0L);
+            batch = new ProfessionProgressBatch(currentProfession, 0L, assignmentTime);
             PROFESSION_PROGRESS_BATCHES.put(villager, batch);
         }
+
+        batch.observeGameTime(assignmentTime);
 
         if (currentProfession != null && TENURE_ELIGIBILITY.canAccumulate(villager)) {
             batch.addElapsedTick();
@@ -239,7 +241,9 @@ public final class VillagerPotentialAttachments {
         }
         return state.progressActiveProfession(
                 batch.elapsedProfessionTime(),
-                SKILL_PROGRESSION_CONFIG
+                batch.lastObservedGameTime(),
+                SKILL_PROGRESSION_CONFIG,
+                PROFESSION_ACTIVITY_CONFIG
         );
     }
 
@@ -396,10 +400,16 @@ public final class VillagerPotentialAttachments {
     private static final class ProfessionProgressBatch {
         private final ProfessionId profession;
         private long elapsedProfessionTime;
+        private long lastObservedGameTime;
 
-        private ProfessionProgressBatch(ProfessionId profession, long elapsedProfessionTime) {
+        private ProfessionProgressBatch(
+                ProfessionId profession,
+                long elapsedProfessionTime,
+                long lastObservedGameTime
+        ) {
             this.profession = profession;
             this.elapsedProfessionTime = elapsedProfessionTime;
+            this.lastObservedGameTime = lastObservedGameTime;
         }
 
         private ProfessionId profession() {
@@ -408,6 +418,14 @@ public final class VillagerPotentialAttachments {
 
         private long elapsedProfessionTime() {
             return elapsedProfessionTime;
+        }
+
+        private long lastObservedGameTime() {
+            return lastObservedGameTime;
+        }
+
+        private void observeGameTime(long gameTime) {
+            lastObservedGameTime = Math.max(lastObservedGameTime, gameTime);
         }
 
         private void addElapsedTick() {

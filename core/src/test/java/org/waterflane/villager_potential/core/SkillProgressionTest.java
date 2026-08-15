@@ -7,6 +7,7 @@ import java.util.List;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class SkillProgressionTest {
     private static final SkillProgressionConfig CONFIG = new SkillProgressionConfig(
@@ -46,6 +47,16 @@ class SkillProgressionTest {
                 SkillProgression.advance(0.1, 100L, 1.0, fasterConfig),
                 0.000_000_1
         );
+    }
+
+    @Test
+    void activityFactorMultipliesTimeBasedProgress() {
+        double inactiveSkill = SkillProgression.advance(0.0, 100L, 1.0, 1.0, CONFIG);
+        double activeSkill = SkillProgression.advance(0.0, 100L, 1.0, 1.5, CONFIG);
+
+        assertEquals(0.1, inactiveSkill, 0.000_000_1);
+        assertEquals(0.15, activeSkill, 0.000_000_1);
+        assertTrue(activeSkill > inactiveSkill);
     }
 
     @Test

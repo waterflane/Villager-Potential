@@ -73,11 +73,21 @@ public record ProfessionCareerState(
             double aptitude,
             SkillProgressionConfig config
     ) {
+        return progressSkill(elapsedProfessionTime, aptitude, 1.0, config);
+    }
+
+    public ProfessionCareerState progressSkill(
+            long elapsedProfessionTime,
+            double aptitude,
+            double activityFactor,
+            SkillProgressionConfig config
+    ) {
         ProfessionCareerState accumulated = accumulateProfessionTime(elapsedProfessionTime);
         double progressedSkill = SkillProgression.advance(
                 learnedSkill,
                 elapsedProfessionTime,
                 aptitude,
+                activityFactor,
                 config
         );
         if (accumulated == this && progressedSkill == learnedSkill) {
