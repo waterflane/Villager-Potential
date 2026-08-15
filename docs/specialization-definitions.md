@@ -29,3 +29,30 @@ All IDs must be explicit lowercase namespaced IDs. Category values are finite,
 non-negative multiplicative weight modifiers. An omitted category has the
 neutral modifier `1.0`; zero reserves the ability to disable a category. These
 definitions are loaded and exposed now, but do not yet affect trade selection.
+
+## Built-in vanilla trade categories
+
+On NeoForge 1.21.1, the live vanilla `ItemListing` candidates are wrapped with
+classification metadata while the original listing remains the offer-producing
+delegate. This preserves deferred behavior such as enchanted-book tag and level
+selection. Entries which cannot be matched safely, including unknown mod-added
+factories, use `villager_potential:general`.
+
+The built-in stable category keys are:
+
+| Area | Keys |
+| --- | --- |
+| Farmer and butcher | `crops`, `prepared_food`, `raw_meat`, `cooked_food` |
+| Fisherman | `fish`, `fishing_supplies` |
+| Shepherd | `wool`, `dyes`, `decor` |
+| Fletcher | `archery_supplies`, `arrows`, `bows`, `crossbows` |
+| Librarian | `ordinary_books`, `enchanted_books` |
+| Cartographer | `maps`, `cartography_supplies`, `decor` |
+| Cleric | `alchemy` |
+| Smiths | `armor`, `weapons`, `tools`, `smithing_materials` |
+| Leatherworker | `leather_materials`, `leather_goods` |
+| Mason | `stonework`, `terracotta`, `quartz` |
+
+Every key above is in the `villager_potential` namespace. Miscellaneous vanilla
+entries such as bells, name tags, and inputs that do not belong safely to a
+specialization category are explicitly `villager_potential:general`.

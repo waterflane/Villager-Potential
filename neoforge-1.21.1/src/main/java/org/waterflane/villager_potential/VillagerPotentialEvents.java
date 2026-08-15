@@ -4,6 +4,7 @@ import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.monster.ZombieVillager;
 import net.minecraft.world.entity.npc.Villager;
+import net.neoforged.bus.api.EventPriority;
 import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.fml.common.EventBusSubscriber;
 import net.neoforged.neoforge.event.AddReloadListenerEvent;
@@ -12,6 +13,7 @@ import net.neoforged.neoforge.event.entity.EntityLeaveLevelEvent;
 import net.neoforged.neoforge.event.entity.living.LivingConversionEvent;
 import net.neoforged.neoforge.event.entity.player.TradeWithVillagerEvent;
 import net.neoforged.neoforge.event.tick.EntityTickEvent;
+import net.neoforged.neoforge.event.village.VillagerTradesEvent;
 
 import java.util.Collections;
 import java.util.Set;
@@ -29,6 +31,16 @@ public final class VillagerPotentialEvents {
     @SubscribeEvent
     static void onAddReloadListeners(AddReloadListenerEvent event) {
         event.addListener(SpecializationDefinitionManager.INSTANCE);
+    }
+
+    /**
+     * Attaches a category while retaining every live listing as the delegate.
+     * Running last also gives unknown entries added by other mods the safe
+     * {@code general} category instead of guessing from a generated offer.
+     */
+    @SubscribeEvent(priority = EventPriority.LOWEST)
+    static void onVillagerTrades(VillagerTradesEvent event) {
+        VanillaTradeClassifications.wrapPool(event.getType(), event.getTrades());
     }
 
     @SubscribeEvent
