@@ -64,4 +64,34 @@ public record ProfessionCareerState(
                 latestAssignment
         );
     }
+
+    /**
+     * Accumulates profession time and derives skill growth from that same span.
+     */
+    public ProfessionCareerState progressSkill(
+            long elapsedProfessionTime,
+            double aptitude,
+            SkillProgressionConfig config
+    ) {
+        ProfessionCareerState accumulated = accumulateProfessionTime(elapsedProfessionTime);
+        double progressedSkill = SkillProgression.advance(
+                learnedSkill,
+                elapsedProfessionTime,
+                aptitude,
+                config
+        );
+        if (accumulated == this && progressedSkill == learnedSkill) {
+            return this;
+        }
+        return new ProfessionCareerState(
+                accumulated.accumulatedProfessionTime,
+                progressedSkill,
+                firstAssignment,
+                latestAssignment
+        );
+    }
+
+    public ProfessionLevelProgress levelProgress(SkillProgressionConfig config) {
+        return SkillProgression.progressTowardNextLevel(learnedSkill, config);
+    }
 }
