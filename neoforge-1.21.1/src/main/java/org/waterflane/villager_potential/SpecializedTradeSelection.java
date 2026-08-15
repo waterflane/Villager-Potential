@@ -8,6 +8,7 @@ import net.minecraft.world.item.trading.MerchantOffer;
 import net.minecraft.world.item.trading.MerchantOffers;
 import org.waterflane.villager_potential.core.ProfessionId;
 import org.waterflane.villager_potential.core.ProfessionSpecializationDefinition;
+import org.waterflane.villager_potential.core.SpecializationBiasConfig;
 import org.waterflane.villager_potential.core.SpecializationDefinition;
 import org.waterflane.villager_potential.core.SpecializationId;
 
@@ -47,9 +48,8 @@ public final class SpecializedTradeSelection {
             return false;
         }
 
-        Optional<SpecializationId> specializationId = VillagerPotentialAttachments
-                .get(villager)
-                .specializationFor(professionId);
+        var potential = VillagerPotentialAttachments.get(villager);
+        Optional<SpecializationId> specializationId = potential.specializationFor(professionId);
         Optional<SpecializationDefinition> modifiers = selectionModifiers(
                 professionDefinition,
                 specializationId
@@ -66,6 +66,8 @@ public final class SpecializedTradeSelection {
                 profession,
                 villager.getVillagerData().getLevel(),
                 modifiers.orElseThrow(),
+                potential.careerFor(professionId).orElseThrow().learnedSkill(),
+                Config.specializationBiasConfig(),
                 villager.getRandom()
         );
         return true;
@@ -96,6 +98,8 @@ public final class SpecializedTradeSelection {
             VillagerProfession profession,
             int level,
             SpecializationDefinition specialization,
+            double skill,
+            SpecializationBiasConfig biasConfig,
             RandomSource random
     ) {
         Objects.requireNonNull(villager, "villager");
@@ -103,12 +107,21 @@ public final class SpecializedTradeSelection {
         Objects.requireNonNull(candidates, "candidates");
         Objects.requireNonNull(profession, "profession");
         Objects.requireNonNull(specialization, "specialization");
+        Objects.requireNonNull(biasConfig, "biasConfig");
         Objects.requireNonNull(random, "random");
 
         List<VillagerTrades.ItemListing> remaining = new ArrayList<>(Arrays.asList(candidates));
         int offersAdded = 0;
         while (offersAdded < requestedOfferCount && !remaining.isEmpty()) {
-            int selectedIndex = weightedIndex(remaining, profession, level, specialization, random);
+            int selectedIndex = weightedIndex(
+                    remaining,
+                    profession,
+                    level,
+                    specialization,
+                    skill,
+                    biasConfig,
+                    random
+            );
             if (selectedIndex < 0) {
                 break;
             }
@@ -127,13 +140,15 @@ public final class SpecializedTradeSelection {
             VillagerProfession profession,
             int level,
             SpecializationDefinition specialization,
+            double skill,
+            SpecializationBiasConfig biasConfig,
             RandomSource random
     ) {
         double maximumWeight = 0.0;
         for (VillagerTrades.ItemListing candidate : candidates) {
             maximumWeight = Math.max(
                     maximumWeight,
-                    weight(candidate, profession, level, specialization)
+                    weight(candidate, profession, level, specialization, skill, biasConfig)
             );
         }
         if (maximumWeight == 0.0) {
@@ -142,7 +157,14 @@ public final class SpecializedTradeSelection {
 
         double normalizedTotal = 0.0;
         for (VillagerTrades.ItemListing candidate : candidates) {
-            normalizedTotal += weight(candidate, profession, level, specialization) / maximumWeight;
+            normalizedTotal += weight(
+                    candidate,
+                    profession,
+                    level,
+                    specialization,
+                    skill,
+                    biasConfig
+            ) / maximumWeight;
         }
 
         double target = random.nextDouble() * normalizedTotal;
@@ -153,7 +175,9 @@ public final class SpecializedTradeSelection {
                     candidates.get(index),
                     profession,
                     level,
-                    specialization
+                    specialization,
+                    skill,
+                    biasConfig
             ) / maximumWeight;
             if (normalizedWeight == 0.0) {
                 continue;
@@ -173,10 +197,15 @@ public final class SpecializedTradeSelection {
             VillagerTrades.ItemListing candidate,
             VillagerProfession profession,
             int level,
-            SpecializationDefinition specialization
+            SpecializationDefinition specialization,
+            double skill,
+            SpecializationBiasConfig biasConfig
     ) {
-        return specialization.weightModifierFor(
-                VanillaTradeClassifications.classify(profession, level, candidate)
+        return biasConfig.weightModifier(
+                specialization.weightModifierFor(
+                        VanillaTradeClassifications.classify(profession, level, candidate)
+                ),
+                skill
         );
     }
 }

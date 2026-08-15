@@ -9,6 +9,7 @@ import net.minecraft.world.item.trading.MerchantOffers;
 import org.junit.jupiter.api.Test;
 import org.waterflane.villager_potential.core.ProfessionId;
 import org.waterflane.villager_potential.core.ProfessionSpecializationDefinition;
+import org.waterflane.villager_potential.core.SpecializationBiasConfig;
 import org.waterflane.villager_potential.core.SpecializationDefinition;
 import org.waterflane.villager_potential.core.SpecializationId;
 import org.waterflane.villager_potential.core.TradeCategoryId;
@@ -32,6 +33,13 @@ class SpecializedTradeSelectionTest {
     private static final SpecializationId ENCHANTER = SpecializationId.parse("test:librarian/enchanter");
     private static final TradeCategoryId MATCHING = TradeCategoryId.parse("test:matching");
     private static final TradeCategoryId OFF_CATEGORY = TradeCategoryId.parse("test:off_category");
+    private static final SpecializationBiasConfig BIAS_CONFIG = new SpecializationBiasConfig(
+            0.0,
+            1.0,
+            0.1,
+            1.0,
+            2.0
+    );
 
     @Test
     void generalMatchesVanillaSelection() {
@@ -71,6 +79,8 @@ class SpecializedTradeSelectionTest {
                     VillagerProfession.LIBRARIAN,
                     1,
                     modifiers.orElseThrow(),
+                    1.0,
+                    BIAS_CONFIG,
                     RandomSource.create(90125L)
             );
         }
@@ -80,7 +90,7 @@ class SpecializedTradeSelectionTest {
 
     @Test
     void matchingCategoryGainsRelativeWeight() {
-        SelectionCounts counts = sampleSelections(20_000, 4.0);
+        SelectionCounts counts = sampleSelections(20_000, 4.0, 1.0, BIAS_CONFIG);
 
         assertTrue(counts.matching() > 15_000, counts.toString());
         assertTrue(counts.matching() > counts.offCategory(), counts.toString());
@@ -88,7 +98,7 @@ class SpecializedTradeSelectionTest {
 
     @Test
     void offCategoryRemainsPossible() {
-        SelectionCounts counts = sampleSelections(20_000, 4.0);
+        SelectionCounts counts = sampleSelections(20_000, 4.0, 1.0, BIAS_CONFIG);
 
         assertTrue(counts.offCategory() > 0, counts.toString());
     }
@@ -110,6 +120,8 @@ class SpecializedTradeSelectionTest {
                 VillagerProfession.LIBRARIAN,
                 1,
                 specialization(4.0),
+                1.0,
+                BIAS_CONFIG,
                 RandomSource.create(17L)
         );
 
@@ -133,6 +145,8 @@ class SpecializedTradeSelectionTest {
                 VillagerProfession.LIBRARIAN,
                 1,
                 specialization(100.0),
+                1.0,
+                BIAS_CONFIG,
                 RandomSource.create(0L)
         );
 
@@ -157,6 +171,8 @@ class SpecializedTradeSelectionTest {
                 VillagerProfession.LIBRARIAN,
                 1,
                 specialization(0.0),
+                1.0,
+                BIAS_CONFIG,
                 RandomSource.create(0L)
         );
 
@@ -165,7 +181,47 @@ class SpecializedTradeSelectionTest {
         assertFalse(offers.contains(matchingOffer));
     }
 
-    private static SelectionCounts sampleSelections(int attempts, double matchingWeight) {
+    @Test
+    void experiencedVillagersHaveStrongerSelectionBiasThanLowSkillVillagers() {
+        SelectionCounts lowSkill = sampleSelections(40_000, 4.0, 0.0, BIAS_CONFIG);
+        SelectionCounts highSkill = sampleSelections(40_000, 4.0, 1.0, BIAS_CONFIG);
+
+        assertTrue(lowSkill.matching() > lowSkill.offCategory(), lowSkill.toString());
+        assertTrue(highSkill.matching() > lowSkill.matching() + 8_000,
+                "low=" + lowSkill + ", high=" + highSkill);
+    }
+
+    @Test
+    void biasCannotSelectATradeOutsideTheVanillaCandidatePool() {
+        MerchantOffer vanillaOffer = mock(MerchantOffer.class);
+        MerchantOffer unavailableOffer = mock(MerchantOffer.class);
+        VillagerTrades.ItemListing[] vanillaCandidates = {listing(vanillaOffer, OFF_CATEGORY)};
+
+        for (int attempt = 0; attempt < 100; attempt++) {
+            MerchantOffers offers = new MerchantOffers();
+            SpecializedTradeSelection.addWeightedOffers(
+                    mock(Villager.class),
+                    offers,
+                    vanillaCandidates,
+                    1,
+                    VillagerProfession.LIBRARIAN,
+                    1,
+                    specialization(1_000_000.0),
+                    1.0,
+                    BIAS_CONFIG,
+                    RandomSource.create(attempt)
+            );
+            assertEquals(List.of(vanillaOffer), offers);
+            assertFalse(offers.contains(unavailableOffer));
+        }
+    }
+
+    private static SelectionCounts sampleSelections(
+            int attempts,
+            double matchingWeight,
+            double skill,
+            SpecializationBiasConfig biasConfig
+    ) {
         MerchantOffer matchingOffer = mock(MerchantOffer.class);
         MerchantOffer offCategoryOffer = mock(MerchantOffer.class);
         VillagerTrades.ItemListing[] candidates = {
@@ -187,6 +243,8 @@ class SpecializedTradeSelectionTest {
                     VillagerProfession.LIBRARIAN,
                     1,
                     specialization(matchingWeight),
+                    skill,
+                    biasConfig,
                     random
             );
             if (offers.getFirst() == matchingOffer) {

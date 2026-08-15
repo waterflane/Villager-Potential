@@ -27,10 +27,16 @@ files can be consumed by a future Forge 1.20.1 adapter:
 
 All IDs must be explicit lowercase namespaced IDs. Category values are finite,
 non-negative multiplicative weight modifiers. An omitted category has the
-neutral modifier `1.0`; zero reserves the ability to disable a category. These
-modifiers are applied to weighted sampling without replacement over the live
+neutral modifier `1.0`; zero fully suppresses a category once the bias curve
+reaches full strength and is otherwise blended toward neutral. These modifiers
+are applied to weighted sampling without replacement over the live
 candidate array selected by vanilla. They do not add, remove, or recreate pool
 entries. The general specialization uses vanilla's unmodified uniform chooser.
+Named specialization weights are blended from neutral toward their configured
+values as the villager gains professional skill. The common config's
+`specializationBias.minimumStrength`, `maximumStrength`, and `curveExponent`
+settings bound and shape that curve. This weighting is applied only to the
+candidate array supplied by vanilla; it cannot add otherwise unavailable trades.
 When a villager first enters a profession, one named specialization is selected
 and stored on that profession's career. An empty `specializations` array uses
 the definition's `general_specialization`; a profession with no definition uses
