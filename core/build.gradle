@@ -7,3 +7,36 @@ java {
         languageVersion = JavaLanguageVersion.of(17)
     }
 }
+
+def forbiddenPlatformImport = ~/(?m)^\s*import\s+(?:static\s+)?net\.(?:minecraft|neoforged|minecraftforge)(?:\.|;)/
+def coreJavaSources = sourceSets.main.allJava
+
+tasks.register('checkPlatformImports') {
+    group = 'verification'
+    description = 'Rejects Minecraft and loader imports in core.'
+    inputs.files(coreJavaSources)
+
+    doLast {
+        def rejectedExamples = [
+                'import net.minecraft.world.item.Item;',
+                'import net.neoforged.fml.common.Mod;',
+                'import net.minecraftforge.fml.common.Mod;'
+        ]
+        if (!rejectedExamples.every { it =~ forbiddenPlatformImport }) {
+            throw new GradleException('The core platform-import check does not cover every forbidden package.')
+        }
+
+        def violations = coreJavaSources.files.collectMany { sourceFile ->
+            sourceFile.readLines().withIndex().findResults { line, index ->
+                line =~ forbiddenPlatformImport ? "${sourceFile}:${index + 1}: ${line.trim()}" : null
+            }
+        }
+        if (!violations.isEmpty()) {
+            throw new GradleException("Platform imports are forbidden in core:\n${violations.join('\n')}")
+        }
+    }
+}
+
+tasks.named('check') {
+    dependsOn tasks.named('checkPlatformImports')
+}
