@@ -5,6 +5,7 @@ import net.minecraft.nbt.NbtOps;
 import net.minecraft.nbt.Tag;
 import net.minecraft.world.entity.npc.Villager;
 import org.junit.jupiter.api.Test;
+import org.waterflane.villager_potential.core.ProfessionId;
 import org.waterflane.villager_potential.core.VillagerPotentialState;
 
 import java.util.concurrent.atomic.AtomicReference;
@@ -39,7 +40,9 @@ class VillagerPotentialAttachmentsTest {
 
     @Test
     void currentSchemaRoundTripsUnchanged() {
-        VillagerPotentialState original = VillagerPotentialState.createDefault();
+        VillagerPotentialState original = VillagerPotentialState.createDefault()
+                .withAptitude(ProfessionId.parse("minecraft:librarian"), 0.75)
+                .withAptitude(ProfessionId.parse("example_mod:engineer"), 1.25);
 
         Tag serialized = VillagerPotentialAttachments.CODEC
                 .encodeStart(NbtOps.INSTANCE, original)
@@ -54,12 +57,33 @@ class VillagerPotentialAttachmentsTest {
                 ((CompoundTag) serialized).getInt("schema_version")
         );
         assertEquals(original, restored);
+        assertEquals(
+                0.75,
+                restored.aptitudeFor(ProfessionId.parse("minecraft:librarian")).orElseThrow()
+        );
+        assertEquals(
+                1.25,
+                restored.aptitudeFor(ProfessionId.parse("example_mod:engineer")).orElseThrow()
+        );
         assertSame(restored, VillagerPotentialAttachments.get(loadedVillager));
         assertSame(restored, VillagerPotentialAttachments.get(loadedVillager));
     }
 
     @Test
     void olderSchemaUsesMigrationPath() {
+        CompoundTag serialized = new CompoundTag();
+        serialized.putInt("schema_version", 1);
+
+        VillagerPotentialState restored = VillagerPotentialAttachments.CODEC
+                .parse(NbtOps.INSTANCE, serialized)
+                .getOrThrow();
+
+        assertEquals(VillagerPotentialState.createDefault(), restored);
+        assertTrue(restored.aptitudes().isEmpty());
+    }
+
+    @Test
+    void syntheticVersionZeroStillUsesMigrationPath() {
         CompoundTag serialized = new CompoundTag();
         serialized.putInt("schema_version", 0);
 
