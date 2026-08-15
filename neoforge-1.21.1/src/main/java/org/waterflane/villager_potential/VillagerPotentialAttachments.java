@@ -23,6 +23,7 @@ import org.waterflane.villager_potential.core.ProfessionActivityConfig;
 import org.waterflane.villager_potential.core.ProfessionActivityState;
 import org.waterflane.villager_potential.core.ProfessionCareerState;
 import org.waterflane.villager_potential.core.ProfessionId;
+import org.waterflane.villager_potential.core.SkillProgression;
 import org.waterflane.villager_potential.core.SkillProgressionConfig;
 import org.waterflane.villager_potential.core.VillagerPotentialState;
 
@@ -179,6 +180,9 @@ public final class VillagerPotentialAttachments {
         if (state != null && updatedState != state) {
             villager.setData(POTENTIAL, updatedState);
         }
+        if (updatedState != null) {
+            queueEarnedProfessionLevel(villager, updatedState, currentProfession);
+        }
     }
 
     static void flushProfessionProgress(Villager villager) {
@@ -245,6 +249,39 @@ public final class VillagerPotentialAttachments {
                 SKILL_PROGRESSION_CONFIG,
                 PROFESSION_ACTIVITY_CONFIG
         );
+    }
+
+    /**
+     * Queues at most one transition at a time. If one skill update crosses
+     * several thresholds, subsequent transitions are queued only after vanilla
+     * has applied the preceding level, so offers cannot be skipped or duplicated.
+     */
+    static boolean queueEarnedProfessionLevel(
+            Villager villager,
+            VillagerPotentialState state,
+            ProfessionId profession
+    ) {
+        if (profession == null
+                || !state.activeProfession().equals(Optional.of(profession))) {
+            return false;
+        }
+
+        int currentLevel = villager.getVillagerData().getLevel();
+        if (currentLevel < 1 || currentLevel >= 5) {
+            return false;
+        }
+
+        double learnedSkill = state.careerFor(profession)
+                .orElseThrow()
+                .learnedSkill();
+        int earnedLevel = SkillProgression.vanillaProfessionLevel(
+                learnedSkill,
+                currentLevel,
+                SKILL_PROGRESSION_CONFIG
+        );
+        return earnedLevel > currentLevel
+                && villager instanceof VillagerLevelUpAccess access
+                && access.villagerPotential$queueLevelUp();
     }
 
     private static VillagerPotentialState getOrInitialize(Entity entity) {
