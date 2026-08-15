@@ -16,6 +16,8 @@ public record SkillProgressionConfig(
         double maximumSkill,
         List<Double> levelThresholds
 ) {
+    private static final int VANILLA_LEVEL_TRANSITION_COUNT = 4;
+
     public SkillProgressionConfig {
         requireFinite("progressionRate", progressionRate);
         requireFinite("minimumSkill", minimumSkill);
@@ -32,6 +34,11 @@ public record SkillProgressionConfig(
 
         Objects.requireNonNull(levelThresholds, "levelThresholds");
         levelThresholds = List.copyOf(levelThresholds);
+        if (levelThresholds.size() != VANILLA_LEVEL_TRANSITION_COUNT) {
+            throw new IllegalArgumentException(
+                    "levelThresholds must define apprentice, journeyman, expert and master"
+            );
+        }
         double previousThreshold = minimumSkill;
         for (Double threshold : levelThresholds) {
             if (threshold == null || !Double.isFinite(threshold)) {
@@ -44,6 +51,20 @@ public record SkillProgressionConfig(
             }
             previousThreshold = threshold;
         }
+    }
+
+    /**
+     * Returns the named vanilla profession thresholds represented by this
+     * progression configuration. The minimum skill is the novice threshold.
+     */
+    public ProfessionLevelThresholds professionLevelThresholds() {
+        return new ProfessionLevelThresholds(
+                minimumSkill,
+                levelThresholds.get(0),
+                levelThresholds.get(1),
+                levelThresholds.get(2),
+                levelThresholds.get(3)
+        );
     }
 
     private static void requireFinite(String name, double value) {

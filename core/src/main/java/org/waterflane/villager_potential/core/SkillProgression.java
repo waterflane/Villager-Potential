@@ -1,6 +1,5 @@
 package org.waterflane.villager_potential.core;
 
-import java.util.List;
 import java.util.Objects;
 import java.util.OptionalDouble;
 
@@ -85,30 +84,65 @@ public final class SkillProgression {
                 config.minimumSkill(),
                 config.maximumSkill()
         );
-        List<Double> thresholds = config.levelThresholds();
-        double currentLevelStart = config.minimumSkill();
-        int currentLevel = 1;
-
-        for (double threshold : thresholds) {
-            if (boundedSkill < threshold) {
-                double levelProgress = (boundedSkill - currentLevelStart)
-                        / (threshold - currentLevelStart);
-                return new ProfessionLevelProgress(
-                        currentLevel,
-                        boundedSkill,
-                        levelProgress,
-                        OptionalDouble.of(threshold)
-                );
-            }
-            currentLevel++;
-            currentLevelStart = threshold;
+        ProfessionLevelThresholds thresholds = config.professionLevelThresholds();
+        int currentLevel = thresholds.levelForSkill(boundedSkill);
+        if (currentLevel == ProfessionLevelThresholds.MASTER_LEVEL) {
+            return new ProfessionLevelProgress(
+                    currentLevel,
+                    boundedSkill,
+                    1.0,
+                    OptionalDouble.empty()
+            );
         }
 
+        double currentLevelStart = thresholds.thresholdForLevel(currentLevel);
+        double nextLevelSkill = thresholds.thresholdForLevel(currentLevel + 1);
+        double levelProgress = (boundedSkill - currentLevelStart)
+                / (nextLevelSkill - currentLevelStart);
         return new ProfessionLevelProgress(
                 currentLevel,
                 boundedSkill,
-                1.0,
-                OptionalDouble.empty()
+                levelProgress,
+                OptionalDouble.of(nextLevelSkill)
+        );
+    }
+
+    /**
+     * Maps learned skill to one of vanilla's five profession levels.
+     */
+    public static int vanillaProfessionLevel(
+            double learnedSkill,
+            SkillProgressionConfig config
+    ) {
+        Objects.requireNonNull(config, "config");
+        requireFiniteNonNegative("learnedSkill", learnedSkill);
+        double boundedSkill = clamp(
+                learnedSkill,
+                config.minimumSkill(),
+                config.maximumSkill()
+        );
+        return config.professionLevelThresholds().levelForSkill(boundedSkill);
+    }
+
+    /**
+     * Maps learned skill while preserving an existing villager's saved vanilla
+     * profession level as the bootstrap floor.
+     */
+    public static int vanillaProfessionLevel(
+            double learnedSkill,
+            int currentVanillaLevel,
+            SkillProgressionConfig config
+    ) {
+        Objects.requireNonNull(config, "config");
+        requireFiniteNonNegative("learnedSkill", learnedSkill);
+        double boundedSkill = clamp(
+                learnedSkill,
+                config.minimumSkill(),
+                config.maximumSkill()
+        );
+        return config.professionLevelThresholds().levelForSkill(
+                boundedSkill,
+                currentVanillaLevel
         );
     }
 

@@ -104,4 +104,15 @@ public record ProfessionCareerState(
     public ProfessionLevelProgress levelProgress(SkillProgressionConfig config) {
         return SkillProgression.progressTowardNextLevel(learnedSkill, config);
     }
+
+    public int vanillaProfessionLevel(
+            int currentVanillaLevel,
+            SkillProgressionConfig config
+    ) {
+        return SkillProgression.vanillaProfessionLevel(
+                learnedSkill,
+                currentVanillaLevel,
+                config
+        );
+    }
 }

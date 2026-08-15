@@ -13,29 +13,53 @@ class SkillProgressionConfigTest {
     void rejectsInvalidRatesBoundsAndThresholds() {
         assertThrows(
                 IllegalArgumentException.class,
-                () -> new SkillProgressionConfig(-0.1, 0.0, 1.0, List.of(0.5))
+                () -> new SkillProgressionConfig(
+                        -0.1,
+                        0.0,
+                        1.0,
+                        List.of(0.2, 0.5, 0.8, 1.0)
+                )
         );
         assertThrows(
                 IllegalArgumentException.class,
-                () -> new SkillProgressionConfig(0.1, 1.0, 1.0, List.of())
+                () -> new SkillProgressionConfig(
+                        0.1,
+                        1.0,
+                        1.0,
+                        List.of(1.2, 1.5, 1.8, 2.0)
+                )
         );
         assertThrows(
                 IllegalArgumentException.class,
-                () -> new SkillProgressionConfig(0.1, 0.0, 1.0, List.of(0.5, 0.5))
+                () -> new SkillProgressionConfig(
+                        0.1,
+                        0.0,
+                        1.0,
+                        List.of(0.2, 0.5, 0.5, 1.0)
+                )
         );
         assertThrows(
                 IllegalArgumentException.class,
-                () -> new SkillProgressionConfig(0.1, 0.0, 1.0, List.of(1.1))
+                () -> new SkillProgressionConfig(
+                        0.1,
+                        0.0,
+                        1.0,
+                        List.of(0.2, 0.5, 0.8, 1.1)
+                )
+        );
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> new SkillProgressionConfig(0.1, 0.0, 1.0, List.of(0.5))
         );
     }
 
     @Test
     void protectsThresholdsFromExternalMutation() {
-        List<Double> thresholds = new ArrayList<>(List.of(0.5));
+        List<Double> thresholds = new ArrayList<>(List.of(0.2, 0.5, 0.8, 1.0));
         SkillProgressionConfig config = new SkillProgressionConfig(0.1, 0.0, 1.0, thresholds);
-        thresholds.set(0, 0.75);
+        thresholds.set(0, 0.25);
 
-        assertEquals(List.of(0.5), config.levelThresholds());
-        assertThrows(UnsupportedOperationException.class, () -> config.levelThresholds().add(0.75));
+        assertEquals(List.of(0.2, 0.5, 0.8, 1.0), config.levelThresholds());
+        assertThrows(UnsupportedOperationException.class, () -> config.levelThresholds().add(1.1));
     }
 }

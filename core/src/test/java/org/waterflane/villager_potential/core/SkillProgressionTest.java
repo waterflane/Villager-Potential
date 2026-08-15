@@ -76,6 +76,14 @@ class SkillProgressionTest {
     }
 
     @Test
+    void mapsSkillWithoutDemotingAnExistingVanillaLevel() {
+        assertEquals(1, SkillProgression.vanillaProfessionLevel(0.0, CONFIG));
+        assertEquals(2, SkillProgression.vanillaProfessionLevel(0.2, CONFIG));
+        assertEquals(4, SkillProgression.vanillaProfessionLevel(0.0, 4, CONFIG));
+        assertEquals(5, SkillProgression.vanillaProfessionLevel(1.0, 2, CONFIG));
+    }
+
+    @Test
     void careerProgressAccumulatesTimeAndSkillTogether() {
         ProfessionCareerState career = ProfessionCareerState.firstAssignedAt(10L)
                 .progressSkill(100L, 1.5, CONFIG);
