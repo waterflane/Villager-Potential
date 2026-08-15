@@ -1,5 +1,6 @@
 package org.waterflane.villager_potential;
 
+import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.monster.ZombieVillager;
 import net.minecraft.world.entity.npc.Villager;
@@ -41,6 +42,18 @@ public final class VillagerPotentialEvents {
         if (event.getEntity() instanceof Villager villager
                 && NEW_VILLAGERS.remove(villager)) {
             VillagerPotentialAttachments.get(villager);
+        }
+    }
+
+    /**
+     * NeoForge has no profession-change event, so compare vanilla's final
+     * profession after its tick with the profession stored in Potential.
+     */
+    @SubscribeEvent
+    static void onEntityTickPost(EntityTickEvent.Post event) {
+        if (event.getEntity() instanceof Villager villager
+                && villager.level() instanceof ServerLevel serverLevel) {
+            VillagerPotentialAttachments.trackProfession(villager, serverLevel.getGameTime());
         }
     }
 

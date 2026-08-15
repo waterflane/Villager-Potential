@@ -8,6 +8,7 @@ import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.monster.ZombieVillager;
 import net.minecraft.world.entity.npc.Villager;
+import net.minecraft.world.entity.npc.VillagerProfession;
 import net.neoforged.bus.api.IEventBus;
 import net.neoforged.neoforge.attachment.AttachmentType;
 import net.neoforged.neoforge.attachment.IAttachmentHolder;
@@ -107,6 +108,24 @@ public final class VillagerPotentialAttachments {
     static VillagerPotentialState get(ZombieVillager zombieVillager) {
         Objects.requireNonNull(zombieVillager, "zombieVillager");
         return getOrInitialize(zombieVillager);
+    }
+
+    static VillagerPotentialState trackProfession(Villager villager, long assignmentTime) {
+        Objects.requireNonNull(villager, "villager");
+        VillagerPotentialState state = get(villager);
+        VillagerProfession profession = villager.getVillagerData().getProfession();
+        VillagerPotentialState updatedState = profession == VillagerProfession.NONE
+                || profession == VillagerProfession.NITWIT
+                ? state.clearActiveProfession()
+                : state.assignProfession(
+                        VillagerProfessionIds.fromMinecraft(profession),
+                        assignmentTime
+                );
+
+        if (updatedState != state) {
+            villager.setData(POTENTIAL, updatedState);
+        }
+        return updatedState;
     }
 
     private static VillagerPotentialState getOrInitialize(Entity entity) {
