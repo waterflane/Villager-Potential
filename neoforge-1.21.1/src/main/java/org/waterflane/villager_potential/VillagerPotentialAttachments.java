@@ -25,6 +25,7 @@ import org.waterflane.villager_potential.core.ProfessionCareerState;
 import org.waterflane.villager_potential.core.ProfessionId;
 import org.waterflane.villager_potential.core.SkillProgression;
 import org.waterflane.villager_potential.core.SkillProgressionConfig;
+import org.waterflane.villager_potential.core.SpecializationId;
 import org.waterflane.villager_potential.core.VillagerPotentialState;
 
 import java.util.LinkedHashMap;
@@ -73,12 +74,18 @@ public final class VillagerPotentialAttachments {
             PROFESSION_ID_CODEC,
             Codec.DOUBLE
     );
+    private static final Codec<SpecializationId> SPECIALIZATION_ID_CODEC = Codec.STRING.comapFlatMap(
+            VillagerPotentialAttachments::parseSpecializationId,
+            SpecializationId::toString
+    );
     private static final Codec<ProfessionCareerState> CAREER_CODEC = RecordCodecBuilder.create(instance -> instance.group(
             Codec.LONG.fieldOf("accumulated_profession_time")
                     .forGetter(ProfessionCareerState::accumulatedProfessionTime),
             Codec.DOUBLE.fieldOf("learned_skill").forGetter(ProfessionCareerState::learnedSkill),
             Codec.LONG.fieldOf("first_assignment").forGetter(ProfessionCareerState::firstAssignment),
-            Codec.LONG.fieldOf("latest_assignment").forGetter(ProfessionCareerState::latestAssignment)
+            Codec.LONG.fieldOf("latest_assignment").forGetter(ProfessionCareerState::latestAssignment),
+            SPECIALIZATION_ID_CODEC.optionalFieldOf("specialization")
+                    .forGetter(ProfessionCareerState::specialization)
     ).apply(instance, ProfessionCareerState::new));
     private static final Codec<Map<ProfessionId, ProfessionCareerState>> CAREERS_CODEC =
             Codec.unboundedMap(PROFESSION_ID_CODEC, CAREER_CODEC);
@@ -400,6 +407,14 @@ public final class VillagerPotentialAttachments {
     private static DataResult<ProfessionId> parseProfessionId(String value) {
         try {
             return DataResult.success(ProfessionId.parse(value));
+        } catch (IllegalArgumentException exception) {
+            return DataResult.error(exception::getMessage);
+        }
+    }
+
+    private static DataResult<SpecializationId> parseSpecializationId(String value) {
+        try {
+            return DataResult.success(SpecializationId.parse(value));
         } catch (IllegalArgumentException exception) {
             return DataResult.error(exception::getMessage);
         }

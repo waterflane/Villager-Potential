@@ -11,6 +11,7 @@ import org.junit.jupiter.api.Test;
 import org.waterflane.villager_potential.core.AptitudeInheritance;
 import org.waterflane.villager_potential.core.ProfessionCareerState;
 import org.waterflane.villager_potential.core.ProfessionId;
+import org.waterflane.villager_potential.core.SpecializationId;
 import org.waterflane.villager_potential.core.VillagerPotentialState;
 
 import java.util.LinkedHashMap;
@@ -152,6 +153,39 @@ class VillagerPotentialAttachmentsTest {
         );
         assertEquals(0.75, restored.careerFor(librarian).orElseThrow().learnedSkill());
         assertEquals(1.25, restored.aptitudeFor(librarian).orElseThrow());
+    }
+
+    @Test
+    void professionSpecializationsSurviveSerializationRoundTrip() {
+        ProfessionId librarian = ProfessionId.parse("minecraft:librarian");
+        ProfessionId farmer = ProfessionId.parse("minecraft:farmer");
+        SpecializationId enchanter =
+                SpecializationId.parse("villager_potential:librarian/enchanter");
+        SpecializationId horticulturist =
+                SpecializationId.parse("villager_potential:farmer/horticulturist");
+        VillagerPotentialState original = VillagerPotentialState.createDefault()
+                .assignProfession(librarian, 100L)
+                .withSpecialization(librarian, enchanter)
+                .assignProfession(farmer, 200L)
+                .withSpecialization(farmer, horticulturist);
+
+        Tag serialized = VillagerPotentialAttachments.CODEC
+                .encodeStart(NbtOps.INSTANCE, original)
+                .getOrThrow();
+        VillagerPotentialState restored = VillagerPotentialAttachments.CODEC
+                .parse(NbtOps.INSTANCE, serialized)
+                .getOrThrow();
+
+        assertEquals(original, restored);
+        assertEquals(enchanter, restored.specializationFor(librarian).orElseThrow());
+        assertEquals(horticulturist, restored.specializationFor(farmer).orElseThrow());
+        assertEquals(
+                enchanter.toString(),
+                ((CompoundTag) serialized)
+                        .getCompound("careers")
+                        .getCompound(librarian.toString())
+                        .getString("specialization")
+        );
     }
 
     @Test

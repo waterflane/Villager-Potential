@@ -65,6 +65,60 @@ class VillagerPotentialStateTest {
     }
 
     @Test
+    void storesOneStableSpecializationPerProfessionCareer() {
+        ProfessionId librarian = ProfessionId.parse("minecraft:librarian");
+        SpecializationId enchanter =
+                SpecializationId.parse("villager_potential:librarian/enchanter");
+        SpecializationId cartographer =
+                SpecializationId.parse("villager_potential:librarian/cartographer");
+
+        VillagerPotentialState state = VillagerPotentialState.createDefault()
+                .assignProfession(librarian, 100L)
+                .withSpecialization(librarian, enchanter);
+
+        assertEquals(enchanter, state.specializationFor(librarian).orElseThrow());
+        assertEquals(state, state.withSpecialization(librarian, enchanter));
+        assertThrows(
+                IllegalStateException.class,
+                () -> state.withSpecialization(librarian, cartographer)
+        );
+    }
+
+    @Test
+    void multipleCareerSpecializationsCoexistAcrossProfessionChanges() {
+        ProfessionId librarian = ProfessionId.parse("minecraft:librarian");
+        ProfessionId farmer = ProfessionId.parse("minecraft:farmer");
+        SpecializationId enchanter =
+                SpecializationId.parse("villager_potential:librarian/enchanter");
+        SpecializationId horticulturist =
+                SpecializationId.parse("villager_potential:farmer/horticulturist");
+
+        VillagerPotentialState state = VillagerPotentialState.createDefault()
+                .assignProfession(librarian, 100L)
+                .withSpecialization(librarian, enchanter)
+                .assignProfession(farmer, 200L)
+                .withSpecialization(farmer, horticulturist)
+                .assignProfession(librarian, 300L);
+
+        assertEquals(enchanter, state.specializationFor(librarian).orElseThrow());
+        assertEquals(horticulturist, state.specializationFor(farmer).orElseThrow());
+        assertEquals(librarian, state.activeProfession().orElseThrow());
+    }
+
+    @Test
+    void specializationStorageRequiresAnExistingCareer() {
+        ProfessionId librarian = ProfessionId.parse("minecraft:librarian");
+        SpecializationId enchanter =
+                SpecializationId.parse("villager_potential:librarian/enchanter");
+
+        assertThrows(
+                IllegalStateException.class,
+                () -> VillagerPotentialState.createDefault()
+                        .withSpecialization(librarian, enchanter)
+        );
+    }
+
+    @Test
     void returningToPreviousProfessionRestoresItsCareerRecord() {
         ProfessionId librarian = ProfessionId.parse("minecraft:librarian");
         ProfessionId farmer = ProfessionId.parse("minecraft:farmer");
@@ -296,6 +350,27 @@ class VillagerPotentialStateTest {
 
         assertEquals(career, migrated.careerFor(librarian).orElseThrow());
         assertTrue(migrated.professionActivities().isEmpty());
+        assertEquals(VillagerPotentialState.CURRENT_SCHEMA_VERSION, migrated.schemaVersion());
+    }
+
+    @Test
+    void migratesVersionFiveWithoutInventingSpecializations() {
+        ProfessionId librarian = ProfessionId.parse("minecraft:librarian");
+        ProfessionCareerState career = ProfessionCareerState.firstAssignedAt(100L)
+                .withLearnedSkill(0.4);
+        ProfessionActivityState activity = new ProfessionActivityState(0.75, 200L);
+
+        VillagerPotentialState migrated = VillagerPotentialState.migrate(
+                5,
+                Map.of(librarian, 1.25),
+                Map.of(librarian, career),
+                java.util.Optional.of(librarian),
+                Map.of(librarian, activity)
+        );
+
+        assertEquals(career, migrated.careerFor(librarian).orElseThrow());
+        assertTrue(migrated.specializationFor(librarian).isEmpty());
+        assertEquals(activity, migrated.professionActivities().get(librarian));
         assertEquals(VillagerPotentialState.CURRENT_SCHEMA_VERSION, migrated.schemaVersion());
     }
 

@@ -1,5 +1,8 @@
 package org.waterflane.villager_potential.core;
 
+import java.util.Objects;
+import java.util.Optional;
+
 /**
  * Persistent progress and assignment history for one profession.
  */
@@ -7,7 +10,8 @@ public record ProfessionCareerState(
         long accumulatedProfessionTime,
         double learnedSkill,
         long firstAssignment,
-        long latestAssignment
+        long latestAssignment,
+        Optional<SpecializationId> specialization
 ) {
     public ProfessionCareerState {
         if (accumulatedProfessionTime < 0) {
@@ -19,10 +23,32 @@ public record ProfessionCareerState(
         if (latestAssignment < firstAssignment) {
             throw new IllegalArgumentException("latestAssignment must not precede firstAssignment");
         }
+        Objects.requireNonNull(specialization, "specialization");
+    }
+
+    public ProfessionCareerState(
+            long accumulatedProfessionTime,
+            double learnedSkill,
+            long firstAssignment,
+            long latestAssignment
+    ) {
+        this(
+                accumulatedProfessionTime,
+                learnedSkill,
+                firstAssignment,
+                latestAssignment,
+                Optional.empty()
+        );
     }
 
     public static ProfessionCareerState firstAssignedAt(long assignmentTime) {
-        return new ProfessionCareerState(0L, 0.0, assignmentTime, assignmentTime);
+        return new ProfessionCareerState(
+                0L,
+                0.0,
+                assignmentTime,
+                assignmentTime,
+                Optional.empty()
+        );
     }
 
     public ProfessionCareerState reassignedAt(long assignmentTime) {
@@ -33,7 +59,8 @@ public record ProfessionCareerState(
                 accumulatedProfessionTime,
                 learnedSkill,
                 firstAssignment,
-                assignmentTime
+                assignmentTime,
+                specialization
         );
     }
 
@@ -52,7 +79,8 @@ public record ProfessionCareerState(
                 accumulatedTime,
                 learnedSkill,
                 firstAssignment,
-                latestAssignment
+                latestAssignment,
+                specialization
         );
     }
 
@@ -61,7 +89,29 @@ public record ProfessionCareerState(
                 accumulatedProfessionTime,
                 skill,
                 firstAssignment,
-                latestAssignment
+                latestAssignment,
+                specialization
+        );
+    }
+
+    /**
+     * Stores this career's specialization once. Repeating the same value is
+     * idempotent, while replacing it would violate stable career identity.
+     */
+    public ProfessionCareerState withSpecialization(SpecializationId specializationId) {
+        Objects.requireNonNull(specializationId, "specializationId");
+        if (specialization.isPresent()) {
+            if (specialization.get().equals(specializationId)) {
+                return this;
+            }
+            throw new IllegalStateException("Career specialization is already set");
+        }
+        return new ProfessionCareerState(
+                accumulatedProfessionTime,
+                learnedSkill,
+                firstAssignment,
+                latestAssignment,
+                Optional.of(specializationId)
         );
     }
 
@@ -97,7 +147,8 @@ public record ProfessionCareerState(
                 accumulated.accumulatedProfessionTime,
                 progressedSkill,
                 firstAssignment,
-                latestAssignment
+                latestAssignment,
+                specialization
         );
     }
 

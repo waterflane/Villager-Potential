@@ -16,7 +16,7 @@ public record VillagerPotentialState(
         Optional<ProfessionId> activeProfession,
         Map<ProfessionId, ProfessionActivityState> professionActivities
 ) {
-    public static final int CURRENT_SCHEMA_VERSION = 5;
+    public static final int CURRENT_SCHEMA_VERSION = 6;
 
     public VillagerPotentialState {
         if (schemaVersion < 1) {
@@ -91,6 +91,30 @@ public record VillagerPotentialState(
 
     public Optional<ProfessionCareerState> careerFor(ProfessionId professionId) {
         return Optional.ofNullable(careers.get(Objects.requireNonNull(professionId, "professionId")));
+    }
+
+    public Optional<SpecializationId> specializationFor(ProfessionId professionId) {
+        return careerFor(professionId).flatMap(ProfessionCareerState::specialization);
+    }
+
+    /**
+     * Stores a stable specialization on an existing profession career.
+     * Specialization selection itself belongs to a later policy layer.
+     */
+    public VillagerPotentialState withSpecialization(
+            ProfessionId professionId,
+            SpecializationId specializationId
+    ) {
+        Objects.requireNonNull(professionId, "professionId");
+        Objects.requireNonNull(specializationId, "specializationId");
+        ProfessionCareerState career = careers.get(professionId);
+        if (career == null) {
+            throw new IllegalStateException(
+                    "Specialization requires a career record: " + professionId
+            );
+        }
+        ProfessionCareerState updatedCareer = career.withSpecialization(specializationId);
+        return updatedCareer == career ? this : withCareer(professionId, updatedCareer);
     }
 
     public VillagerPotentialState withCareer(
@@ -330,6 +354,13 @@ public record VillagerPotentialState(
         return switch (persistedSchemaVersion) {
             case CURRENT_SCHEMA_VERSION -> new VillagerPotentialState(
                     persistedSchemaVersion,
+                    persistedAptitudes,
+                    persistedCareers,
+                    persistedActiveProfession,
+                    persistedProfessionActivities
+            );
+            case 5 -> new VillagerPotentialState(
+                    CURRENT_SCHEMA_VERSION,
                     persistedAptitudes,
                     persistedCareers,
                     persistedActiveProfession,
