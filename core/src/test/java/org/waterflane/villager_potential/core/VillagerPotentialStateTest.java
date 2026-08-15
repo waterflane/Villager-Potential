@@ -25,4 +25,24 @@ class VillagerPotentialStateTest {
 
         assertEquals(state, new VillagerPotentialState(state.schemaVersion()));
     }
+
+    @Test
+    void currentSchemaDoesNotRequireMigration() {
+        VillagerPotentialState state = VillagerPotentialState.createDefault();
+
+        assertEquals(state, VillagerPotentialState.migrate(state.schemaVersion()));
+    }
+
+    @Test
+    void migratesSyntheticVersionZero() {
+        assertEquals(VillagerPotentialState.createDefault(), VillagerPotentialState.migrate(0));
+    }
+
+    @Test
+    void rejectsUnknownNewerSchemaVersion() {
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> VillagerPotentialState.migrate(VillagerPotentialState.CURRENT_SCHEMA_VERSION + 1)
+        );
+    }
 }

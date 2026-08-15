@@ -1,7 +1,7 @@
 package org.waterflane.villager_potential;
 
 import com.mojang.serialization.Codec;
-import com.mojang.serialization.codecs.RecordCodecBuilder;
+import com.mojang.serialization.DataResult;
 import net.minecraft.world.entity.npc.Villager;
 import net.neoforged.bus.api.IEventBus;
 import net.neoforged.neoforge.attachment.AttachmentType;
@@ -11,9 +11,8 @@ import net.neoforged.neoforge.registries.NeoForgeRegistries;
 import org.waterflane.villager_potential.core.VillagerPotentialState;
 
 public final class VillagerPotentialAttachments {
-    static final Codec<VillagerPotentialState> CODEC = RecordCodecBuilder.create(instance -> instance.group(
-            Codec.INT.fieldOf("schema_version").forGetter(VillagerPotentialState::schemaVersion)
-    ).apply(instance, VillagerPotentialState::new));
+    static final Codec<VillagerPotentialState> CODEC = Codec.INT.fieldOf("schema_version").codec()
+            .comapFlatMap(VillagerPotentialAttachments::migrate, VillagerPotentialState::schemaVersion);
 
     private static final DeferredRegister<AttachmentType<?>> ATTACHMENT_TYPES =
             DeferredRegister.create(NeoForgeRegistries.Keys.ATTACHMENT_TYPES, Villager_potential.MODID);
@@ -31,5 +30,13 @@ public final class VillagerPotentialAttachments {
 
     public static VillagerPotentialState get(Villager villager) {
         return villager.getData(POTENTIAL);
+    }
+
+    private static DataResult<VillagerPotentialState> migrate(int schemaVersion) {
+        try {
+            return DataResult.success(VillagerPotentialState.migrate(schemaVersion));
+        } catch (IllegalArgumentException exception) {
+            return DataResult.error(exception::getMessage);
+        }
     }
 }

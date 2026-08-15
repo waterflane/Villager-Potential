@@ -13,6 +13,7 @@ import java.util.function.Supplier;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotSame;
 import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
@@ -37,8 +38,8 @@ class VillagerPotentialAttachmentsTest {
     }
 
     @Test
-    void saveAndLoadDoesNotReplaceState() {
-        VillagerPotentialState original = new VillagerPotentialState(7);
+    void currentSchemaRoundTripsUnchanged() {
+        VillagerPotentialState original = VillagerPotentialState.createDefault();
 
         Tag serialized = VillagerPotentialAttachments.CODEC
                 .encodeStart(NbtOps.INSTANCE, original)
@@ -48,10 +49,33 @@ class VillagerPotentialAttachmentsTest {
                 .getOrThrow();
         Villager loadedVillager = villagerWith(restored);
 
-        assertEquals(7, ((CompoundTag) serialized).getInt("schema_version"));
+        assertEquals(
+                VillagerPotentialState.CURRENT_SCHEMA_VERSION,
+                ((CompoundTag) serialized).getInt("schema_version")
+        );
         assertEquals(original, restored);
         assertSame(restored, VillagerPotentialAttachments.get(loadedVillager));
         assertSame(restored, VillagerPotentialAttachments.get(loadedVillager));
+    }
+
+    @Test
+    void olderSchemaUsesMigrationPath() {
+        CompoundTag serialized = new CompoundTag();
+        serialized.putInt("schema_version", 0);
+
+        VillagerPotentialState restored = VillagerPotentialAttachments.CODEC
+                .parse(NbtOps.INSTANCE, serialized)
+                .getOrThrow();
+
+        assertEquals(VillagerPotentialState.createDefault(), restored);
+    }
+
+    @Test
+    void newerSchemaFailsWithoutReinterpretation() {
+        CompoundTag serialized = new CompoundTag();
+        serialized.putInt("schema_version", VillagerPotentialState.CURRENT_SCHEMA_VERSION + 1);
+
+        assertTrue(VillagerPotentialAttachments.CODEC.parse(NbtOps.INSTANCE, serialized).isError());
     }
 
     @Test

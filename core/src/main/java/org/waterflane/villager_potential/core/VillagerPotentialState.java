@@ -15,4 +15,18 @@ public record VillagerPotentialState(int schemaVersion) {
     public static VillagerPotentialState createDefault() {
         return new VillagerPotentialState(CURRENT_SCHEMA_VERSION);
     }
+
+    public static VillagerPotentialState migrate(int persistedSchemaVersion) {
+        return switch (persistedSchemaVersion) {
+            case CURRENT_SCHEMA_VERSION -> new VillagerPotentialState(persistedSchemaVersion);
+            case 0 -> migrateFromVersion0();
+            default -> throw new IllegalArgumentException(
+                    "Unsupported schema version: " + persistedSchemaVersion
+            );
+        };
+    }
+
+    private static VillagerPotentialState migrateFromVersion0() {
+        return createDefault();
+    }
 }
