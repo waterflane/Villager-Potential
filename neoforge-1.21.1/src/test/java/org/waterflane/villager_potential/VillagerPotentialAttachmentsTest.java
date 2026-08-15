@@ -9,6 +9,7 @@ import net.neoforged.neoforge.event.entity.EntityJoinLevelEvent;
 import net.neoforged.neoforge.event.tick.EntityTickEvent;
 import org.junit.jupiter.api.Test;
 import org.waterflane.villager_potential.core.AptitudeInheritance;
+import org.waterflane.villager_potential.core.ProfessionCareerState;
 import org.waterflane.villager_potential.core.ProfessionId;
 import org.waterflane.villager_potential.core.VillagerPotentialState;
 
@@ -119,6 +120,34 @@ class VillagerPotentialAttachmentsTest {
         assertEquals(original, restored);
         assertSame(restored, VillagerPotentialAttachments.get(loadedVillager));
         verify(loadedVillager, times(0)).setData(any(Supplier.class), any());
+    }
+
+    @Test
+    void professionCareersSurviveSerializationRoundTrip() {
+        ProfessionId librarian = ProfessionId.parse("minecraft:librarian");
+        ProfessionId farmer = ProfessionId.parse("minecraft:farmer");
+        VillagerPotentialState original = VillagerPotentialState.createDefault()
+                .withAptitude(librarian, 1.25)
+                .assignProfession(librarian, 100L)
+                .withCareer(
+                        librarian,
+                        new ProfessionCareerState(80L, 0.75, 100L, 100L)
+                )
+                .assignProfession(farmer, 200L)
+                .assignProfession(librarian, 300L);
+
+        Tag serialized = VillagerPotentialAttachments.CODEC
+                .encodeStart(NbtOps.INSTANCE, original)
+                .getOrThrow();
+        VillagerPotentialState restored = VillagerPotentialAttachments.CODEC
+                .parse(NbtOps.INSTANCE, serialized)
+                .getOrThrow();
+
+        assertEquals(original, restored);
+        assertEquals(2, restored.careers().size());
+        assertEquals(librarian, restored.activeProfession().orElseThrow());
+        assertEquals(0.75, restored.careerFor(librarian).orElseThrow().learnedSkill());
+        assertEquals(1.25, restored.aptitudeFor(librarian).orElseThrow());
     }
 
     @Test
@@ -270,6 +299,24 @@ class VillagerPotentialAttachmentsTest {
 
         assertEquals(VillagerPotentialState.createDefault(), restored);
         assertTrue(restored.aptitudes().isEmpty());
+    }
+
+    @Test
+    void versionTwoAptitudesMigrateWithoutCareerHistory() {
+        ProfessionId librarian = ProfessionId.parse("minecraft:librarian");
+        CompoundTag serialized = new CompoundTag();
+        serialized.putInt("schema_version", 2);
+        CompoundTag aptitudes = new CompoundTag();
+        aptitudes.putDouble(librarian.toString(), 0.75);
+        serialized.put("aptitudes", aptitudes);
+
+        VillagerPotentialState restored = VillagerPotentialAttachments.CODEC
+                .parse(NbtOps.INSTANCE, serialized)
+                .getOrThrow();
+
+        assertEquals(0.75, restored.aptitudeFor(librarian).orElseThrow());
+        assertTrue(restored.careers().isEmpty());
+        assertTrue(restored.activeProfession().isEmpty());
     }
 
     @Test

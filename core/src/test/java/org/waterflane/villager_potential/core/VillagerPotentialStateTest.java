@@ -45,6 +45,62 @@ class VillagerPotentialStateTest {
     }
 
     @Test
+    void multipleProfessionCareersCoexist() {
+        ProfessionId librarian = ProfessionId.parse("minecraft:librarian");
+        ProfessionId farmer = ProfessionId.parse("minecraft:farmer");
+
+        VillagerPotentialState state = VillagerPotentialState.createDefault()
+                .assignProfession(librarian, 100L)
+                .withCareer(
+                        librarian,
+                        new ProfessionCareerState(40L, 0.25, 100L, 100L)
+                )
+                .assignProfession(farmer, 200L);
+
+        assertEquals(2, state.careers().size());
+        assertEquals(40L, state.careerFor(librarian).orElseThrow().accumulatedProfessionTime());
+        assertEquals(ProfessionCareerState.firstAssignedAt(200L), state.careerFor(farmer).orElseThrow());
+        assertEquals(farmer, state.activeProfession().orElseThrow());
+    }
+
+    @Test
+    void returningToPreviousProfessionRestoresItsCareerRecord() {
+        ProfessionId librarian = ProfessionId.parse("minecraft:librarian");
+        ProfessionId farmer = ProfessionId.parse("minecraft:farmer");
+        ProfessionCareerState learnedCareer = new ProfessionCareerState(80L, 0.75, 100L, 100L);
+
+        VillagerPotentialState state = VillagerPotentialState.createDefault()
+                .assignProfession(librarian, 100L)
+                .withCareer(librarian, learnedCareer)
+                .assignProfession(farmer, 200L)
+                .assignProfession(librarian, 300L);
+
+        ProfessionCareerState restored = state.careerFor(librarian).orElseThrow();
+        assertEquals(80L, restored.accumulatedProfessionTime());
+        assertEquals(0.75, restored.learnedSkill());
+        assertEquals(100L, restored.firstAssignment());
+        assertEquals(300L, restored.latestAssignment());
+        assertEquals(librarian, state.activeProfession().orElseThrow());
+        assertTrue(state.careerFor(farmer).isPresent());
+    }
+
+    @Test
+    void skillRemainsSeparateFromAptitude() {
+        ProfessionId librarian = ProfessionId.parse("minecraft:librarian");
+
+        VillagerPotentialState state = VillagerPotentialState.createDefault()
+                .withAptitude(librarian, 1.25)
+                .assignProfession(librarian, 100L)
+                .withCareer(
+                        librarian,
+                        ProfessionCareerState.firstAssignedAt(100L).withLearnedSkill(0.5)
+                );
+
+        assertEquals(1.25, state.aptitudeFor(librarian).orElseThrow());
+        assertEquals(0.5, state.careerFor(librarian).orElseThrow().learnedSkill());
+    }
+
+    @Test
     void missingProfessionHasNoGeneratedAptitude() {
         VillagerPotentialState state = VillagerPotentialState.createDefault();
 
@@ -86,6 +142,21 @@ class VillagerPotentialStateTest {
     @Test
     void migratesVersionOneWithoutGeneratingAptitudes() {
         assertEquals(VillagerPotentialState.createDefault(), VillagerPotentialState.migrate(1));
+    }
+
+    @Test
+    void migratesVersionTwoWithoutInventingCareerHistory() {
+        ProfessionId librarian = ProfessionId.parse("minecraft:librarian");
+
+        VillagerPotentialState migrated = VillagerPotentialState.migrate(
+                2,
+                Map.of(librarian, 0.75)
+        );
+
+        assertEquals(0.75, migrated.aptitudeFor(librarian).orElseThrow());
+        assertTrue(migrated.careers().isEmpty());
+        assertTrue(migrated.activeProfession().isEmpty());
+        assertEquals(VillagerPotentialState.CURRENT_SCHEMA_VERSION, migrated.schemaVersion());
     }
 
     @Test

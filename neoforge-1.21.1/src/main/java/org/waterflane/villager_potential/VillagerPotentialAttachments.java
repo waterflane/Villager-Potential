@@ -18,12 +18,14 @@ import org.waterflane.villager_potential.core.AptitudeGenerationConfig;
 import org.waterflane.villager_potential.core.AptitudeGenerator;
 import org.waterflane.villager_potential.core.AptitudeInheritance;
 import org.waterflane.villager_potential.core.AptitudeInheritanceConfig;
+import org.waterflane.villager_potential.core.ProfessionCareerState;
 import org.waterflane.villager_potential.core.ProfessionId;
 import org.waterflane.villager_potential.core.VillagerPotentialState;
 
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.Random;
 import java.util.UUID;
 import java.util.random.RandomGenerator;
@@ -51,12 +53,34 @@ public final class VillagerPotentialAttachments {
             PROFESSION_ID_CODEC,
             Codec.DOUBLE
     );
+    private static final Codec<ProfessionCareerState> CAREER_CODEC = RecordCodecBuilder.create(instance -> instance.group(
+            Codec.LONG.fieldOf("accumulated_profession_time")
+                    .forGetter(ProfessionCareerState::accumulatedProfessionTime),
+            Codec.DOUBLE.fieldOf("learned_skill").forGetter(ProfessionCareerState::learnedSkill),
+            Codec.LONG.fieldOf("first_assignment").forGetter(ProfessionCareerState::firstAssignment),
+            Codec.LONG.fieldOf("latest_assignment").forGetter(ProfessionCareerState::latestAssignment)
+    ).apply(instance, ProfessionCareerState::new));
+    private static final Codec<Map<ProfessionId, ProfessionCareerState>> CAREERS_CODEC =
+            Codec.unboundedMap(PROFESSION_ID_CODEC, CAREER_CODEC);
     static final Codec<VillagerPotentialState> CODEC = RecordCodecBuilder.<PersistedState>create(instance -> instance.group(
             Codec.INT.fieldOf("schema_version").forGetter(PersistedState::schemaVersion),
-            APTITUDES_CODEC.optionalFieldOf("aptitudes", Map.of()).forGetter(PersistedState::aptitudes)
+            APTITUDES_CODEC.optionalFieldOf("aptitudes", Map.of()).forGetter(PersistedState::aptitudes),
+            CAREERS_CODEC.optionalFieldOf("careers", Map.of()).forGetter(PersistedState::careers),
+            PROFESSION_ID_CODEC.optionalFieldOf("active_profession")
+                    .forGetter(PersistedState::activeProfession)
     ).apply(instance, PersistedState::new)).comapFlatMap(
-            persisted -> migrate(persisted.schemaVersion(), persisted.aptitudes()),
-            state -> new PersistedState(state.schemaVersion(), state.aptitudes())
+            persisted -> migrate(
+                    persisted.schemaVersion(),
+                    persisted.aptitudes(),
+                    persisted.careers(),
+                    persisted.activeProfession()
+            ),
+            state -> new PersistedState(
+                    state.schemaVersion(),
+                    state.aptitudes(),
+                    state.careers(),
+                    state.activeProfession()
+            )
     );
 
     private static final DeferredRegister<AttachmentType<?>> ATTACHMENT_TYPES =
@@ -95,6 +119,14 @@ public final class VillagerPotentialAttachments {
                 worldSeed(entity),
                 entity.getUUID()
         );
+        if (!state.careers().isEmpty()) {
+            initializedState = new VillagerPotentialState(
+                    VillagerPotentialState.CURRENT_SCHEMA_VERSION,
+                    initializedState.aptitudes(),
+                    state.careers(),
+                    state.activeProfession()
+            );
+        }
         entity.setData(POTENTIAL, initializedState);
         return initializedState;
     }
@@ -199,15 +231,27 @@ public final class VillagerPotentialAttachments {
 
     private static DataResult<VillagerPotentialState> migrate(
             int schemaVersion,
-            Map<ProfessionId, Double> aptitudes
+            Map<ProfessionId, Double> aptitudes,
+            Map<ProfessionId, ProfessionCareerState> careers,
+            Optional<ProfessionId> activeProfession
     ) {
         try {
-            return DataResult.success(VillagerPotentialState.migrate(schemaVersion, aptitudes));
+            return DataResult.success(VillagerPotentialState.migrate(
+                    schemaVersion,
+                    aptitudes,
+                    careers,
+                    activeProfession
+            ));
         } catch (IllegalArgumentException exception) {
             return DataResult.error(exception::getMessage);
         }
     }
 
-    private record PersistedState(int schemaVersion, Map<ProfessionId, Double> aptitudes) {
+    private record PersistedState(
+            int schemaVersion,
+            Map<ProfessionId, Double> aptitudes,
+            Map<ProfessionId, ProfessionCareerState> careers,
+            Optional<ProfessionId> activeProfession
+    ) {
     }
 }
