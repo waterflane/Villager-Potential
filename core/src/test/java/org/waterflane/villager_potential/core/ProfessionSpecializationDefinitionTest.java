@@ -4,6 +4,7 @@ import org.junit.jupiter.api.Test;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -67,6 +68,31 @@ class ProfessionSpecializationDefinitionTest {
                         GENERAL,
                         List.of(GENERAL, ENCHANTER)
                 )
+        );
+    }
+
+    @Test
+    void exposesValidatedTradeCategoryWeightModifiers() {
+        TradeCategoryId books = TradeCategoryId.parse("villager_potential:books");
+        SpecializationDefinition enchanter = new SpecializationDefinition(
+                ENCHANTER,
+                Map.of(books, 2.0)
+        );
+        ProfessionSpecializationDefinition definition = new ProfessionSpecializationDefinition(
+                LIBRARIAN,
+                new SpecializationDefinition(GENERAL, Map.of()),
+                List.of(enchanter)
+        );
+
+        assertEquals(enchanter, definition.specialization(ENCHANTER).orElseThrow());
+        assertEquals(2.0, enchanter.weightModifierFor(books));
+        assertEquals(
+                1.0,
+                enchanter.weightModifierFor(TradeCategoryId.parse("example:other"))
+        );
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> new SpecializationDefinition(ENCHANTER, Map.of(books, -1.0))
         );
     }
 

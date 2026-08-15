@@ -13,42 +13,79 @@ import java.util.Objects;
  */
 public record ProfessionSpecializationDefinition(
         ProfessionId professionId,
-        SpecializationId generalSpecialization,
-        List<SpecializationId> namedSpecializations
+        SpecializationDefinition generalSpecializationDefinition,
+        List<SpecializationDefinition> namedSpecializationDefinitions
 ) {
     public ProfessionSpecializationDefinition {
         Objects.requireNonNull(professionId, "professionId");
-        Objects.requireNonNull(generalSpecialization, "generalSpecialization");
-        Objects.requireNonNull(namedSpecializations, "namedSpecializations");
-        if (namedSpecializations.stream().anyMatch(Objects::isNull)) {
-            throw new NullPointerException("namedSpecializations must not contain null");
+        Objects.requireNonNull(generalSpecializationDefinition, "generalSpecializationDefinition");
+        Objects.requireNonNull(namedSpecializationDefinitions, "namedSpecializationDefinitions");
+        if (namedSpecializationDefinitions.stream().anyMatch(Objects::isNull)) {
+            throw new NullPointerException("namedSpecializationDefinitions must not contain null");
         }
-        if (namedSpecializations.contains(generalSpecialization)) {
+        List<SpecializationId> namedIds = namedSpecializationDefinitions.stream()
+                .map(SpecializationDefinition::id)
+                .toList();
+        if (namedIds.contains(generalSpecializationDefinition.id())) {
             throw new IllegalArgumentException(
                     "General specialization must not also be a named specialization"
             );
         }
-        if (new HashSet<>(namedSpecializations).size() != namedSpecializations.size()) {
+        if (new HashSet<>(namedIds).size() != namedIds.size()) {
             throw new IllegalArgumentException("Named specializations must be unique");
         }
-        namedSpecializations = List.copyOf(namedSpecializations);
+        namedSpecializationDefinitions = List.copyOf(namedSpecializationDefinitions);
+    }
+
+    public ProfessionSpecializationDefinition(
+            ProfessionId professionId,
+            SpecializationId generalSpecialization,
+            List<SpecializationId> namedSpecializations
+    ) {
+        this(
+                professionId,
+                new SpecializationDefinition(generalSpecialization, java.util.Map.of()),
+                namedSpecializations.stream()
+                        .map(id -> new SpecializationDefinition(id, java.util.Map.of()))
+                        .toList()
+        );
+    }
+
+    public SpecializationId generalSpecialization() {
+        return generalSpecializationDefinition.id();
+    }
+
+    public List<SpecializationId> namedSpecializations() {
+        return namedSpecializationDefinitions.stream()
+                .map(SpecializationDefinition::id)
+                .toList();
     }
 
     public boolean supports(SpecializationId specializationId) {
         Objects.requireNonNull(specializationId, "specializationId");
-        return generalSpecialization.equals(specializationId)
-                || namedSpecializations.contains(specializationId);
+        return generalSpecialization().equals(specializationId)
+                || namedSpecializations().contains(specializationId);
     }
 
     public SpecializationId defaultSpecialization() {
-        return generalSpecialization;
+        return generalSpecialization();
     }
 
     public List<SpecializationId> allSpecializations() {
         java.util.ArrayList<SpecializationId> all =
-                new java.util.ArrayList<>(namedSpecializations.size() + 1);
-        all.add(generalSpecialization);
-        all.addAll(namedSpecializations);
+                new java.util.ArrayList<>(namedSpecializationDefinitions.size() + 1);
+        all.add(generalSpecialization());
+        all.addAll(namedSpecializations());
         return List.copyOf(all);
+    }
+
+    public java.util.Optional<SpecializationDefinition> specialization(SpecializationId specializationId) {
+        Objects.requireNonNull(specializationId, "specializationId");
+        if (generalSpecialization().equals(specializationId)) {
+            return java.util.Optional.of(generalSpecializationDefinition);
+        }
+        return namedSpecializationDefinitions.stream()
+                .filter(definition -> definition.id().equals(specializationId))
+                .findFirst();
     }
 }

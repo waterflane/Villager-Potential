@@ -6,6 +6,7 @@ import net.minecraft.world.entity.monster.ZombieVillager;
 import net.minecraft.world.entity.npc.Villager;
 import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.fml.common.EventBusSubscriber;
+import net.neoforged.neoforge.event.AddReloadListenerEvent;
 import net.neoforged.neoforge.event.entity.EntityJoinLevelEvent;
 import net.neoforged.neoforge.event.entity.EntityLeaveLevelEvent;
 import net.neoforged.neoforge.event.entity.living.LivingConversionEvent;
@@ -23,6 +24,11 @@ public final class VillagerPotentialEvents {
     );
 
     private VillagerPotentialEvents() {
+    }
+
+    @SubscribeEvent
+    static void onAddReloadListeners(AddReloadListenerEvent event) {
+        event.addListener(SpecializationDefinitionManager.INSTANCE);
     }
 
     @SubscribeEvent
