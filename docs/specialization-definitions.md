@@ -28,8 +28,9 @@ files can be consumed by a future Forge 1.20.1 adapter:
 All IDs must be explicit lowercase namespaced IDs. Category values are finite,
 non-negative multiplicative weight modifiers. An omitted category has the
 neutral modifier `1.0`; zero reserves the ability to disable a category. These
-definitions are loaded and exposed now, but their weights do not yet affect
-trade selection.
+modifiers are applied to weighted sampling without replacement over the live
+candidate array selected by vanilla. They do not add, remove, or recreate pool
+entries. The general specialization uses vanilla's unmodified uniform chooser.
 When a villager first enters a profession, one named specialization is selected
 and stored on that profession's career. An empty `specializations` array uses
 the definition's `general_specialization`; a profession with no definition uses

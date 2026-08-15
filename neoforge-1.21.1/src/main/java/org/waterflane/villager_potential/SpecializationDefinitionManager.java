@@ -32,7 +32,6 @@ import java.util.Optional;
 
 /**
  * Loads the version-neutral specialization format from server data packs.
- * No loaded weights are applied to trade selection yet.
  */
 public final class SpecializationDefinitionManager extends SimpleJsonResourceReloadListener {
     public static final String DIRECTORY = Villager_potential.MODID + "/specializations";

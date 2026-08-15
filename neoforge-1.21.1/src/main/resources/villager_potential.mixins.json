@@ -4,6 +4,7 @@
   "package": "org.waterflane.villager_potential.mixin",
   "compatibilityLevel": "JAVA_21",
   "mixins": [
+    "AbstractVillagerTradeSelectionMixin",
     "VillagerBreedingMixin",
     "VillagerLevelUpMixin"
   ],
