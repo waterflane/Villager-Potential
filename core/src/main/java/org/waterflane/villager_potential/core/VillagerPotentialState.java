@@ -13,9 +13,10 @@ public record VillagerPotentialState(
         int schemaVersion,
         Map<ProfessionId, Double> aptitudes,
         Map<ProfessionId, ProfessionCareerState> careers,
-        Optional<ProfessionId> activeProfession
+        Optional<ProfessionId> activeProfession,
+        Map<ProfessionId, ProfessionActivityState> professionActivities
 ) {
-    public static final int CURRENT_SCHEMA_VERSION = 3;
+    public static final int CURRENT_SCHEMA_VERSION = 4;
 
     public VillagerPotentialState {
         if (schemaVersion < 1) {
@@ -36,6 +37,19 @@ public record VillagerPotentialState(
                     "Active profession must have a career record: " + activeProfession.get()
             );
         }
+
+        Objects.requireNonNull(professionActivities, "professionActivities");
+        professionActivities.forEach(VillagerPotentialState::validateProfessionActivity);
+        professionActivities = Map.copyOf(professionActivities);
+    }
+
+    public VillagerPotentialState(
+            int schemaVersion,
+            Map<ProfessionId, Double> aptitudes,
+            Map<ProfessionId, ProfessionCareerState> careers,
+            Optional<ProfessionId> activeProfession
+    ) {
+        this(schemaVersion, aptitudes, careers, activeProfession, Map.of());
     }
 
     public VillagerPotentialState(int schemaVersion, Map<ProfessionId, Double> aptitudes) {
@@ -51,7 +65,8 @@ public record VillagerPotentialState(
                 CURRENT_SCHEMA_VERSION,
                 Map.of(),
                 Map.of(),
-                Optional.empty()
+                Optional.empty(),
+                Map.of()
         );
     }
 
@@ -69,7 +84,8 @@ public record VillagerPotentialState(
                 schemaVersion,
                 updatedAptitudes,
                 careers,
-                activeProfession
+                activeProfession,
+                professionActivities
         );
     }
 
@@ -90,7 +106,8 @@ public record VillagerPotentialState(
                 schemaVersion,
                 aptitudes,
                 updatedCareers,
-                activeProfession
+                activeProfession,
+                professionActivities
         );
     }
 
@@ -117,7 +134,8 @@ public record VillagerPotentialState(
                 schemaVersion,
                 aptitudes,
                 updatedCareers,
-                Optional.of(professionId)
+                Optional.of(professionId),
+                professionActivities
         );
     }
 
@@ -125,7 +143,59 @@ public record VillagerPotentialState(
         if (activeProfession.isEmpty()) {
             return this;
         }
-        return new VillagerPotentialState(schemaVersion, aptitudes, careers, Optional.empty());
+        return new VillagerPotentialState(
+                schemaVersion,
+                aptitudes,
+                careers,
+                Optional.empty(),
+                professionActivities
+        );
+    }
+
+    /**
+     * Reads profession-wide recent trade activity at a game time. Offer identity
+     * is deliberately absent so this state cannot become per-offer demand.
+     */
+    public double professionActivityFor(
+            ProfessionId professionId,
+            long gameTime,
+            ProfessionActivityConfig config
+    ) {
+        Objects.requireNonNull(professionId, "professionId");
+        Objects.requireNonNull(config, "config");
+        ProfessionActivityState activity = professionActivities.get(professionId);
+        return activity == null ? config.baseline() : activity.scoreAt(gameTime, config);
+    }
+
+    /**
+     * Records one successful trade for exactly one profession. This operation
+     * does not touch learned skill, profession time, aptitude, or vanilla XP.
+     */
+    public VillagerPotentialState recordProfessionTrade(
+            ProfessionId professionId,
+            long gameTime,
+            ProfessionActivityConfig config
+    ) {
+        Objects.requireNonNull(professionId, "professionId");
+        Objects.requireNonNull(config, "config");
+        ProfessionActivityState activity = professionActivities.get(professionId);
+        ProfessionActivityState updatedActivity = activity == null
+                ? ProfessionActivityState.recordFirstTrade(gameTime, config)
+                : activity.recordTrade(gameTime, config);
+        if (updatedActivity == activity) {
+            return this;
+        }
+
+        Map<ProfessionId, ProfessionActivityState> updatedActivities =
+                new HashMap<>(professionActivities);
+        updatedActivities.put(professionId, updatedActivity);
+        return new VillagerPotentialState(
+                schemaVersion,
+                aptitudes,
+                careers,
+                activeProfession,
+                updatedActivities
+        );
     }
 
     /**
@@ -192,7 +262,8 @@ public record VillagerPotentialState(
                 persistedSchemaVersion,
                 persistedAptitudes,
                 Map.of(),
-                Optional.empty()
+                Optional.empty(),
+                Map.of()
         );
     }
 
@@ -202,12 +273,36 @@ public record VillagerPotentialState(
             Map<ProfessionId, ProfessionCareerState> persistedCareers,
             Optional<ProfessionId> persistedActiveProfession
     ) {
+        return migrate(
+                persistedSchemaVersion,
+                persistedAptitudes,
+                persistedCareers,
+                persistedActiveProfession,
+                Map.of()
+        );
+    }
+
+    public static VillagerPotentialState migrate(
+            int persistedSchemaVersion,
+            Map<ProfessionId, Double> persistedAptitudes,
+            Map<ProfessionId, ProfessionCareerState> persistedCareers,
+            Optional<ProfessionId> persistedActiveProfession,
+            Map<ProfessionId, ProfessionActivityState> persistedProfessionActivities
+    ) {
         return switch (persistedSchemaVersion) {
             case CURRENT_SCHEMA_VERSION -> new VillagerPotentialState(
                     persistedSchemaVersion,
                     persistedAptitudes,
                     persistedCareers,
-                    persistedActiveProfession
+                    persistedActiveProfession,
+                    persistedProfessionActivities
+            );
+            case 3 -> new VillagerPotentialState(
+                    CURRENT_SCHEMA_VERSION,
+                    persistedAptitudes,
+                    persistedCareers,
+                    persistedActiveProfession,
+                    Map.of()
             );
             case 2 -> new VillagerPotentialState(
                     CURRENT_SCHEMA_VERSION,
@@ -239,5 +334,13 @@ public record VillagerPotentialState(
         if (aptitude == null || !Double.isFinite(aptitude)) {
             throw new IllegalArgumentException("Aptitude must be finite for " + professionId);
         }
+    }
+
+    private static void validateProfessionActivity(
+            ProfessionId professionId,
+            ProfessionActivityState activity
+    ) {
+        Objects.requireNonNull(professionId, "professionId");
+        Objects.requireNonNull(activity, "activity");
     }
 }

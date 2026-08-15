@@ -9,6 +9,7 @@ import net.neoforged.fml.common.EventBusSubscriber;
 import net.neoforged.neoforge.event.entity.EntityJoinLevelEvent;
 import net.neoforged.neoforge.event.entity.EntityLeaveLevelEvent;
 import net.neoforged.neoforge.event.entity.living.LivingConversionEvent;
+import net.neoforged.neoforge.event.entity.player.TradeWithVillagerEvent;
 import net.neoforged.neoforge.event.tick.EntityTickEvent;
 
 import java.util.Collections;
@@ -58,6 +59,18 @@ public final class VillagerPotentialEvents {
         if (event.getEntity() instanceof Villager villager
                 && villager.level() instanceof ServerLevel serverLevel) {
             VillagerPotentialAttachments.trackProfession(villager, serverLevel.getGameTime());
+        }
+    }
+
+    /**
+     * The event represents an already completed trade. Only the villager's
+     * current profession is recorded; offer identity remains outside activity.
+     */
+    @SubscribeEvent
+    static void onTradeWithVillager(TradeWithVillagerEvent event) {
+        if (event.getAbstractVillager() instanceof Villager villager
+                && villager.level() instanceof ServerLevel serverLevel) {
+            VillagerPotentialAttachments.recordTrade(villager, serverLevel.getGameTime());
         }
     }
 

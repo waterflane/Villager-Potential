@@ -155,6 +155,40 @@ class VillagerPotentialAttachmentsTest {
     }
 
     @Test
+    void tradeActivityPersistsOnlyScoreAndDecayAnchor() {
+        ProfessionId librarian = ProfessionId.parse("minecraft:librarian");
+        VillagerPotentialState original = new VillagerPotentialState(
+                VillagerPotentialState.CURRENT_SCHEMA_VERSION,
+                Map.of(librarian, 1.25)
+        ).recordProfessionTrade(
+                librarian,
+                500L,
+                VillagerPotentialAttachments.PROFESSION_ACTIVITY_CONFIG
+        );
+
+        Tag serialized = VillagerPotentialAttachments.CODEC
+                .encodeStart(NbtOps.INSTANCE, original)
+                .getOrThrow();
+        VillagerPotentialState restored = VillagerPotentialAttachments.CODEC
+                .parse(NbtOps.INSTANCE, serialized)
+                .getOrThrow();
+        CompoundTag activity = ((CompoundTag) serialized)
+                .getCompound("profession_activity")
+                .getCompound(librarian.toString());
+
+        assertEquals(Set.of("score", "last_update_game_time"), activity.getAllKeys());
+        assertEquals(original, restored);
+        assertEquals(
+                VillagerPotentialAttachments.PROFESSION_ACTIVITY_CONFIG.increasePerTrade(),
+                restored.professionActivityFor(
+                        librarian,
+                        500L,
+                        VillagerPotentialAttachments.PROFESSION_ACTIVITY_CONFIG
+                )
+        );
+    }
+
+    @Test
     void twoVillagersCanHaveDifferentAptitudes() {
         VillagerPotentialState first = VillagerPotentialAttachments.get(
                 villagerWith(null, FIRST_VILLAGER_ID, WORLD_SEED)

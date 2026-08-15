@@ -213,6 +213,24 @@ class VillagerPotentialStateTest {
     }
 
     @Test
+    void migratesVersionThreeWithoutInventingTradeActivity() {
+        ProfessionId librarian = ProfessionId.parse("minecraft:librarian");
+        ProfessionCareerState career = ProfessionCareerState.firstAssignedAt(100L)
+                .withLearnedSkill(0.4);
+
+        VillagerPotentialState migrated = VillagerPotentialState.migrate(
+                3,
+                Map.of(librarian, 1.25),
+                Map.of(librarian, career),
+                java.util.Optional.of(librarian)
+        );
+
+        assertEquals(career, migrated.careerFor(librarian).orElseThrow());
+        assertTrue(migrated.professionActivities().isEmpty());
+        assertEquals(VillagerPotentialState.CURRENT_SCHEMA_VERSION, migrated.schemaVersion());
+    }
+
+    @Test
     void rejectsUnknownNewerSchemaVersion() {
         assertThrows(
                 IllegalArgumentException.class,

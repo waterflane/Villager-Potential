@@ -19,6 +19,8 @@ import org.waterflane.villager_potential.core.AptitudeGenerationConfig;
 import org.waterflane.villager_potential.core.AptitudeGenerator;
 import org.waterflane.villager_potential.core.AptitudeInheritance;
 import org.waterflane.villager_potential.core.AptitudeInheritanceConfig;
+import org.waterflane.villager_potential.core.ProfessionActivityConfig;
+import org.waterflane.villager_potential.core.ProfessionActivityState;
 import org.waterflane.villager_potential.core.ProfessionCareerState;
 import org.waterflane.villager_potential.core.ProfessionId;
 import org.waterflane.villager_potential.core.SkillProgressionConfig;
@@ -44,6 +46,8 @@ public final class VillagerPotentialAttachments {
             1.0,
             List.of(0.2, 0.5, 0.8, 1.0)
     );
+    static final ProfessionActivityConfig PROFESSION_ACTIVITY_CONFIG =
+            new ProfessionActivityConfig(0.0, 1.0, 0.1, 0.0001);
     private static final Map<Villager, ProfessionProgressBatch> PROFESSION_PROGRESS_BATCHES =
             new WeakHashMap<>();
     static final AptitudeGenerationConfig APTITUDE_CONFIG = new AptitudeGenerationConfig(
@@ -77,24 +81,39 @@ public final class VillagerPotentialAttachments {
     ).apply(instance, ProfessionCareerState::new));
     private static final Codec<Map<ProfessionId, ProfessionCareerState>> CAREERS_CODEC =
             Codec.unboundedMap(PROFESSION_ID_CODEC, CAREER_CODEC);
+    private static final Codec<ProfessionActivityState> PROFESSION_ACTIVITY_CODEC =
+            RecordCodecBuilder.create(instance -> instance.group(
+                    Codec.DOUBLE.fieldOf("score").forGetter(ProfessionActivityState::score),
+                    Codec.LONG.fieldOf("last_update_game_time")
+                            .forGetter(ProfessionActivityState::lastUpdateGameTime)
+            ).apply(instance, ProfessionActivityState::new));
+    private static final Codec<Map<ProfessionId, ProfessionActivityState>>
+            PROFESSION_ACTIVITIES_CODEC = Codec.unboundedMap(
+                    PROFESSION_ID_CODEC,
+                    PROFESSION_ACTIVITY_CODEC
+            );
     static final Codec<VillagerPotentialState> CODEC = RecordCodecBuilder.<PersistedState>create(instance -> instance.group(
             Codec.INT.fieldOf("schema_version").forGetter(PersistedState::schemaVersion),
             APTITUDES_CODEC.optionalFieldOf("aptitudes", Map.of()).forGetter(PersistedState::aptitudes),
             CAREERS_CODEC.optionalFieldOf("careers", Map.of()).forGetter(PersistedState::careers),
             PROFESSION_ID_CODEC.optionalFieldOf("active_profession")
-                    .forGetter(PersistedState::activeProfession)
+                    .forGetter(PersistedState::activeProfession),
+            PROFESSION_ACTIVITIES_CODEC.optionalFieldOf("profession_activity", Map.of())
+                    .forGetter(PersistedState::professionActivities)
     ).apply(instance, PersistedState::new)).comapFlatMap(
             persisted -> migrate(
                     persisted.schemaVersion(),
                     persisted.aptitudes(),
                     persisted.careers(),
-                    persisted.activeProfession()
+                    persisted.activeProfession(),
+                    persisted.professionActivities()
             ),
             state -> new PersistedState(
                     state.schemaVersion(),
                     state.aptitudes(),
                     state.careers(),
-                    state.activeProfession()
+                    state.activeProfession(),
+                    state.professionActivities()
             )
     );
 
@@ -174,6 +193,26 @@ public final class VillagerPotentialAttachments {
         }
     }
 
+    static void recordTrade(Villager villager, long gameTime) {
+        Objects.requireNonNull(villager, "villager");
+        ProfessionId profession = toCareerProfession(
+                villager.getVillagerData().getProfession()
+        );
+        if (profession == null) {
+            return;
+        }
+
+        VillagerPotentialState state = get(villager);
+        VillagerPotentialState updatedState = state.recordProfessionTrade(
+                profession,
+                gameTime,
+                PROFESSION_ACTIVITY_CONFIG
+        );
+        if (updatedState != state) {
+            villager.setData(POTENTIAL, updatedState);
+        }
+    }
+
     private static ProfessionId toCareerProfession(VillagerProfession profession) {
         return profession == VillagerProfession.NONE || profession == VillagerProfession.NITWIT
                 ? null
@@ -214,12 +253,13 @@ public final class VillagerPotentialAttachments {
                 worldSeed(entity),
                 entity.getUUID()
         );
-        if (!state.careers().isEmpty()) {
+        if (!state.careers().isEmpty() || !state.professionActivities().isEmpty()) {
             initializedState = new VillagerPotentialState(
                     VillagerPotentialState.CURRENT_SCHEMA_VERSION,
                     initializedState.aptitudes(),
                     state.careers(),
-                    state.activeProfession()
+                    state.activeProfession(),
+                    state.professionActivities()
             );
         }
         entity.setData(POTENTIAL, initializedState);
@@ -328,14 +368,16 @@ public final class VillagerPotentialAttachments {
             int schemaVersion,
             Map<ProfessionId, Double> aptitudes,
             Map<ProfessionId, ProfessionCareerState> careers,
-            Optional<ProfessionId> activeProfession
+            Optional<ProfessionId> activeProfession,
+            Map<ProfessionId, ProfessionActivityState> professionActivities
     ) {
         try {
             return DataResult.success(VillagerPotentialState.migrate(
                     schemaVersion,
                     aptitudes,
                     careers,
-                    activeProfession
+                    activeProfession,
+                    professionActivities
             ));
         } catch (IllegalArgumentException exception) {
             return DataResult.error(exception::getMessage);
@@ -346,7 +388,8 @@ public final class VillagerPotentialAttachments {
             int schemaVersion,
             Map<ProfessionId, Double> aptitudes,
             Map<ProfessionId, ProfessionCareerState> careers,
-            Optional<ProfessionId> activeProfession
+            Optional<ProfessionId> activeProfession,
+            Map<ProfessionId, ProfessionActivityState> professionActivities
     ) {
     }
 
