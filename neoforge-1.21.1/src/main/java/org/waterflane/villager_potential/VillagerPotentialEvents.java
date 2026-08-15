@@ -1,12 +1,24 @@
 package org.waterflane.villager_potential;
 
+import net.minecraft.world.entity.EntityType;
+import net.minecraft.world.entity.monster.ZombieVillager;
 import net.minecraft.world.entity.npc.Villager;
 import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.fml.common.EventBusSubscriber;
 import net.neoforged.neoforge.event.entity.EntityJoinLevelEvent;
+import net.neoforged.neoforge.event.entity.living.LivingConversionEvent;
+import net.neoforged.neoforge.event.tick.EntityTickEvent;
+
+import java.util.Collections;
+import java.util.Set;
+import java.util.WeakHashMap;
 
 @EventBusSubscriber(modid = Villager_potential.MODID)
 public final class VillagerPotentialEvents {
+    private static final Set<Villager> NEW_VILLAGERS = Collections.synchronizedSet(
+            Collections.newSetFromMap(new WeakHashMap<>())
+    );
+
     private VillagerPotentialEvents() {
     }
 
@@ -15,7 +27,35 @@ public final class VillagerPotentialEvents {
         if (!event.loadedFromDisk()
                 && !event.getLevel().isClientSide()
                 && event.getEntity() instanceof Villager villager) {
+            NEW_VILLAGERS.add(villager);
+        }
+    }
+
+    /**
+     * Conversion outcomes join the level before NeoForge copies attachments in
+     * LivingConversionEvent.Post. Waiting until the first entity tick prevents a
+     * cured villager from receiving a throwaway generated identity at join time.
+     */
+    @SubscribeEvent
+    static void onEntityTickPre(EntityTickEvent.Pre event) {
+        if (event.getEntity() instanceof Villager villager
+                && NEW_VILLAGERS.remove(villager)) {
             VillagerPotentialAttachments.get(villager);
+        }
+    }
+
+    @SubscribeEvent
+    static void onLivingConversionPre(LivingConversionEvent.Pre event) {
+        if (event.getEntity().level().isClientSide()) {
+            return;
+        }
+
+        if (event.getEntity() instanceof Villager villager
+                && event.getOutcome() == EntityType.ZOMBIE_VILLAGER) {
+            VillagerPotentialAttachments.get(villager);
+        } else if (event.getEntity() instanceof ZombieVillager zombieVillager
+                && event.getOutcome() == EntityType.VILLAGER) {
+            VillagerPotentialAttachments.get(zombieVillager);
         }
     }
 }

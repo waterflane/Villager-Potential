@@ -3,10 +3,14 @@ package org.waterflane.villager_potential;
 import com.mojang.serialization.Codec;
 import com.mojang.serialization.DataResult;
 import com.mojang.serialization.codecs.RecordCodecBuilder;
+import net.minecraft.core.HolderLookup;
 import net.minecraft.server.level.ServerLevel;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.monster.ZombieVillager;
 import net.minecraft.world.entity.npc.Villager;
 import net.neoforged.bus.api.IEventBus;
 import net.neoforged.neoforge.attachment.AttachmentType;
+import net.neoforged.neoforge.attachment.IAttachmentHolder;
 import net.neoforged.neoforge.registries.DeferredHolder;
 import net.neoforged.neoforge.registries.DeferredRegister;
 import net.neoforged.neoforge.registries.NeoForgeRegistries;
@@ -60,6 +64,8 @@ public final class VillagerPotentialAttachments {
     private static final DeferredHolder<AttachmentType<?>, AttachmentType<VillagerPotentialState>> POTENTIAL =
             ATTACHMENT_TYPES.register("potential", () -> AttachmentType.builder(VillagerPotentialState::createDefault)
                     .serialize(CODEC)
+                    .copyOnDeath()
+                    .copyHandler(VillagerPotentialAttachments::copyVillagerIdentity)
                     .build());
 
     private VillagerPotentialAttachments() {
@@ -71,17 +77,38 @@ public final class VillagerPotentialAttachments {
 
     public static VillagerPotentialState get(Villager villager) {
         Objects.requireNonNull(villager, "villager");
-        VillagerPotentialState state = villager.getData(POTENTIAL);
+        return getOrInitialize(villager);
+    }
+
+    static VillagerPotentialState get(ZombieVillager zombieVillager) {
+        Objects.requireNonNull(zombieVillager, "zombieVillager");
+        return getOrInitialize(zombieVillager);
+    }
+
+    private static VillagerPotentialState getOrInitialize(Entity entity) {
+        VillagerPotentialState state = entity.getData(POTENTIAL);
         if (!state.aptitudes().isEmpty()) {
             return state;
         }
 
         VillagerPotentialState initializedState = initialize(
-                worldSeed(villager),
-                villager.getUUID()
+                worldSeed(entity),
+                entity.getUUID()
         );
-        villager.setData(POTENTIAL, initializedState);
+        entity.setData(POTENTIAL, initializedState);
         return initializedState;
+    }
+
+    /**
+     * Potential is immutable, so retaining the complete state object is equivalent
+     * to a serialize/deserialize copy and automatically includes later state fields.
+     */
+    static VillagerPotentialState copyVillagerIdentity(
+            VillagerPotentialState state,
+            IAttachmentHolder target,
+            HolderLookup.Provider provider
+    ) {
+        return target instanceof Villager || target instanceof ZombieVillager ? state : null;
     }
 
     /**
@@ -139,8 +166,8 @@ public final class VillagerPotentialAttachments {
         return new VillagerPotentialState(VillagerPotentialState.CURRENT_SCHEMA_VERSION, aptitudes);
     }
 
-    private static long worldSeed(Villager villager) {
-        return villager.level() instanceof ServerLevel serverLevel ? serverLevel.getSeed() : 0L;
+    private static long worldSeed(Entity entity) {
+        return entity.level() instanceof ServerLevel serverLevel ? serverLevel.getSeed() : 0L;
     }
 
     private static long initializationSeed(long worldSeed, UUID villagerId) {

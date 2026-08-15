@@ -55,7 +55,7 @@ As in zombification, the outcome joins the level before its villager-specific st
 
 Use one registered NeoForge `AttachmentType<PotentialData>` (or the final scalar type) as the storage primitive. Data attachments are preferable to an entity capability here: a serializer gives them built-in entity NBT persistence, lazy defaults, and conversion copying. Register the type in `NeoForgeRegistries.Keys.ATTACHMENT_TYPES`.
 
-1. **Initialize new villagers at level entry.** On the logical server, handle `EntityJoinLevelEvent` for `Villager` with `loadedFromDisk() == false` and materialize the attachment through the mod's single Potential accessor. This covers world generation, both summon forms, both spawn-egg forms, breeding, curing outcomes, and direct programmatic additions. Make the accessor idempotent (`hasData`/`getExistingDataOrNull` before generation, or rely on `getData`'s one-time default insertion).
+1. **Queue initialization for new villagers at level entry.** On the logical server, handle `EntityJoinLevelEvent` for `Villager` with `loadedFromDisk() == false`, then materialize the attachment through the mod's single Potential accessor on the villager's first entity tick. This covers world generation, both summon forms, both spawn-egg forms, breeding, curing outcomes, and direct programmatic additions. The one-tick deferral matters for curing: the outcome joins before `LivingConversionEvent.Post` copies attachments, so generating immediately in the join event would create a throwaway aptitude state. Make the accessor idempotent (`hasData`/`getExistingDataOrNull` before generation, or rely on `getData`'s one-time default insertion).
 
    Level entry can precede AI profession assignment for structure villagers. Initial Potential generation at this boundary must not assume that `getVillagerData().getProfession()` is the villager's eventual profession.
 
@@ -71,7 +71,7 @@ There is one lazy-upgrade edge case: NeoForge copies only attachments already pr
 
 - Register a serializable Potential attachment in the attachment-type registry.
 - Keep generation in one idempotent, logical-server-only accessor.
-- Materialize on new, non-disk `Villager` joins; leave disk-loaded villagers lazy.
+- Queue materialization on new, non-disk `Villager` joins and perform it on their first tick; leave disk-loaded villagers lazy.
 - Materialize the source in `LivingConversionEvent.Pre` for only the two villager conversion pairs.
 - Opt into NeoForge conversion copy with `copyOnDeath()` and, if needed, a target-filtering copy handler.
 - Do not depend solely on `finalizeSpawn`, `MobSpawnType`, `BabyEntitySpawnEvent`, or a profession behavior for lifecycle coverage.

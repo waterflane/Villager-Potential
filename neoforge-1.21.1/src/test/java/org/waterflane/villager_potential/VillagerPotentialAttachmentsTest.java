@@ -6,6 +6,7 @@ import net.minecraft.nbt.Tag;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.entity.npc.Villager;
 import net.neoforged.neoforge.event.entity.EntityJoinLevelEvent;
+import net.neoforged.neoforge.event.tick.EntityTickEvent;
 import org.junit.jupiter.api.Test;
 import org.waterflane.villager_potential.core.AptitudeInheritance;
 import org.waterflane.villager_potential.core.ProfessionId;
@@ -56,13 +57,16 @@ class VillagerPotentialAttachmentsTest {
     }
 
     @Test
-    void newServerSideVillagerIsInitializedWhenItJoinsTheLevel() {
+    void newServerSideVillagerIsInitializedOnItsFirstTickAfterJoining() {
         Villager villager = villagerWith(null, FIRST_VILLAGER_ID, WORLD_SEED);
         ServerLevel level = (ServerLevel) villager.level();
 
         VillagerPotentialEvents.onEntityJoinLevel(
                 new EntityJoinLevelEvent(villager, level, false)
         );
+        verify(villager, times(0)).getData(any(Supplier.class));
+
+        VillagerPotentialEvents.onEntityTickPre(new EntityTickEvent.Pre(villager));
         VillagerPotentialState state = VillagerPotentialAttachments.get(villager);
 
         assertEquals(13, state.aptitudes().size());
