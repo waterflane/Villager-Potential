@@ -7,8 +7,13 @@ import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.entity.npc.Villager;
 import net.neoforged.neoforge.event.entity.EntityJoinLevelEvent;
 import org.junit.jupiter.api.Test;
+import org.waterflane.villager_potential.core.AptitudeInheritance;
+import org.waterflane.villager_potential.core.ProfessionId;
 import org.waterflane.villager_potential.core.VillagerPotentialState;
 
+import java.util.LinkedHashMap;
+import java.util.Map;
+import java.util.Random;
 import java.util.UUID;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicReference;
@@ -16,6 +21,7 @@ import java.util.function.Supplier;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
+import static org.junit.jupiter.api.Assertions.assertNotSame;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
@@ -144,6 +150,112 @@ class VillagerPotentialAttachmentsTest {
     }
 
     @Test
+    void childInheritsFromTwoInitializedParentsWithoutChangingThem() {
+        VillagerPotentialState firstParentState = stateWithEveryAptitude(1.4);
+        VillagerPotentialState secondParentState = stateWithEveryAptitude(0.8);
+        Villager firstParent = villagerWith(firstParentState, FIRST_VILLAGER_ID, WORLD_SEED);
+        Villager secondParent = villagerWith(secondParentState, SECOND_VILLAGER_ID, WORLD_SEED);
+        Villager child = villagerWith(
+                null,
+                UUID.fromString("00000000-0000-0000-0000-000000000003"),
+                WORLD_SEED
+        );
+        Random expectedRandom = new Random(123L);
+        VillagerPotentialState expected = AptitudeInheritance.inherit(
+                firstParentState,
+                secondParentState,
+                VillagerProfessionIds.supportedVanillaProfessions(),
+                VillagerPotentialAttachments.APTITUDE_CONFIG,
+                VillagerPotentialAttachments.INHERITANCE_CONFIG,
+                expectedRandom
+        );
+
+        VillagerPotentialState inherited = VillagerPotentialAttachments.inherit(
+                firstParent,
+                secondParent,
+                child,
+                new Random(123L)
+        );
+
+        assertEquals(expected, inherited);
+        assertNotSame(firstParentState, inherited);
+        assertNotSame(secondParentState, inherited);
+        assertSame(firstParentState, VillagerPotentialAttachments.get(firstParent));
+        assertSame(secondParentState, VillagerPotentialAttachments.get(secondParent));
+        verify(firstParent, times(0)).setData(any(Supplier.class), any());
+        verify(secondParent, times(0)).setData(any(Supplier.class), any());
+        verify(child, times(1)).setData(any(Supplier.class), eq(inherited));
+    }
+
+    @Test
+    void inheritedChildIsInitializedOnlyOnceWithFreshAptitudeState() {
+        Villager firstParent = villagerWith(
+                stateWithEveryAptitude(1.2),
+                FIRST_VILLAGER_ID,
+                WORLD_SEED
+        );
+        Villager secondParent = villagerWith(
+                stateWithEveryAptitude(0.9),
+                SECOND_VILLAGER_ID,
+                WORLD_SEED
+        );
+        Villager child = villagerWith(
+                null,
+                UUID.fromString("00000000-0000-0000-0000-000000000004"),
+                WORLD_SEED
+        );
+
+        VillagerPotentialState inherited = VillagerPotentialAttachments.inherit(
+                firstParent,
+                secondParent,
+                child,
+                new Random(456L)
+        );
+        VillagerPotentialEvents.onEntityJoinLevel(
+                new EntityJoinLevelEvent(child, child.level(), false)
+        );
+        VillagerPotentialState repeated = VillagerPotentialAttachments.inherit(
+                firstParent,
+                secondParent,
+                child,
+                new Random(789L)
+        );
+
+        assertSame(inherited, repeated);
+        assertEquals(VillagerPotentialState.CURRENT_SCHEMA_VERSION, inherited.schemaVersion());
+        assertEquals(
+                Set.copyOf(VillagerProfessionIds.supportedVanillaProfessions()),
+                inherited.aptitudes().keySet()
+        );
+        verify(child, times(1)).setData(any(Supplier.class), eq(inherited));
+    }
+
+    @Test
+    void missingParentPotentialUsesSafeInitializationFallback() {
+        Villager firstParent = villagerWith(null, FIRST_VILLAGER_ID, WORLD_SEED);
+        Villager secondParent = villagerWith(null, SECOND_VILLAGER_ID, WORLD_SEED);
+        Villager child = villagerWith(
+                null,
+                UUID.fromString("00000000-0000-0000-0000-000000000005"),
+                WORLD_SEED
+        );
+
+        VillagerPotentialState inherited = VillagerPotentialAttachments.inherit(
+                firstParent,
+                secondParent,
+                child,
+                new Random(987L)
+        );
+
+        assertEquals(13, inherited.aptitudes().size());
+        assertEquals(13, VillagerPotentialAttachments.get(firstParent).aptitudes().size());
+        assertEquals(13, VillagerPotentialAttachments.get(secondParent).aptitudes().size());
+        verify(firstParent, times(1)).setData(any(Supplier.class), any());
+        verify(secondParent, times(1)).setData(any(Supplier.class), any());
+        verify(child, times(1)).setData(any(Supplier.class), eq(inherited));
+    }
+
+    @Test
     void olderSchemaStillUsesTheLazyInitializationSentinel() {
         CompoundTag serialized = new CompoundTag();
         serialized.putInt("schema_version", 1);
@@ -174,6 +286,14 @@ class VillagerPotentialAttachmentsTest {
         serialized.putInt("schema_version", VillagerPotentialState.CURRENT_SCHEMA_VERSION + 1);
 
         assertTrue(VillagerPotentialAttachments.CODEC.parse(NbtOps.INSTANCE, serialized).isError());
+    }
+
+    private static VillagerPotentialState stateWithEveryAptitude(double aptitude) {
+        Map<ProfessionId, Double> aptitudes = new LinkedHashMap<>();
+        VillagerProfessionIds.supportedVanillaProfessions().forEach(
+                profession -> aptitudes.put(profession, aptitude)
+        );
+        return new VillagerPotentialState(VillagerPotentialState.CURRENT_SCHEMA_VERSION, aptitudes);
     }
 
     @SuppressWarnings({"unchecked", "rawtypes"})
