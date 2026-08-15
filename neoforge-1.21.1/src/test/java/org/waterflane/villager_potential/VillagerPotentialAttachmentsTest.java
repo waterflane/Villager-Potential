@@ -7,6 +7,7 @@ import net.minecraft.world.entity.npc.Villager;
 import org.junit.jupiter.api.Test;
 import org.waterflane.villager_potential.core.VillagerPotentialState;
 
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Supplier;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -18,7 +19,25 @@ import static org.mockito.Mockito.when;
 
 class VillagerPotentialAttachmentsTest {
     @Test
-    void stateSurvivesSerializationAndDeserialization() {
+    void oldVillagerReceivesDefaultStateWhenFirstRequested() {
+        Villager villager = villagerWith(null);
+
+        VillagerPotentialState state = VillagerPotentialAttachments.get(villager);
+
+        assertEquals(VillagerPotentialState.createDefault(), state);
+    }
+
+    @Test
+    void repeatedAccessPreservesPersistedState() {
+        VillagerPotentialState storedState = new VillagerPotentialState(3);
+        Villager villager = villagerWith(storedState);
+
+        assertSame(storedState, VillagerPotentialAttachments.get(villager));
+        assertSame(storedState, VillagerPotentialAttachments.get(villager));
+    }
+
+    @Test
+    void saveAndLoadDoesNotReplaceState() {
         VillagerPotentialState original = new VillagerPotentialState(7);
 
         Tag serialized = VillagerPotentialAttachments.CODEC
@@ -27,37 +46,41 @@ class VillagerPotentialAttachmentsTest {
         VillagerPotentialState restored = VillagerPotentialAttachments.CODEC
                 .parse(NbtOps.INSTANCE, serialized)
                 .getOrThrow();
+        Villager loadedVillager = villagerWith(restored);
 
         assertEquals(7, ((CompoundTag) serialized).getInt("schema_version"));
         assertEquals(original, restored);
+        assertSame(restored, VillagerPotentialAttachments.get(loadedVillager));
+        assertSame(restored, VillagerPotentialAttachments.get(loadedVillager));
     }
 
     @Test
-    void twoVillagersHaveIndependentState() {
-        Villager firstVillager = villagerWith(new VillagerPotentialState(1));
-        Villager secondVillager = villagerWith(new VillagerPotentialState(2));
+    void differentVillagersInitializeIndependently() {
+        Villager firstVillager = villagerWith(null);
+        Villager secondVillager = villagerWith(null);
 
         VillagerPotentialState firstState = VillagerPotentialAttachments.get(firstVillager);
         VillagerPotentialState secondState = VillagerPotentialAttachments.get(secondVillager);
 
         assertNotSame(firstState, secondState);
-        assertEquals(1, firstState.schemaVersion());
-        assertEquals(2, secondState.schemaVersion());
-    }
-
-    @Test
-    void obtainingStateTwiceDoesNotResetIt() {
-        VillagerPotentialState storedState = new VillagerPotentialState(3);
-        Villager villager = villagerWith(storedState);
-
-        assertSame(storedState, VillagerPotentialAttachments.get(villager));
-        assertSame(storedState, VillagerPotentialAttachments.get(villager));
+        assertEquals(VillagerPotentialState.createDefault(), firstState);
+        assertEquals(VillagerPotentialState.createDefault(), secondState);
     }
 
     @SuppressWarnings("unchecked")
     private static Villager villagerWith(VillagerPotentialState state) {
         Villager villager = mock(Villager.class);
-        when(villager.getData(any(Supplier.class))).thenReturn(state);
+        AtomicReference<VillagerPotentialState> storedState = new AtomicReference<>(state);
+        when(villager.getData(any(Supplier.class))).thenAnswer(ignored -> {
+            VillagerPotentialState existingState = storedState.get();
+            if (existingState != null) {
+                return existingState;
+            }
+
+            VillagerPotentialState initializedState = VillagerPotentialState.createDefault();
+            storedState.set(initializedState);
+            return initializedState;
+        });
         return villager;
     }
 }
