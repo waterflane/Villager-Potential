@@ -21,10 +21,12 @@ import org.waterflane.villager_potential.core.SpecializationBiasConfig;
 import org.waterflane.villager_potential.core.TradeHistory;
 import org.waterflane.villager_potential.core.TradeKey;
 import org.waterflane.villager_potential.core.TradePaletteState;
+import org.waterflane.villager_potential.core.TradePaletteRerollStrategy;
 
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.OptionalLong;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -42,7 +44,11 @@ class TradeMemoryRerollTest {
     );
 
     @Test
-    void defaultPenaltyDoesNotBlacklistSeenTrades() {
+    void defaultsToPersistentWithANonBlacklistingMemoryPenalty() {
+        assertEquals(
+                TradePaletteRerollStrategy.PERSISTENT,
+                Config.tradePaletteRerollStrategy()
+        );
         assertTrue(Config.seenTradeWeightMultiplier() > 0.0);
         assertTrue(Config.seenTradeWeightMultiplier() < 1.0);
     }
@@ -141,6 +147,120 @@ class TradeMemoryRerollTest {
                 mendingSelections * 2 < unbreakingSelections,
                 "mending=" + mendingSelections + ", unbreaking=" + unbreakingSelections
         );
+    }
+
+    @Test
+    void exhaustSelectsOnlyUnseenCandidates() {
+        MerchantOffer seen = compassOffer();
+        MerchantOffer unseen = bookOffer("unbreaking");
+        TradeKey seenKey = MerchantOfferTradeKeys.from(seen);
+        MerchantOffers offers = new MerchantOffers();
+
+        SpecializedTradeSelection.addWeightedOffers(
+                mock(Villager.class),
+                offers,
+                new VillagerTrades.ItemListing[]{
+                        (entity, random) -> seen,
+                        (entity, random) -> unseen
+                },
+                1,
+                VillagerProfession.LIBRARIAN,
+                1,
+                Optional.empty(),
+                0.0,
+                BIAS_CONFIG,
+                Map.of(seenKey, TradeHistory.seenAt(10L)),
+                PENALTY_MULTIPLIER,
+                TradePaletteRerollStrategy.EXHAUST,
+                RandomSource.create(12L)
+        );
+
+        assertEquals(List.of(unseen), offers);
+    }
+
+    @Test
+    void cyclicStartsNextCycleWithLeastSeenCandidates() {
+        MerchantOffer compass = compassOffer();
+        MerchantOffer book = bookOffer("unbreaking");
+        TradeKey compassKey = MerchantOfferTradeKeys.from(compass);
+        TradeKey bookKey = MerchantOfferTradeKeys.from(book);
+        MerchantOffers offers = new MerchantOffers();
+
+        SpecializedTradeSelection.addWeightedOffers(
+                mock(Villager.class),
+                offers,
+                new VillagerTrades.ItemListing[]{
+                        (entity, random) -> compass,
+                        (entity, random) -> book
+                },
+                1,
+                VillagerProfession.LIBRARIAN,
+                1,
+                Optional.empty(),
+                0.0,
+                BIAS_CONFIG,
+                Map.of(
+                        compassKey, new TradeHistory(2L, OptionalLong.empty(), 0L, OptionalLong.empty()),
+                        bookKey, TradeHistory.seenAt(10L)
+                ),
+                PENALTY_MULTIPLIER,
+                TradePaletteRerollStrategy.CYCLIC,
+                RandomSource.create(12L)
+        );
+
+        assertEquals(List.of(book), offers);
+    }
+
+    @Test
+    void vanillaModeIgnoresTradeMemory() {
+        MerchantOffer seen = compassOffer();
+        TradeKey seenKey = MerchantOfferTradeKeys.from(seen);
+        MerchantOffers offers = new MerchantOffers();
+
+        SpecializedTradeSelection.addWeightedOffers(
+                mock(Villager.class),
+                offers,
+                new VillagerTrades.ItemListing[]{
+                        (entity, random) -> seen,
+                        (entity, random) -> bookOffer("unbreaking")
+                },
+                2,
+                VillagerProfession.LIBRARIAN,
+                1,
+                Optional.empty(),
+                0.0,
+                BIAS_CONFIG,
+                Map.of(seenKey, TradeHistory.seenAt(10L)),
+                0.0,
+                TradePaletteRerollStrategy.VANILLA,
+                RandomSource.create(12L)
+        );
+
+        assertTrue(offers.contains(seen));
+    }
+
+    @Test
+    void persistentPaletteIsRestoredFromUnlockedLiveListings() {
+        List<TradeKey> learned = List.of(
+                MerchantOfferTradeKeys.from(compassOffer()),
+                MerchantOfferTradeKeys.from(bookOffer("unbreaking"))
+        );
+        VillagerTrades.ItemListing compass = (entity, random) -> compassOffer();
+        VillagerTrades.ItemListing book = (entity, random) -> bookOffer("unbreaking");
+        MerchantOffers restored = new MerchantOffers();
+
+        SpecializedTradeSelection.restorePersistentOffers(
+                mock(Villager.class),
+                restored,
+                learned,
+                List.<VillagerTrades.ItemListing[]>of(
+                        new VillagerTrades.ItemListing[]{compass},
+                        new VillagerTrades.ItemListing[]{book}
+                ),
+                RandomSource.create(93L)
+        );
+
+        assertEquals(learned, restored.stream().map(MerchantOfferTradeKeys::from).toList());
     }
 
     private static MerchantOffer compassOffer() {

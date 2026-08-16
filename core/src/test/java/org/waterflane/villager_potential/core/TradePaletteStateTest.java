@@ -58,6 +58,45 @@ class TradePaletteStateTest {
         assertTrue(state.offerHistory().containsKey(COMPASS));
     }
 
+    @Test
+    void persistentLevelUpAppendsWithoutReplacingLearnedTrades() {
+        TradePaletteState state = TradePaletteState.empty()
+                .recordPresented(List.of(PAPER, BOOK), List.of(PAPER, BOOK), 100L, 16)
+                .recordPresented(
+                        List.of(PAPER, BOOK, COMPASS),
+                        List.of(COMPASS),
+                        200L,
+                        16
+                );
+
+        assertEquals(List.of(PAPER, BOOK, COMPASS), state.activeTrades());
+    }
+
+    @Test
+    void nonPersistentModesDoNotCorruptLearnedPalette() {
+        TradePaletteState learned = TradePaletteState.empty().recordPresented(
+                List.of(PAPER),
+                List.of(PAPER),
+                100L,
+                16
+        );
+
+        for (TradePaletteRerollStrategy strategy : TradePaletteRerollStrategy.values()) {
+            if (strategy == TradePaletteRerollStrategy.PERSISTENT) {
+                continue;
+            }
+            TradePaletteState rerolled = learned.recordPresented(
+                    List.of(BOOK),
+                    List.of(BOOK),
+                    200L,
+                    16,
+                    strategy
+            );
+            assertEquals(List.of(PAPER), rerolled.activeTrades(), strategy.name());
+            assertTrue(rerolled.offerHistory().containsKey(BOOK), strategy.name());
+        }
+    }
+
     private static TradeKey trade(String result) {
         return new TradeKey.Offer(
                 new TradeKey.Item("minecraft:emerald", 1),

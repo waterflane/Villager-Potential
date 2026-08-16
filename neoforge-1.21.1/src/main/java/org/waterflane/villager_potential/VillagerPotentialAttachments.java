@@ -33,6 +33,7 @@ import org.waterflane.villager_potential.core.SpecializationId;
 import org.waterflane.villager_potential.core.TradeHistory;
 import org.waterflane.villager_potential.core.TradeKey;
 import org.waterflane.villager_potential.core.TradePaletteState;
+import org.waterflane.villager_potential.core.TradePaletteRerollStrategy;
 import org.waterflane.villager_potential.core.VillagerPotentialState;
 
 import java.util.LinkedHashMap;
@@ -346,6 +347,24 @@ public final class VillagerPotentialAttachments {
             long gameTime,
             int maximumHistoryEntries
     ) {
+        recordGeneratedOffers(
+                villager,
+                offers,
+                firstGeneratedIndex,
+                gameTime,
+                maximumHistoryEntries,
+                Config.tradePaletteRerollStrategy()
+        );
+    }
+
+    static void recordGeneratedOffers(
+            Villager villager,
+            MerchantOffers offers,
+            int firstGeneratedIndex,
+            long gameTime,
+            int maximumHistoryEntries,
+            TradePaletteRerollStrategy strategy
+    ) {
         Objects.requireNonNull(villager, "villager");
         Objects.requireNonNull(offers, "offers");
         if (firstGeneratedIndex < 0 || firstGeneratedIndex > offers.size()) {
@@ -370,12 +389,21 @@ public final class VillagerPotentialAttachments {
                 .map(MerchantOfferTradeKeys::from)
                 .toList();
         VillagerPotentialState state = get(villager);
+        if (strategy == TradePaletteRerollStrategy.PERSISTENT) {
+            List<TradeKey> learnedTrades = state.tradePaletteFor(profession)
+                    .map(TradePaletteState::activeTrades)
+                    .orElse(List.of());
+            if (firstGeneratedIndex == 0 && !learnedTrades.isEmpty()) {
+                generatedTrades = List.of();
+            }
+        }
         VillagerPotentialState updatedState = state.recordPresentedTrades(
                 profession,
                 presentedTrades,
                 generatedTrades,
                 gameTime,
-                maximumHistoryEntries
+                maximumHistoryEntries,
+                strategy
         );
         if (updatedState != state) {
             villager.setData(POTENTIAL, updatedState);

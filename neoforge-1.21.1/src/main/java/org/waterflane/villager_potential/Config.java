@@ -8,6 +8,7 @@ import net.neoforged.fml.common.EventBusSubscriber;
 import net.neoforged.fml.event.config.ModConfigEvent;
 import net.neoforged.neoforge.common.ModConfigSpec;
 import org.waterflane.villager_potential.core.SpecializationBiasConfig;
+import org.waterflane.villager_potential.core.TradePaletteRerollStrategy;
 
 import java.util.List;
 import java.util.Set;
@@ -43,6 +44,13 @@ public class Config {
     private static final ModConfigSpec.DoubleValue SEEN_TRADE_WEIGHT_MULTIPLIER = BUILDER
             .comment("Weight multiplier for an offer this villager has previously seen (1 = no penalty, 0 = blacklist).")
             .defineInRange("tradeMemory.seenTradeWeightMultiplier", 0.25, 0.0, 1.0);
+    private static final ModConfigSpec.EnumValue<TradePaletteRerollStrategy>
+            TRADE_PALETTE_REROLL_STRATEGY = BUILDER
+            .comment("Trade palette reroll strategy.")
+            .defineEnum(
+                    "tradePalette.rerollStrategy",
+                    TradePaletteRerollStrategy.PERSISTENT
+            );
 
     static final ModConfigSpec SPEC = BUILDER.build();
 
@@ -73,6 +81,10 @@ public class Config {
 
     public static double seenTradeWeightMultiplier() {
         return SEEN_TRADE_WEIGHT_MULTIPLIER.get();
+    }
+
+    public static TradePaletteRerollStrategy tradePaletteRerollStrategy() {
+        return TRADE_PALETTE_REROLL_STRATEGY.get();
     }
 
     @SubscribeEvent

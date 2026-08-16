@@ -235,13 +235,31 @@ public record VillagerPotentialState(
         );
     }
 
-    /** Records offers materialized for one profession and replaces its active palette. */
+    /** Records offers materialized for one profession using persistent palette semantics. */
     public VillagerPotentialState recordPresentedTrades(
             ProfessionId professionId,
             List<TradeKey> presentedTrades,
             List<TradeKey> newlyGeneratedTrades,
             long gameTime,
             int maximumHistoryEntries
+    ) {
+        return recordPresentedTrades(
+                professionId,
+                presentedTrades,
+                newlyGeneratedTrades,
+                gameTime,
+                maximumHistoryEntries,
+                TradePaletteRerollStrategy.PERSISTENT
+        );
+    }
+
+    public VillagerPotentialState recordPresentedTrades(
+            ProfessionId professionId,
+            List<TradeKey> presentedTrades,
+            List<TradeKey> newlyGeneratedTrades,
+            long gameTime,
+            int maximumHistoryEntries,
+            TradePaletteRerollStrategy strategy
     ) {
         Objects.requireNonNull(professionId, "professionId");
         TradePaletteState palette = tradePalettes.getOrDefault(
@@ -254,7 +272,8 @@ public record VillagerPotentialState(
                         presentedTrades,
                         newlyGeneratedTrades,
                         gameTime,
-                        maximumHistoryEntries
+                        maximumHistoryEntries,
+                        strategy
                 )
         );
     }

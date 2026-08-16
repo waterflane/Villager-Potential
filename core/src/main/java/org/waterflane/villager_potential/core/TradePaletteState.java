@@ -1,5 +1,6 @@
 package org.waterflane.villager_potential.core;
 
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -47,8 +48,25 @@ public record TradePaletteState(
             long gameTime,
             int maximumHistoryEntries
     ) {
+        return recordPresented(
+                presentedTrades,
+                newlyGeneratedTrades,
+                gameTime,
+                maximumHistoryEntries,
+                TradePaletteRerollStrategy.PERSISTENT
+        );
+    }
+
+    public TradePaletteState recordPresented(
+            List<TradeKey> presentedTrades,
+            List<TradeKey> newlyGeneratedTrades,
+            long gameTime,
+            int maximumHistoryEntries,
+            TradePaletteRerollStrategy strategy
+    ) {
         Objects.requireNonNull(presentedTrades, "presentedTrades");
         Objects.requireNonNull(newlyGeneratedTrades, "newlyGeneratedTrades");
+        Objects.requireNonNull(strategy, "strategy");
         validateMaximumHistoryEntries(maximumHistoryEntries);
 
         Map<TradeKey, TradeHistory> updatedHistory = new HashMap<>(offerHistory);
@@ -62,7 +80,15 @@ public record TradePaletteState(
             );
             pruneToCapacity(updatedHistory, trade, maximumHistoryEntries);
         }
-        return new TradePaletteState(presentedTrades, updatedHistory);
+        List<TradeKey> learnedTrades = activeTrades;
+        if (strategy == TradePaletteRerollStrategy.PERSISTENT) {
+            List<TradeKey> appended = new ArrayList<>(activeTrades);
+            newlyGeneratedTrades.stream()
+                    .filter(trade -> !appended.contains(trade))
+                    .forEach(appended::add);
+            learnedTrades = List.copyOf(appended);
+        }
+        return new TradePaletteState(learnedTrades, updatedHistory);
     }
 
     public TradePaletteState recordUsed(
