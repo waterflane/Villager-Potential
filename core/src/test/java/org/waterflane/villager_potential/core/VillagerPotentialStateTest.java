@@ -112,6 +112,39 @@ class VillagerPotentialStateTest {
     }
 
     @Test
+    void offerHistoryIsIsolatedByProfession() {
+        ProfessionId librarian = ProfessionId.parse("minecraft:librarian");
+        ProfessionId farmer = ProfessionId.parse("minecraft:farmer");
+        TradeKey sharedTrade = trade("minecraft:paper", "minecraft:emerald");
+
+        VillagerPotentialState state = VillagerPotentialState.createDefault()
+                .recordPresentedTrades(
+                        librarian,
+                        List.of(sharedTrade),
+                        List.of(sharedTrade),
+                        100L,
+                        16
+                )
+                .recordPresentedTrades(
+                        farmer,
+                        List.of(sharedTrade),
+                        List.of(sharedTrade),
+                        200L,
+                        16
+                )
+                .recordTradeUse(farmer, sharedTrade, 220L, 16);
+
+        TradeHistory librarianHistory = state.tradePaletteFor(librarian)
+                .orElseThrow().offerHistory().get(sharedTrade);
+        TradeHistory farmerHistory = state.tradePaletteFor(farmer)
+                .orElseThrow().offerHistory().get(sharedTrade);
+        assertEquals(0L, librarianHistory.timesUsed());
+        assertEquals(1L, farmerHistory.timesUsed());
+        assertEquals(java.util.OptionalLong.of(100L), librarianHistory.lastSeen());
+        assertEquals(java.util.OptionalLong.of(200L), farmerHistory.lastSeen());
+    }
+
+    @Test
     void storesOneStableSpecializationPerProfessionCareer() {
         ProfessionId librarian = ProfessionId.parse("minecraft:librarian");
         SpecializationId enchanter =

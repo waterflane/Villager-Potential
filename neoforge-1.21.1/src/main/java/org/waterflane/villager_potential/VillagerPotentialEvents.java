@@ -81,14 +81,19 @@ public final class VillagerPotentialEvents {
     }
 
     /**
-     * The event represents an already completed trade. Only the villager's
-     * current profession is recorded; offer identity remains outside activity.
+     * The event represents an already completed trade. It updates both the
+     * profession-wide activity score and the exact logical offer's use history.
      */
     @SubscribeEvent
     static void onTradeWithVillager(TradeWithVillagerEvent event) {
         if (event.getAbstractVillager() instanceof Villager villager
                 && villager.level() instanceof ServerLevel serverLevel) {
-            VillagerPotentialAttachments.recordTrade(villager, serverLevel.getGameTime());
+            VillagerPotentialAttachments.recordTrade(
+                    villager,
+                    event.getMerchantOffer(),
+                    serverLevel.getGameTime(),
+                    Config.tradeHistoryMaximumEntries()
+            );
         }
     }
 

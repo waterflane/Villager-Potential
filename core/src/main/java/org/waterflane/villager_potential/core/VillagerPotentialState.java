@@ -1,6 +1,7 @@
 package org.waterflane.villager_potential.core;
 
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
@@ -17,7 +18,7 @@ public record VillagerPotentialState(
         Map<ProfessionId, ProfessionActivityState> professionActivities,
         Map<ProfessionId, TradePaletteState> tradePalettes
 ) {
-    public static final int CURRENT_SCHEMA_VERSION = 7;
+    public static final int CURRENT_SCHEMA_VERSION = 8;
 
     public VillagerPotentialState {
         if (schemaVersion < 1) {
@@ -234,6 +235,48 @@ public record VillagerPotentialState(
         );
     }
 
+    /** Records offers materialized for one profession and replaces its active palette. */
+    public VillagerPotentialState recordPresentedTrades(
+            ProfessionId professionId,
+            List<TradeKey> presentedTrades,
+            List<TradeKey> newlyGeneratedTrades,
+            long gameTime,
+            int maximumHistoryEntries
+    ) {
+        Objects.requireNonNull(professionId, "professionId");
+        TradePaletteState palette = tradePalettes.getOrDefault(
+                professionId,
+                TradePaletteState.empty()
+        );
+        return withTradePalette(
+                professionId,
+                palette.recordPresented(
+                        presentedTrades,
+                        newlyGeneratedTrades,
+                        gameTime,
+                        maximumHistoryEntries
+                )
+        );
+    }
+
+    /** Records one completed use against exactly one profession's history. */
+    public VillagerPotentialState recordTradeUse(
+            ProfessionId professionId,
+            TradeKey trade,
+            long gameTime,
+            int maximumHistoryEntries
+    ) {
+        Objects.requireNonNull(professionId, "professionId");
+        TradePaletteState palette = tradePalettes.getOrDefault(
+                professionId,
+                TradePaletteState.empty()
+        );
+        return withTradePalette(
+                professionId,
+                palette.recordUsed(trade, gameTime, maximumHistoryEntries)
+        );
+    }
+
     /**
      * Reads profession-wide recent trade activity at a game time. Offer identity
      * is deliberately absent so this state cannot become per-offer demand.
@@ -430,8 +473,8 @@ public record VillagerPotentialState(
             Map<ProfessionId, TradePaletteState> persistedTradePalettes
     ) {
         return switch (persistedSchemaVersion) {
-            case CURRENT_SCHEMA_VERSION -> new VillagerPotentialState(
-                    persistedSchemaVersion,
+            case CURRENT_SCHEMA_VERSION, 7 -> new VillagerPotentialState(
+                    CURRENT_SCHEMA_VERSION,
                     persistedAptitudes,
                     persistedCareers,
                     persistedActiveProfession,

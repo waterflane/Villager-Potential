@@ -10,6 +10,8 @@ import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.monster.ZombieVillager;
 import net.minecraft.world.entity.npc.Villager;
 import net.minecraft.world.entity.npc.VillagerProfession;
+import net.minecraft.world.item.trading.MerchantOffer;
+import net.minecraft.world.item.trading.MerchantOffers;
 import net.neoforged.bus.api.IEventBus;
 import net.neoforged.neoforge.attachment.AttachmentType;
 import net.neoforged.neoforge.attachment.IAttachmentHolder;
@@ -28,6 +30,7 @@ import org.waterflane.villager_potential.core.ProfessionSpecializationAssignment
 import org.waterflane.villager_potential.core.SkillProgression;
 import org.waterflane.villager_potential.core.SkillProgressionConfig;
 import org.waterflane.villager_potential.core.SpecializationId;
+import org.waterflane.villager_potential.core.TradeHistory;
 import org.waterflane.villager_potential.core.TradeKey;
 import org.waterflane.villager_potential.core.TradePaletteState;
 import org.waterflane.villager_potential.core.VillagerPotentialState;
@@ -37,6 +40,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.OptionalLong;
 import java.util.Random;
 import java.util.UUID;
 import java.util.WeakHashMap;
@@ -135,13 +139,38 @@ public final class VillagerPotentialAttachments {
                 return Either.right((TradeKey.Fallback) key);
             }
     );
-    private static final Codec<TradePaletteState> TRADE_PALETTE_CODEC =
+    private static final Codec<TradeHistory> TRADE_HISTORY_CODEC =
             RecordCodecBuilder.create(instance -> instance.group(
+                    Codec.LONG.fieldOf("times_seen").forGetter(TradeHistory::timesSeen),
+                    Codec.LONG.optionalFieldOf("last_seen")
+                            .forGetter(history -> boxed(history.lastSeen())),
+                    Codec.LONG.fieldOf("times_used").forGetter(TradeHistory::timesUsed),
+                    Codec.LONG.optionalFieldOf("last_used")
+                            .forGetter(history -> boxed(history.lastUsed()))
+            ).apply(instance, (timesSeen, lastSeen, timesUsed, lastUsed) -> new TradeHistory(
+                    timesSeen,
+                    unboxed(lastSeen),
+                    timesUsed,
+                    unboxed(lastUsed)
+            )));
+    private static final Codec<PersistedTradeHistory> TRADE_HISTORY_ENTRY_CODEC =
+            RecordCodecBuilder.create(instance -> instance.group(
+                    TRADE_KEY_CODEC.fieldOf("trade").forGetter(PersistedTradeHistory::trade),
+                    TRADE_HISTORY_CODEC.fieldOf("history")
+                            .forGetter(PersistedTradeHistory::history)
+            ).apply(instance, PersistedTradeHistory::new));
+    private static final Codec<TradePaletteState> TRADE_PALETTE_CODEC =
+            RecordCodecBuilder.<PersistedTradePalette>create(instance -> instance.group(
                     TRADE_KEY_CODEC.listOf().fieldOf("active_trades")
-                            .forGetter(TradePaletteState::activeTrades),
-                    TRADE_KEY_CODEC.listOf().fieldOf("selection_history")
-                            .forGetter(TradePaletteState::selectionHistory)
-            ).apply(instance, TradePaletteState::new));
+                            .forGetter(PersistedTradePalette::activeTrades),
+                    TRADE_KEY_CODEC.listOf().optionalFieldOf("selection_history", List.of())
+                            .forGetter(PersistedTradePalette::selectionHistory),
+                    TRADE_HISTORY_ENTRY_CODEC.listOf().optionalFieldOf("offer_history", List.of())
+                            .forGetter(PersistedTradePalette::offerHistory)
+            ).apply(instance, PersistedTradePalette::new)).xmap(
+                    PersistedTradePalette::toState,
+                    PersistedTradePalette::fromState
+            );
     private static final Codec<Map<ProfessionId, TradePaletteState>> TRADE_PALETTES_CODEC =
             Codec.unboundedMap(PROFESSION_ID_CODEC, TRADE_PALETTE_CODEC);
     static final Codec<VillagerPotentialState> CODEC = RecordCodecBuilder.<PersistedState>create(instance -> instance.group(
@@ -274,6 +303,79 @@ public final class VillagerPotentialAttachments {
                 profession,
                 gameTime,
                 PROFESSION_ACTIVITY_CONFIG
+        );
+        if (updatedState != state) {
+            villager.setData(POTENTIAL, updatedState);
+        }
+    }
+
+    static void recordTrade(
+            Villager villager,
+            MerchantOffer offer,
+            long gameTime,
+            int maximumHistoryEntries
+    ) {
+        Objects.requireNonNull(offer, "offer");
+        Objects.requireNonNull(villager, "villager");
+        ProfessionId profession = toCareerProfession(
+                villager.getVillagerData().getProfession()
+        );
+        if (profession == null) {
+            return;
+        }
+
+        VillagerPotentialState state = get(villager);
+        VillagerPotentialState updatedState = state
+                .recordProfessionTrade(profession, gameTime, PROFESSION_ACTIVITY_CONFIG)
+                .recordTradeUse(
+                        profession,
+                        MerchantOfferTradeKeys.from(offer),
+                        gameTime,
+                        maximumHistoryEntries
+                );
+        if (updatedState != state) {
+            villager.setData(POTENTIAL, updatedState);
+        }
+    }
+
+    /** Records only offers appended by the generation call that just completed. */
+    public static void recordGeneratedOffers(
+            Villager villager,
+            MerchantOffers offers,
+            int firstGeneratedIndex,
+            long gameTime,
+            int maximumHistoryEntries
+    ) {
+        Objects.requireNonNull(villager, "villager");
+        Objects.requireNonNull(offers, "offers");
+        if (firstGeneratedIndex < 0 || firstGeneratedIndex > offers.size()) {
+            throw new IllegalArgumentException("firstGeneratedIndex is outside offers");
+        }
+        if (firstGeneratedIndex == offers.size()) {
+            return;
+        }
+
+        ProfessionId profession = toCareerProfession(
+                villager.getVillagerData().getProfession()
+        );
+        if (profession == null) {
+            return;
+        }
+
+        List<TradeKey> presentedTrades = offers.stream()
+                .map(MerchantOfferTradeKeys::from)
+                .toList();
+        List<TradeKey> generatedTrades = offers.subList(firstGeneratedIndex, offers.size())
+                .stream()
+                .map(MerchantOfferTradeKeys::from)
+                .toList();
+        VillagerPotentialState state = get(villager);
+        VillagerPotentialState updatedState = state.recordPresentedTrades(
+                profession,
+                presentedTrades,
+                generatedTrades,
+                gameTime,
+                maximumHistoryEntries
         );
         if (updatedState != state) {
             villager.setData(POTENTIAL, updatedState);
@@ -500,6 +602,14 @@ public final class VillagerPotentialAttachments {
         }
     }
 
+    private static Optional<Long> boxed(OptionalLong value) {
+        return value.isPresent() ? Optional.of(value.getAsLong()) : Optional.empty();
+    }
+
+    private static OptionalLong unboxed(Optional<Long> value) {
+        return value.isPresent() ? OptionalLong.of(value.orElseThrow()) : OptionalLong.empty();
+    }
+
     private static DataResult<VillagerPotentialState> migrate(
             int schemaVersion,
             Map<ProfessionId, Double> aptitudes,
@@ -530,6 +640,33 @@ public final class VillagerPotentialAttachments {
             Map<ProfessionId, ProfessionActivityState> professionActivities,
             Map<ProfessionId, TradePaletteState> tradePalettes
     ) {
+    }
+
+    private record PersistedTradeHistory(TradeKey trade, TradeHistory history) {
+    }
+
+    private record PersistedTradePalette(
+            List<TradeKey> activeTrades,
+            List<TradeKey> selectionHistory,
+            List<PersistedTradeHistory> offerHistory
+    ) {
+        private TradePaletteState toState() {
+            if (!offerHistory.isEmpty()) {
+                Map<TradeKey, TradeHistory> histories = new LinkedHashMap<>();
+                for (PersistedTradeHistory entry : offerHistory) {
+                    histories.put(entry.trade(), entry.history());
+                }
+                return new TradePaletteState(activeTrades, histories);
+            }
+            return new TradePaletteState(activeTrades, selectionHistory);
+        }
+
+        private static PersistedTradePalette fromState(TradePaletteState state) {
+            List<PersistedTradeHistory> histories = state.offerHistory().entrySet().stream()
+                    .map(entry -> new PersistedTradeHistory(entry.getKey(), entry.getValue()))
+                    .toList();
+            return new PersistedTradePalette(state.activeTrades(), List.of(), histories);
+        }
     }
 
     private static final class ProfessionProgressBatch {

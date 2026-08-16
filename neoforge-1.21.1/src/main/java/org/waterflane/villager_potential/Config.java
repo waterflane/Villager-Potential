@@ -37,6 +37,9 @@ public class Config {
     private static final ModConfigSpec.DoubleValue SPECIALIZATION_BIAS_CURVE_EXPONENT = BUILDER
             .comment("Exponent for skill-to-specialization bias growth; values above 1 delay strong bias.")
             .defineInRange("specializationBias.curveExponent", 2.0, 0.01, 100.0);
+    private static final ModConfigSpec.IntValue TRADE_HISTORY_MAXIMUM_ENTRIES = BUILDER
+            .comment("Maximum logical offer history entries retained per villager profession.")
+            .defineInRange("tradeHistory.maximumEntriesPerProfession", 128, 1, 4096);
 
     static final ModConfigSpec SPEC = BUILDER.build();
 
@@ -59,6 +62,10 @@ public class Config {
                 maximumBias,
                 SPECIALIZATION_BIAS_CURVE_EXPONENT.get()
         );
+    }
+
+    public static int tradeHistoryMaximumEntries() {
+        return TRADE_HISTORY_MAXIMUM_ENTRIES.get();
     }
 
     @SubscribeEvent

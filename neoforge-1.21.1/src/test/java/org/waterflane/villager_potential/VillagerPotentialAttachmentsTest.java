@@ -13,6 +13,7 @@ import org.waterflane.villager_potential.core.ProfessionCareerState;
 import org.waterflane.villager_potential.core.ProfessionId;
 import org.waterflane.villager_potential.core.SpecializationId;
 import org.waterflane.villager_potential.core.TradeKey;
+import org.waterflane.villager_potential.core.TradeHistory;
 import org.waterflane.villager_potential.core.TradePaletteState;
 import org.waterflane.villager_potential.core.VillagerPotentialState;
 
@@ -22,6 +23,7 @@ import java.util.Map;
 import java.util.Random;
 import java.util.Set;
 import java.util.UUID;
+import java.util.OptionalLong;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Supplier;
 
@@ -240,14 +242,19 @@ class VillagerPotentialAttachmentsTest {
         );
         TradePaletteState librarianPalette = new TradePaletteState(
                 List.of(librarianTrade),
-                List.of(new TradeKey.Fallback("listing:example.LegacyTrade"))
+                Map.of(librarianTrade, new TradeHistory(
+                        3L,
+                        OptionalLong.of(450L),
+                        1L,
+                        OptionalLong.of(475L)
+                ))
         );
         TradePaletteState farmerPalette = new TradePaletteState(
                 List.of(new TradeKey.Offer(
                         new TradeKey.Item("minecraft:wheat", 20),
                         new TradeKey.Item("minecraft:emerald", 1)
                 )),
-                List.of()
+                Map.of()
         );
         VillagerPotentialState original = VillagerPotentialState.createDefault()
                 .assignProfession(librarian, 100L)
@@ -270,6 +277,9 @@ class VillagerPotentialAttachmentsTest {
         assertEquals(farmerPalette, restored.tradePaletteFor(farmer).orElseThrow());
         assertTrue(root.contains("trade_palettes", Tag.TAG_COMPOUND));
         assertTrue(!root.contains("Offers"));
+        assertTrue(root.getCompound("trade_palettes")
+                .getCompound(librarian.toString())
+                .contains("offer_history", Tag.TAG_LIST));
     }
 
     @Test

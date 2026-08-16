@@ -4,6 +4,7 @@ import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.entity.npc.Villager;
 import net.minecraft.world.entity.npc.VillagerData;
 import net.minecraft.world.entity.npc.VillagerProfession;
+import net.minecraft.world.item.trading.MerchantOffer;
 import net.neoforged.neoforge.event.entity.player.TradeWithVillagerEvent;
 import org.junit.jupiter.api.Test;
 import org.waterflane.villager_potential.core.ProfessionCareerState;
@@ -38,8 +39,10 @@ class VillagerTradeActivityTest {
         VillagerData villagerData = mock(VillagerData.class);
         ServerLevel level = mock(ServerLevel.class);
         TradeWithVillagerEvent event = mock(TradeWithVillagerEvent.class);
+        MerchantOffer offer = mock(MerchantOffer.class);
 
         when(event.getAbstractVillager()).thenReturn(villager);
+        when(event.getMerchantOffer()).thenReturn(offer);
         when(villager.level()).thenReturn(level);
         when(level.getGameTime()).thenReturn(100L);
         when(villager.getVillagerData()).thenReturn(villagerData);
@@ -65,6 +68,10 @@ class VillagerTradeActivityTest {
         assertEquals(career, updated.careerFor(LIBRARIAN).orElseThrow());
         assertEquals(37, villager.getVillagerXp());
         verify(villager, never()).setVillagerXp(any(Integer.class));
-        verify(event, never()).getMerchantOffer();
+        assertEquals(
+                1L,
+                updated.tradePaletteFor(LIBRARIAN).orElseThrow()
+                        .offerHistory().get(MerchantOfferTradeKeys.from(offer)).timesUsed()
+        );
     }
 }
