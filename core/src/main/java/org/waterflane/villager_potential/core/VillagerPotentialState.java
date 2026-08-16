@@ -14,9 +14,10 @@ public record VillagerPotentialState(
         Map<ProfessionId, Double> aptitudes,
         Map<ProfessionId, ProfessionCareerState> careers,
         Optional<ProfessionId> activeProfession,
-        Map<ProfessionId, ProfessionActivityState> professionActivities
+        Map<ProfessionId, ProfessionActivityState> professionActivities,
+        Map<ProfessionId, TradePaletteState> tradePalettes
 ) {
-    public static final int CURRENT_SCHEMA_VERSION = 6;
+    public static final int CURRENT_SCHEMA_VERSION = 7;
 
     public VillagerPotentialState {
         if (schemaVersion < 1) {
@@ -41,6 +42,27 @@ public record VillagerPotentialState(
         Objects.requireNonNull(professionActivities, "professionActivities");
         professionActivities.forEach(VillagerPotentialState::validateProfessionActivity);
         professionActivities = Map.copyOf(professionActivities);
+
+        Objects.requireNonNull(tradePalettes, "tradePalettes");
+        tradePalettes.forEach(VillagerPotentialState::validateTradePalette);
+        tradePalettes = Map.copyOf(tradePalettes);
+    }
+
+    public VillagerPotentialState(
+            int schemaVersion,
+            Map<ProfessionId, Double> aptitudes,
+            Map<ProfessionId, ProfessionCareerState> careers,
+            Optional<ProfessionId> activeProfession,
+            Map<ProfessionId, ProfessionActivityState> professionActivities
+    ) {
+        this(
+                schemaVersion,
+                aptitudes,
+                careers,
+                activeProfession,
+                professionActivities,
+                Map.of()
+        );
     }
 
     public VillagerPotentialState(
@@ -66,6 +88,7 @@ public record VillagerPotentialState(
                 Map.of(),
                 Map.of(),
                 Optional.empty(),
+                Map.of(),
                 Map.of()
         );
     }
@@ -85,7 +108,8 @@ public record VillagerPotentialState(
                 updatedAptitudes,
                 careers,
                 activeProfession,
-                professionActivities
+                professionActivities,
+                tradePalettes
         );
     }
 
@@ -130,7 +154,8 @@ public record VillagerPotentialState(
                 aptitudes,
                 updatedCareers,
                 activeProfession,
-                professionActivities
+                professionActivities,
+                tradePalettes
         );
     }
 
@@ -158,7 +183,8 @@ public record VillagerPotentialState(
                 aptitudes,
                 updatedCareers,
                 Optional.of(professionId),
-                professionActivities
+                professionActivities,
+                tradePalettes
         );
     }
 
@@ -171,7 +197,40 @@ public record VillagerPotentialState(
                 aptitudes,
                 careers,
                 Optional.empty(),
-                professionActivities
+                professionActivities,
+                tradePalettes
+        );
+    }
+
+    public Optional<TradePaletteState> tradePaletteFor(ProfessionId professionId) {
+        return Optional.ofNullable(
+                tradePalettes.get(Objects.requireNonNull(professionId, "professionId"))
+        );
+    }
+
+    /**
+     * Replaces the durable palette for one profession without touching its
+     * career, other professions, or the active profession marker.
+     */
+    public VillagerPotentialState withTradePalette(
+            ProfessionId professionId,
+            TradePaletteState tradePalette
+    ) {
+        Objects.requireNonNull(professionId, "professionId");
+        Objects.requireNonNull(tradePalette, "tradePalette");
+        if (tradePalette.equals(tradePalettes.get(professionId))) {
+            return this;
+        }
+
+        Map<ProfessionId, TradePaletteState> updatedPalettes = new HashMap<>(tradePalettes);
+        updatedPalettes.put(professionId, tradePalette);
+        return new VillagerPotentialState(
+                schemaVersion,
+                aptitudes,
+                careers,
+                activeProfession,
+                professionActivities,
+                updatedPalettes
         );
     }
 
@@ -217,7 +276,8 @@ public record VillagerPotentialState(
                 aptitudes,
                 careers,
                 activeProfession,
-                updatedActivities
+                updatedActivities,
+                tradePalettes
         );
     }
 
@@ -339,6 +399,7 @@ public record VillagerPotentialState(
                 persistedAptitudes,
                 persistedCareers,
                 persistedActiveProfession,
+                Map.of(),
                 Map.of()
         );
     }
@@ -350,26 +411,47 @@ public record VillagerPotentialState(
             Optional<ProfessionId> persistedActiveProfession,
             Map<ProfessionId, ProfessionActivityState> persistedProfessionActivities
     ) {
+        return migrate(
+                persistedSchemaVersion,
+                persistedAptitudes,
+                persistedCareers,
+                persistedActiveProfession,
+                persistedProfessionActivities,
+                Map.of()
+        );
+    }
+
+    public static VillagerPotentialState migrate(
+            int persistedSchemaVersion,
+            Map<ProfessionId, Double> persistedAptitudes,
+            Map<ProfessionId, ProfessionCareerState> persistedCareers,
+            Optional<ProfessionId> persistedActiveProfession,
+            Map<ProfessionId, ProfessionActivityState> persistedProfessionActivities,
+            Map<ProfessionId, TradePaletteState> persistedTradePalettes
+    ) {
         return switch (persistedSchemaVersion) {
             case CURRENT_SCHEMA_VERSION -> new VillagerPotentialState(
                     persistedSchemaVersion,
                     persistedAptitudes,
                     persistedCareers,
                     persistedActiveProfession,
-                    persistedProfessionActivities
+                    persistedProfessionActivities,
+                    persistedTradePalettes
             );
-            case 5 -> new VillagerPotentialState(
+            case 6, 5 -> new VillagerPotentialState(
                     CURRENT_SCHEMA_VERSION,
                     persistedAptitudes,
                     persistedCareers,
                     persistedActiveProfession,
-                    persistedProfessionActivities
+                    persistedProfessionActivities,
+                    Map.of()
             );
             case 4 -> new VillagerPotentialState(
                     CURRENT_SCHEMA_VERSION,
                     persistedAptitudes,
                     persistedCareers,
                     persistedActiveProfession,
+                    Map.of(),
                     Map.of()
             );
             case 3 -> new VillagerPotentialState(
@@ -377,6 +459,7 @@ public record VillagerPotentialState(
                     persistedAptitudes,
                     persistedCareers,
                     persistedActiveProfession,
+                    Map.of(),
                     Map.of()
             );
             case 2 -> new VillagerPotentialState(
@@ -417,5 +500,13 @@ public record VillagerPotentialState(
     ) {
         Objects.requireNonNull(professionId, "professionId");
         Objects.requireNonNull(activity, "activity");
+    }
+
+    private static void validateTradePalette(
+            ProfessionId professionId,
+            TradePaletteState tradePalette
+    ) {
+        Objects.requireNonNull(professionId, "professionId");
+        Objects.requireNonNull(tradePalette, "tradePalette");
     }
 }

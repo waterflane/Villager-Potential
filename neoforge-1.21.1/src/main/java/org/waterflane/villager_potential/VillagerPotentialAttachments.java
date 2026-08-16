@@ -1,5 +1,6 @@
 package org.waterflane.villager_potential;
 
+import com.mojang.datafixers.util.Either;
 import com.mojang.serialization.Codec;
 import com.mojang.serialization.DataResult;
 import com.mojang.serialization.codecs.RecordCodecBuilder;
@@ -27,6 +28,8 @@ import org.waterflane.villager_potential.core.ProfessionSpecializationAssignment
 import org.waterflane.villager_potential.core.SkillProgression;
 import org.waterflane.villager_potential.core.SkillProgressionConfig;
 import org.waterflane.villager_potential.core.SpecializationId;
+import org.waterflane.villager_potential.core.TradeKey;
+import org.waterflane.villager_potential.core.TradePaletteState;
 import org.waterflane.villager_potential.core.VillagerPotentialState;
 
 import java.util.LinkedHashMap;
@@ -102,6 +105,45 @@ public final class VillagerPotentialAttachments {
                     PROFESSION_ID_CODEC,
                     PROFESSION_ACTIVITY_CODEC
             );
+    private static final Codec<TradeKey.Item> TRADE_ITEM_CODEC =
+            RecordCodecBuilder.create(instance -> instance.group(
+                    Codec.STRING.fieldOf("item_id").forGetter(TradeKey.Item::itemId),
+                    Codec.INT.fieldOf("count").forGetter(TradeKey.Item::count),
+                    Codec.STRING.optionalFieldOf("components", "")
+                            .forGetter(TradeKey.Item::components)
+            ).apply(instance, TradeKey.Item::new));
+    private static final Codec<TradeKey.Offer> OFFER_TRADE_KEY_CODEC =
+            RecordCodecBuilder.create(instance -> instance.group(
+                    TRADE_ITEM_CODEC.fieldOf("cost_a").forGetter(TradeKey.Offer::costA),
+                    TRADE_ITEM_CODEC.optionalFieldOf("cost_b")
+                            .forGetter(TradeKey.Offer::costB),
+                    TRADE_ITEM_CODEC.fieldOf("result").forGetter(TradeKey.Offer::result)
+            ).apply(instance, TradeKey.Offer::new));
+    private static final Codec<TradeKey.Fallback> FALLBACK_TRADE_KEY_CODEC =
+            Codec.STRING.fieldOf("fallback")
+                    .xmap(TradeKey.Fallback::new, TradeKey.Fallback::representation)
+                    .codec();
+    private static final Codec<TradeKey> TRADE_KEY_CODEC = Codec.either(
+            OFFER_TRADE_KEY_CODEC,
+            FALLBACK_TRADE_KEY_CODEC
+    ).xmap(
+            key -> key.map(offer -> (TradeKey) offer, fallback -> fallback),
+            key -> {
+                if (key instanceof TradeKey.Offer offer) {
+                    return Either.left(offer);
+                }
+                return Either.right((TradeKey.Fallback) key);
+            }
+    );
+    private static final Codec<TradePaletteState> TRADE_PALETTE_CODEC =
+            RecordCodecBuilder.create(instance -> instance.group(
+                    TRADE_KEY_CODEC.listOf().fieldOf("active_trades")
+                            .forGetter(TradePaletteState::activeTrades),
+                    TRADE_KEY_CODEC.listOf().fieldOf("selection_history")
+                            .forGetter(TradePaletteState::selectionHistory)
+            ).apply(instance, TradePaletteState::new));
+    private static final Codec<Map<ProfessionId, TradePaletteState>> TRADE_PALETTES_CODEC =
+            Codec.unboundedMap(PROFESSION_ID_CODEC, TRADE_PALETTE_CODEC);
     static final Codec<VillagerPotentialState> CODEC = RecordCodecBuilder.<PersistedState>create(instance -> instance.group(
             Codec.INT.fieldOf("schema_version").forGetter(PersistedState::schemaVersion),
             APTITUDES_CODEC.optionalFieldOf("aptitudes", Map.of()).forGetter(PersistedState::aptitudes),
@@ -109,21 +151,25 @@ public final class VillagerPotentialAttachments {
             PROFESSION_ID_CODEC.optionalFieldOf("active_profession")
                     .forGetter(PersistedState::activeProfession),
             PROFESSION_ACTIVITIES_CODEC.optionalFieldOf("profession_activity", Map.of())
-                    .forGetter(PersistedState::professionActivities)
+                    .forGetter(PersistedState::professionActivities),
+            TRADE_PALETTES_CODEC.optionalFieldOf("trade_palettes", Map.of())
+                    .forGetter(PersistedState::tradePalettes)
     ).apply(instance, PersistedState::new)).comapFlatMap(
             persisted -> migrate(
                     persisted.schemaVersion(),
                     persisted.aptitudes(),
                     persisted.careers(),
                     persisted.activeProfession(),
-                    persisted.professionActivities()
+                    persisted.professionActivities(),
+                    persisted.tradePalettes()
             ),
             state -> new PersistedState(
                     state.schemaVersion(),
                     state.aptitudes(),
                     state.careers(),
                     state.activeProfession(),
-                    state.professionActivities()
+                    state.professionActivities(),
+                    state.tradePalettes()
             )
     );
 
@@ -318,13 +364,16 @@ public final class VillagerPotentialAttachments {
                 worldSeed(entity),
                 entity.getUUID()
         );
-        if (!state.careers().isEmpty() || !state.professionActivities().isEmpty()) {
+        if (!state.careers().isEmpty()
+                || !state.professionActivities().isEmpty()
+                || !state.tradePalettes().isEmpty()) {
             initializedState = new VillagerPotentialState(
                     VillagerPotentialState.CURRENT_SCHEMA_VERSION,
                     initializedState.aptitudes(),
                     state.careers(),
                     state.activeProfession(),
-                    state.professionActivities()
+                    state.professionActivities(),
+                    state.tradePalettes()
             );
         }
         entity.setData(POTENTIAL, initializedState);
@@ -456,7 +505,8 @@ public final class VillagerPotentialAttachments {
             Map<ProfessionId, Double> aptitudes,
             Map<ProfessionId, ProfessionCareerState> careers,
             Optional<ProfessionId> activeProfession,
-            Map<ProfessionId, ProfessionActivityState> professionActivities
+            Map<ProfessionId, ProfessionActivityState> professionActivities,
+            Map<ProfessionId, TradePaletteState> tradePalettes
     ) {
         try {
             return DataResult.success(VillagerPotentialState.migrate(
@@ -464,7 +514,8 @@ public final class VillagerPotentialAttachments {
                     aptitudes,
                     careers,
                     activeProfession,
-                    professionActivities
+                    professionActivities,
+                    tradePalettes
             ));
         } catch (IllegalArgumentException exception) {
             return DataResult.error(exception::getMessage);
@@ -476,7 +527,8 @@ public final class VillagerPotentialAttachments {
             Map<ProfessionId, Double> aptitudes,
             Map<ProfessionId, ProfessionCareerState> careers,
             Optional<ProfessionId> activeProfession,
-            Map<ProfessionId, ProfessionActivityState> professionActivities
+            Map<ProfessionId, ProfessionActivityState> professionActivities,
+            Map<ProfessionId, TradePaletteState> tradePalettes
     ) {
     }
 

@@ -12,13 +12,16 @@ import org.waterflane.villager_potential.core.AptitudeInheritance;
 import org.waterflane.villager_potential.core.ProfessionCareerState;
 import org.waterflane.villager_potential.core.ProfessionId;
 import org.waterflane.villager_potential.core.SpecializationId;
+import org.waterflane.villager_potential.core.TradeKey;
+import org.waterflane.villager_potential.core.TradePaletteState;
 import org.waterflane.villager_potential.core.VillagerPotentialState;
 
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Random;
-import java.util.UUID;
 import java.util.Set;
+import java.util.UUID;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Supplier;
 
@@ -221,6 +224,52 @@ class VillagerPotentialAttachmentsTest {
                         VillagerPotentialAttachments.PROFESSION_ACTIVITY_CONFIG
                 )
         );
+    }
+
+    @Test
+    void professionTradePalettesSurviveSerializationWithoutMerchantOffers() {
+        ProfessionId librarian = ProfessionId.parse("minecraft:librarian");
+        ProfessionId farmer = ProfessionId.parse("minecraft:farmer");
+        TradeKey librarianTrade = new TradeKey.Offer(
+                new TradeKey.Item("minecraft:emerald", 12),
+                new TradeKey.Item(
+                        "minecraft:enchanted_book",
+                        1,
+                        "minecraft:stored_enchantments=minecraft:mending@1"
+                )
+        );
+        TradePaletteState librarianPalette = new TradePaletteState(
+                List.of(librarianTrade),
+                List.of(new TradeKey.Fallback("listing:example.LegacyTrade"))
+        );
+        TradePaletteState farmerPalette = new TradePaletteState(
+                List.of(new TradeKey.Offer(
+                        new TradeKey.Item("minecraft:wheat", 20),
+                        new TradeKey.Item("minecraft:emerald", 1)
+                )),
+                List.of()
+        );
+        VillagerPotentialState original = VillagerPotentialState.createDefault()
+                .assignProfession(librarian, 100L)
+                .withTradePalette(librarian, librarianPalette)
+                .assignProfession(farmer, 200L)
+                .withTradePalette(farmer, farmerPalette)
+                .assignProfession(librarian, 300L);
+
+        Tag serialized = VillagerPotentialAttachments.CODEC
+                .encodeStart(NbtOps.INSTANCE, original)
+                .getOrThrow();
+        VillagerPotentialState restored = VillagerPotentialAttachments.CODEC
+                .parse(NbtOps.INSTANCE, serialized)
+                .getOrThrow();
+        CompoundTag root = (CompoundTag) serialized;
+
+        assertEquals(original, restored);
+        assertEquals(librarian, restored.activeProfession().orElseThrow());
+        assertEquals(librarianPalette, restored.tradePaletteFor(librarian).orElseThrow());
+        assertEquals(farmerPalette, restored.tradePaletteFor(farmer).orElseThrow());
+        assertTrue(root.contains("trade_palettes", Tag.TAG_COMPOUND));
+        assertTrue(!root.contains("Offers"));
     }
 
     @Test

@@ -65,6 +65,53 @@ class VillagerPotentialStateTest {
     }
 
     @Test
+    void storesIndependentTradePalettesPerProfession() {
+        ProfessionId librarian = ProfessionId.parse("minecraft:librarian");
+        ProfessionId farmer = ProfessionId.parse("minecraft:farmer");
+        TradePaletteState librarianPalette = new TradePaletteState(
+                List.of(trade("minecraft:paper", "minecraft:emerald")),
+                List.of(trade("minecraft:book", "minecraft:emerald"))
+        );
+        TradePaletteState farmerPalette = new TradePaletteState(
+                List.of(trade("minecraft:wheat", "minecraft:emerald")),
+                List.of()
+        );
+
+        VillagerPotentialState state = VillagerPotentialState.createDefault()
+                .withTradePalette(librarian, librarianPalette)
+                .withTradePalette(farmer, farmerPalette);
+
+        assertEquals(librarianPalette, state.tradePaletteFor(librarian).orElseThrow());
+        assertEquals(farmerPalette, state.tradePaletteFor(farmer).orElseThrow());
+        assertEquals(2, state.tradePalettes().size());
+    }
+
+    @Test
+    void professionSwitchRestoresItsTradePaletteWithoutChangingHistory() {
+        ProfessionId librarian = ProfessionId.parse("minecraft:librarian");
+        ProfessionId farmer = ProfessionId.parse("minecraft:farmer");
+        TradePaletteState librarianPalette = new TradePaletteState(
+                List.of(trade("minecraft:paper", "minecraft:emerald")),
+                List.of(trade("minecraft:book", "minecraft:emerald"))
+        );
+        TradePaletteState farmerPalette = new TradePaletteState(
+                List.of(trade("minecraft:potato", "minecraft:emerald")),
+                List.of(trade("minecraft:wheat", "minecraft:emerald"))
+        );
+
+        VillagerPotentialState state = VillagerPotentialState.createDefault()
+                .assignProfession(librarian, 100L)
+                .withTradePalette(librarian, librarianPalette)
+                .assignProfession(farmer, 200L)
+                .withTradePalette(farmer, farmerPalette)
+                .assignProfession(librarian, 300L);
+
+        assertEquals(librarian, state.activeProfession().orElseThrow());
+        assertEquals(librarianPalette, state.tradePaletteFor(librarian).orElseThrow());
+        assertEquals(farmerPalette, state.tradePaletteFor(farmer).orElseThrow());
+    }
+
+    @Test
     void storesOneStableSpecializationPerProfessionCareer() {
         ProfessionId librarian = ProfessionId.parse("minecraft:librarian");
         SpecializationId enchanter =
@@ -375,10 +422,37 @@ class VillagerPotentialStateTest {
     }
 
     @Test
+    void migratesVersionSixWithoutInventingTradePalettes() {
+        ProfessionId librarian = ProfessionId.parse("minecraft:librarian");
+        ProfessionCareerState career = ProfessionCareerState.firstAssignedAt(100L)
+                .withLearnedSkill(0.4);
+        ProfessionActivityState activity = new ProfessionActivityState(0.75, 200L);
+
+        VillagerPotentialState migrated = VillagerPotentialState.migrate(
+                6,
+                Map.of(librarian, 1.25),
+                Map.of(librarian, career),
+                java.util.Optional.of(librarian),
+                Map.of(librarian, activity)
+        );
+
+        assertTrue(migrated.tradePalettes().isEmpty());
+        assertEquals(activity, migrated.professionActivities().get(librarian));
+        assertEquals(VillagerPotentialState.CURRENT_SCHEMA_VERSION, migrated.schemaVersion());
+    }
+
+    @Test
     void rejectsUnknownNewerSchemaVersion() {
         assertThrows(
                 IllegalArgumentException.class,
                 () -> VillagerPotentialState.migrate(VillagerPotentialState.CURRENT_SCHEMA_VERSION + 1)
+        );
+    }
+
+    private static TradeKey trade(String cost, String result) {
+        return new TradeKey.Offer(
+                new TradeKey.Item(cost, 1),
+                new TradeKey.Item(result, 1)
         );
     }
 }
