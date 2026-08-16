@@ -40,6 +40,9 @@ public class Config {
     private static final ModConfigSpec.IntValue TRADE_HISTORY_MAXIMUM_ENTRIES = BUILDER
             .comment("Maximum logical offer history entries retained per villager profession.")
             .defineInRange("tradeHistory.maximumEntriesPerProfession", 128, 1, 4096);
+    private static final ModConfigSpec.DoubleValue SEEN_TRADE_WEIGHT_MULTIPLIER = BUILDER
+            .comment("Weight multiplier for an offer this villager has previously seen (1 = no penalty, 0 = blacklist).")
+            .defineInRange("tradeMemory.seenTradeWeightMultiplier", 0.25, 0.0, 1.0);
 
     static final ModConfigSpec SPEC = BUILDER.build();
 
@@ -66,6 +69,10 @@ public class Config {
 
     public static int tradeHistoryMaximumEntries() {
         return TRADE_HISTORY_MAXIMUM_ENTRIES.get();
+    }
+
+    public static double seenTradeWeightMultiplier() {
+        return SEEN_TRADE_WEIGHT_MULTIPLIER.get();
     }
 
     @SubscribeEvent
