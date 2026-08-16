@@ -27,6 +27,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalLong;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -51,52 +52,6 @@ class TradeMemoryRerollTest {
         );
         assertTrue(Config.seenTradeWeightMultiplier() > 0.0);
         assertTrue(Config.seenTradeWeightMultiplier() < 1.0);
-    }
-
-    @Test
-    void seenTradeWeightDecreases() {
-        TradeKey seen = MerchantOfferTradeKeys.from(compassOffer());
-
-        assertEquals(
-                1.0,
-                SpecializedTradeSelection.tradeMemoryWeight(
-                        4.0,
-                        seen,
-                        Map.of(seen, TradeHistory.seenAt(10L)),
-                        PENALTY_MULTIPLIER
-                )
-        );
-    }
-
-    @Test
-    void unseenTradeWeightStaysUnchanged() {
-        TradeKey seen = MerchantOfferTradeKeys.from(compassOffer());
-        TradeKey unseen = MerchantOfferTradeKeys.from(bookOffer("unbreaking"));
-
-        assertEquals(
-                4.0,
-                SpecializedTradeSelection.tradeMemoryWeight(
-                        4.0,
-                        unseen,
-                        Map.of(seen, TradeHistory.seenAt(10L)),
-                        PENALTY_MULTIPLIER
-                )
-        );
-    }
-
-    @Test
-    void noHistoryKeepsTheSpecializationWeightedBaseline() {
-        TradeKey candidate = MerchantOfferTradeKeys.from(compassOffer());
-
-        assertEquals(
-                4.0,
-                SpecializedTradeSelection.tradeMemoryWeight(
-                        4.0,
-                        candidate,
-                        Map.of(),
-                        PENALTY_MULTIPLIER
-                )
-        );
     }
 
     @Test
@@ -240,13 +195,48 @@ class TradeMemoryRerollTest {
     }
 
     @Test
-    void persistentPaletteIsRestoredFromUnlockedLiveListings() {
+    void persistentInitialGenerationUsesTheResolver() {
+        MerchantOffer compass = compassOffer();
+        MerchantOffer book = bookOffer("unbreaking");
+        VillagerTrades.ItemListing[] candidates = {
+                (entity, random) -> compass,
+                (entity, random) -> book
+        };
+        MerchantOffers expected = new MerchantOffers();
+        MerchantOffers actual = new MerchantOffers();
+
+        expected.add(candidates[RandomSource.create(93L).nextInt(candidates.length)]
+                .getOffer(mock(Villager.class), RandomSource.create(1L)));
+        SpecializedTradeSelection.addWeightedOffers(
+                mock(Villager.class),
+                actual,
+                candidates,
+                1,
+                VillagerProfession.LIBRARIAN,
+                1,
+                Optional.empty(),
+                0.0,
+                BIAS_CONFIG,
+                Map.of(),
+                1.0,
+                TradePaletteRerollStrategy.PERSISTENT,
+                RandomSource.create(93L)
+        );
+
+        assertEquals(expected, actual);
+    }
+
+    @Test
+    void persistentWorkstationReassignmentRestoresWithoutNewCandidateSelection() {
         List<TradeKey> learned = List.of(
-                MerchantOfferTradeKeys.from(compassOffer()),
-                MerchantOfferTradeKeys.from(bookOffer("unbreaking"))
+                MerchantOfferTradeKeys.from(compassOffer())
         );
         VillagerTrades.ItemListing compass = (entity, random) -> compassOffer();
-        VillagerTrades.ItemListing book = (entity, random) -> bookOffer("unbreaking");
+        AtomicInteger unrelatedCandidateCalls = new AtomicInteger();
+        VillagerTrades.ItemListing unrelated = (entity, random) -> {
+            unrelatedCandidateCalls.incrementAndGet();
+            return bookOffer("unbreaking");
+        };
         MerchantOffers restored = new MerchantOffers();
 
         SpecializedTradeSelection.restorePersistentOffers(
@@ -254,13 +244,46 @@ class TradeMemoryRerollTest {
                 restored,
                 learned,
                 List.<VillagerTrades.ItemListing[]>of(
-                        new VillagerTrades.ItemListing[]{compass},
-                        new VillagerTrades.ItemListing[]{book}
+                        new VillagerTrades.ItemListing[]{compass, unrelated}
                 ),
                 RandomSource.create(93L)
         );
 
         assertEquals(learned, restored.stream().map(MerchantOfferTradeKeys::from).toList());
+        assertEquals(0, unrelatedCandidateCalls.get());
+    }
+
+    @Test
+    void persistentLevelUpSelectsOnlyNewlyUnlockedTrades() {
+        MerchantOffer learned = compassOffer();
+        MerchantOffer firstNew = bookOffer("unbreaking");
+        MerchantOffer secondNew = bookOffer("mending");
+        MerchantOffers offers = new MerchantOffers();
+        offers.add(learned);
+
+        SpecializedTradeSelection.addWeightedOffers(
+                mock(Villager.class),
+                offers,
+                new VillagerTrades.ItemListing[]{
+                        (entity, random) -> firstNew,
+                        (entity, random) -> secondNew
+                },
+                2,
+                VillagerProfession.LIBRARIAN,
+                2,
+                Optional.empty(),
+                0.0,
+                BIAS_CONFIG,
+                Map.of(),
+                1.0,
+                TradePaletteRerollStrategy.PERSISTENT,
+                RandomSource.create(93L)
+        );
+
+        assertEquals(3, offers.size());
+        assertEquals(learned, offers.getFirst());
+        assertTrue(offers.contains(firstNew));
+        assertTrue(offers.contains(secondNew));
     }
 
     private static MerchantOffer compassOffer() {

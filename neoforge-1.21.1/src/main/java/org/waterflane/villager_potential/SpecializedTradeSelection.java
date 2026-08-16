@@ -18,6 +18,7 @@ import org.waterflane.villager_potential.core.TradeKey;
 import org.waterflane.villager_potential.core.TradeMemoryRecovery;
 import org.waterflane.villager_potential.core.TradeMemoryRecoveryConfig;
 import org.waterflane.villager_potential.core.TradePaletteRerollStrategy;
+import org.waterflane.villager_potential.core.TradeSelectionResolver;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -27,7 +28,6 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
-import java.util.function.ToDoubleFunction;
 
 /**
  * Applies specialization and remembered-offer weights to the candidate array
@@ -48,10 +48,7 @@ public final class SpecializedTradeSelection {
     private SpecializedTradeSelection() {
     }
 
-    /**
-     * @return {@code true} when weighted selection handled the call, or
-     * {@code false} when the original vanilla method must run unchanged
-     */
+    /** @return {@code true} after this resolver has handled the generation call */
     public static boolean tryAddOffers(
             Villager villager,
             MerchantOffers offers,
@@ -91,13 +88,6 @@ public final class SpecializedTradeSelection {
                 .tradePaletteFor(professionId)
                 .map(palette -> palette.offerHistory())
                 .orElse(Map.of());
-        boolean usesMemory = strategy == TradePaletteRerollStrategy.WEIGHTED_MEMORY
-                || strategy == TradePaletteRerollStrategy.EXHAUST
-                || strategy == TradePaletteRerollStrategy.CYCLIC;
-        if (modifiers.isEmpty() && (!usesMemory || offerHistory.isEmpty())) {
-            return false;
-        }
-
         var career = potential.careerFor(professionId);
         addWeightedOffers(
                 villager,
@@ -278,6 +268,10 @@ public final class SpecializedTradeSelection {
                     specialization,
                     skill,
                     biasConfig,
+                    strategy,
+                    professionTime,
+                    seenTradeWeightMultiplier,
+                    recoveryConfig,
                     random
             );
             return;
@@ -306,24 +300,29 @@ public final class SpecializedTradeSelection {
                     .min()
                     .orElse(0L)
                     : 0L;
-            int selectedIndex = weightedIndex(
-                    remaining,
-                    candidate -> weight(
-                            candidate,
-                            profession,
-                            level,
-                            specialization,
-                            skill,
-                            biasConfig,
-                            offerHistory,
-                            seenTradeWeightMultiplier,
-                            strategy,
-                            cycleFloor,
-                            professionTime,
-                            recoveryConfig,
-                            resetCycle
-                    ),
-                    random
+            TradeSelectionResolver.Rules rules = rules(
+                    skill,
+                    biasConfig,
+                    strategy,
+                    professionTime,
+                    seenTradeWeightMultiplier,
+                    recoveryConfig,
+                    cycleFloor,
+                    resetCycle
+            );
+            int selectedIndex = TradeSelectionResolver.selectIndex(
+                    remaining.stream()
+                            .map(candidate -> descriptor(
+                                    candidate.listing(),
+                                    candidate.key(),
+                                    profession,
+                                    level,
+                                    specialization,
+                                    offerHistory
+                            ))
+                            .toList(),
+                    rules,
+                    selectionRandom(random)
             );
             if (selectedIndex < 0) {
                 break;
@@ -345,22 +344,38 @@ public final class SpecializedTradeSelection {
             Optional<SpecializationDefinition> specialization,
             double skill,
             SpecializationBiasConfig biasConfig,
+            TradePaletteRerollStrategy strategy,
+            long professionTime,
+            double seenTradeWeightMultiplier,
+            TradeMemoryRecoveryConfig recoveryConfig,
             RandomSource random
     ) {
         List<VillagerTrades.ItemListing> remaining = new ArrayList<>(Arrays.asList(candidates));
+        TradeSelectionResolver.Rules rules = rules(
+                skill,
+                biasConfig,
+                strategy,
+                professionTime,
+                seenTradeWeightMultiplier,
+                recoveryConfig,
+                0L,
+                false
+        );
         int offersAdded = 0;
         while (offersAdded < requestedOfferCount && !remaining.isEmpty()) {
-            int selectedIndex = weightedIndex(
-                    remaining,
-                    candidate -> specializationWeight(
-                            candidate,
-                            profession,
-                            level,
-                            specialization,
-                            skill,
-                            biasConfig
-                    ),
-                    random
+            int selectedIndex = TradeSelectionResolver.selectIndex(
+                    remaining.stream()
+                            .map(candidate -> descriptor(
+                                    candidate,
+                                    null,
+                                    profession,
+                                    level,
+                                    specialization,
+                                    Map.of()
+                            ))
+                            .toList(),
+                    rules,
+                    selectionRandom(random)
             );
             if (selectedIndex < 0) {
                 break;
@@ -374,113 +389,70 @@ public final class SpecializedTradeSelection {
         }
     }
 
-    private static <T> int weightedIndex(
-            List<T> candidates,
-            ToDoubleFunction<T> weight,
-            RandomSource random
-    ) {
-        double maximumWeight = 0.0;
-        for (T candidate : candidates) {
-            maximumWeight = Math.max(maximumWeight, weight.applyAsDouble(candidate));
-        }
-        if (maximumWeight == 0.0) {
-            return -1;
-        }
-
-        double normalizedTotal = 0.0;
-        for (T candidate : candidates) {
-            normalizedTotal += weight.applyAsDouble(candidate) / maximumWeight;
-        }
-
-        double target = random.nextDouble() * normalizedTotal;
-        int lastPositiveIndex = -1;
-        double cumulativeWeight = 0.0;
-        for (int index = 0; index < candidates.size(); index++) {
-            double normalizedWeight = weight.applyAsDouble(candidates.get(index)) / maximumWeight;
-            if (normalizedWeight == 0.0) {
-                continue;
-            }
-            lastPositiveIndex = index;
-            cumulativeWeight += normalizedWeight;
-            if (target < cumulativeWeight) {
-                return index;
-            }
-        }
-
-        // Protect against the final addition rounding slightly below the total.
-        return lastPositiveIndex;
-    }
-
-    private static double weight(
-            GeneratedCandidate candidate,
+    private static TradeSelectionResolver.Candidate descriptor(
+            VillagerTrades.ItemListing candidate,
+            TradeKey key,
             VillagerProfession profession,
             int level,
             Optional<SpecializationDefinition> specialization,
+            Map<TradeKey, TradeHistory> offerHistory
+    ) {
+        return new TradeSelectionResolver.Candidate(
+                1.0,
+                specializationModifier(candidate, profession, level, specialization),
+                1.0,
+                key == null ? null : offerHistory.get(key),
+                key != null && Config.isRareTradeProtected(key)
+        );
+    }
+
+    private static double specializationModifier(
+            VillagerTrades.ItemListing candidate,
+            VillagerProfession profession,
+            int level,
+            Optional<SpecializationDefinition> specialization
+    ) {
+        return specialization
+                .map(definition -> definition.weightModifierFor(
+                        VanillaTradeClassifications.classify(profession, level, candidate)
+                ))
+                .orElse(1.0);
+    }
+
+    private static TradeSelectionResolver.Rules rules(
             double skill,
             SpecializationBiasConfig biasConfig,
-            Map<TradeKey, TradeHistory> offerHistory,
-            double seenTradeWeightMultiplier,
             TradePaletteRerollStrategy strategy,
-            long cycleFloor,
             long professionTime,
+            double seenTradeWeightMultiplier,
             TradeMemoryRecoveryConfig recoveryConfig,
+            long cycleFloor,
             boolean resetCycle
     ) {
-        double specializationWeight = specializationWeight(
-                candidate.listing(),
-                profession,
-                level,
-                specialization,
+        return new TradeSelectionResolver.Rules(
                 skill,
-                biasConfig
-        );
-        return TradeMemoryRecovery.candidateWeight(
+                biasConfig,
                 strategy,
-                specializationWeight,
-                offerHistory.get(candidate.key()),
                 professionTime,
                 seenTradeWeightMultiplier,
                 recoveryConfig,
-                Config.isRareTradeProtected(candidate.key()),
                 cycleFloor,
                 resetCycle
         );
     }
 
-    private static double specializationWeight(
-            VillagerTrades.ItemListing candidate,
-            VillagerProfession profession,
-            int level,
-            Optional<SpecializationDefinition> specialization,
-            double skill,
-            SpecializationBiasConfig biasConfig
-    ) {
-        return specialization
-                .map(definition -> biasConfig.weightModifier(
-                        definition.weightModifierFor(
-                                VanillaTradeClassifications.classify(
-                                        profession,
-                                        level,
-                                        candidate
-                                )
-                        ),
-                        skill
-                ))
-                .orElse(1.0);
-    }
+    private static TradeSelectionResolver.SelectionRandom selectionRandom(RandomSource random) {
+        return new TradeSelectionResolver.SelectionRandom() {
+            @Override
+            public int nextInt(int bound) {
+                return random.nextInt(bound);
+            }
 
-    static double tradeMemoryWeight(
-            double baselineWeight,
-            TradeKey candidate,
-            Map<TradeKey, TradeHistory> offerHistory,
-            double seenTradeWeightMultiplier
-    ) {
-        Objects.requireNonNull(candidate, "candidate");
-        Objects.requireNonNull(offerHistory, "offerHistory");
-        TradeHistory history = offerHistory.get(candidate);
-        return history != null && history.timesSeen() > 0L
-                ? baselineWeight * seenTradeWeightMultiplier
-                : baselineWeight;
+            @Override
+            public double nextDouble() {
+                return random.nextDouble();
+            }
+        };
     }
 
     private static long latestSeenTime(Map<TradeKey, TradeHistory> offerHistory) {

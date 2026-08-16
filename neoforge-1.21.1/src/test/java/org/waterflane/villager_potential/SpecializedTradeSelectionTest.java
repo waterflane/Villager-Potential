@@ -42,7 +42,7 @@ class SpecializedTradeSelectionTest {
     );
 
     @Test
-    void generalMatchesVanillaSelection() {
+    void allNeutralModifiersMatchVanillaSelection() {
         SpecializationDefinition general = new SpecializationDefinition(GENERAL, Map.of());
         ProfessionSpecializationDefinition profession = new ProfessionSpecializationDefinition(
                 LIBRARIAN,
@@ -68,22 +68,21 @@ class SpecializedTradeSelectionTest {
         MerchantOffers actual = new MerchantOffers();
 
         vanillaAddOffers(villager, expected, candidates, 2, RandomSource.create(90125L));
-        if (modifiers.isEmpty()) {
-            vanillaAddOffers(villager, actual, candidates, 2, RandomSource.create(90125L));
-        } else {
-            SpecializedTradeSelection.addWeightedOffers(
-                    villager,
-                    actual,
-                    candidates,
-                    2,
-                    VillagerProfession.LIBRARIAN,
-                    1,
-                    modifiers.orElseThrow(),
-                    1.0,
-                    BIAS_CONFIG,
-                    RandomSource.create(90125L)
-            );
-        }
+        SpecializedTradeSelection.addWeightedOffers(
+                villager,
+                actual,
+                candidates,
+                2,
+                VillagerProfession.LIBRARIAN,
+                1,
+                modifiers,
+                1.0,
+                BIAS_CONFIG,
+                Map.of(),
+                1.0,
+                org.waterflane.villager_potential.core.TradePaletteRerollStrategy.VANILLA,
+                RandomSource.create(90125L)
+        );
 
         assertEquals(expected, actual);
     }
