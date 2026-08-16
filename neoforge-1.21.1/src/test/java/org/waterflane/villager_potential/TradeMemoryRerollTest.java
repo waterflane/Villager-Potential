@@ -3,10 +3,13 @@ package org.waterflane.villager_potential;
 import net.minecraft.core.Holder;
 import net.minecraft.core.component.DataComponents;
 import net.minecraft.core.registries.Registries;
+import net.minecraft.nbt.NbtOps;
+import net.minecraft.nbt.Tag;
 import net.minecraft.resources.ResourceKey;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.util.RandomSource;
 import net.minecraft.world.entity.npc.Villager;
+import net.minecraft.world.entity.npc.VillagerData;
 import net.minecraft.world.entity.npc.VillagerProfession;
 import net.minecraft.world.entity.npc.VillagerTrades;
 import net.minecraft.world.item.ItemStack;
@@ -17,24 +20,32 @@ import net.minecraft.world.item.trading.ItemCost;
 import net.minecraft.world.item.trading.MerchantOffer;
 import net.minecraft.world.item.trading.MerchantOffers;
 import org.junit.jupiter.api.Test;
+import org.waterflane.villager_potential.core.ProfessionId;
 import org.waterflane.villager_potential.core.SpecializationBiasConfig;
 import org.waterflane.villager_potential.core.TradeHistory;
 import org.waterflane.villager_potential.core.TradeKey;
 import org.waterflane.villager_potential.core.TradePaletteState;
 import org.waterflane.villager_potential.core.TradePaletteRerollStrategy;
+import org.waterflane.villager_potential.core.TradeSelectionResolver;
+import org.waterflane.villager_potential.core.VillagerPotentialState;
 
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalLong;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.Supplier;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 class TradeMemoryRerollTest {
+    private static final ProfessionId LIBRARIAN = ProfessionId.parse("minecraft:librarian");
+    private static final ProfessionId FARMER = ProfessionId.parse("minecraft:farmer");
     private static final double PENALTY_MULTIPLIER = 0.25;
     private static final SpecializationBiasConfig BIAS_CONFIG = new SpecializationBiasConfig(
             0.0,
@@ -55,53 +66,63 @@ class TradeMemoryRerollTest {
     }
 
     @Test
-    void randomizedMendingKeyIsRememberedButNotBlacklisted() {
-        MerchantOffer mending = bookOffer("mending");
-        MerchantOffer unbreaking = bookOffer("unbreaking");
-        MerchantOffer compass = compassOffer();
-        TradeKey mendingKey = MerchantOfferTradeKeys.from(mending);
-        TradeKey unbreakingKey = MerchantOfferTradeKeys.from(unbreaking);
-        Map<TradeKey, TradeHistory> history = TradePaletteState.empty()
-                .recordPresented(List.of(mendingKey), List.of(mendingKey), 100L, 16)
-                .offerHistory();
-        VillagerTrades.ItemListing randomizedBook = (entity, random) ->
-                random.nextBoolean() ? mending : unbreaking;
-        VillagerTrades.ItemListing compassListing = (entity, random) -> compass;
-        Villager villager = mock(Villager.class);
-        RandomSource random = RandomSource.create(4589123L);
-        int mendingSelections = 0;
-        int unbreakingSelections = 0;
-
-        for (int attempt = 0; attempt < 40_000; attempt++) {
-            MerchantOffers offers = new MerchantOffers();
-            SpecializedTradeSelection.addWeightedOffers(
-                    villager,
-                    offers,
-                    new VillagerTrades.ItemListing[]{randomizedBook, compassListing},
-                    1,
-                    VillagerProfession.LIBRARIAN,
-                    1,
-                    Optional.empty(),
-                    0.0,
-                    BIAS_CONFIG,
-                    history,
-                    PENALTY_MULTIPLIER,
-                    random
-            );
-
-            TradeKey selected = MerchantOfferTradeKeys.from(offers.getFirst());
-            if (selected.equals(mendingKey)) {
-                mendingSelections++;
-            } else if (selected.equals(unbreakingKey)) {
-                unbreakingSelections++;
-            }
-        }
-
-        assertTrue(mendingSelections > 0, "Mending must remain possible");
-        assertTrue(
-                mendingSelections * 2 < unbreakingSelections,
-                "mending=" + mendingSelections + ", unbreaking=" + unbreakingSelections
+    void weightedMemoryRetainsMendingAndAppliesItsConfiguredPenalty() {
+        TradeKey mending = MerchantOfferTradeKeys.from(bookOffer("mending"));
+        TradeKey unbreaking = MerchantOfferTradeKeys.from(bookOffer("unbreaking"));
+        TradePaletteState memory = TradePaletteState.empty()
+                .recordPresented(
+                        List.of(mending),
+                        List.of(mending),
+                        100L,
+                        16,
+                        TradePaletteRerollStrategy.WEIGHTED_MEMORY
+                )
+                .recordPresented(
+                        List.of(unbreaking),
+                        List.of(unbreaking),
+                        100L,
+                        16,
+                        TradePaletteRerollStrategy.WEIGHTED_MEMORY
+                );
+        TradeSelectionResolver.Rules rules = new TradeSelectionResolver.Rules(
+                0.0,
+                BIAS_CONFIG,
+                TradePaletteRerollStrategy.WEIGHTED_MEMORY,
+                100L,
+                Config.seenTradeWeightMultiplier(),
+                Config.tradeMemoryRecoveryConfig(),
+                0L,
+                false
         );
+
+        double mendingWeight = TradeSelectionResolver.resolvedWeight(
+                new TradeSelectionResolver.Candidate(
+                        1.0,
+                        1.0,
+                        1.0,
+                        memory.offerHistory().get(mending),
+                        Config.isRareTradeProtected(mending)
+                ),
+                rules
+        );
+        double unseenWeight = TradeSelectionResolver.resolvedWeight(
+                new TradeSelectionResolver.Candidate(1.0, 1.0, 1.0, null, false),
+                rules
+        );
+
+        assertTrue(memory.offerHistory().containsKey(mending));
+        assertEquals(1L, memory.offerHistory().get(mending).timesSeen());
+        assertEquals(
+                Math.max(
+                        Config.seenTradeWeightMultiplier(),
+                        Config.tradeMemoryRecoveryConfig().minimumCandidateWeight()
+                ),
+                mendingWeight,
+                0.000_000_1
+        );
+        assertEquals(1.0, unseenWeight);
+        assertTrue(mendingWeight > 0.0, "the configured memory penalty is not a blacklist");
+        assertTrue(mendingWeight < unseenWeight);
     }
 
     @Test
@@ -227,11 +248,52 @@ class TradeMemoryRerollTest {
     }
 
     @Test
-    void persistentWorkstationReassignmentRestoresWithoutNewCandidateSelection() {
-        List<TradeKey> learned = List.of(
-                MerchantOfferTradeKeys.from(compassOffer())
+    @SuppressWarnings({"unchecked", "rawtypes"})
+    void persistentMendingSurvivesReassignmentSaveLoadAndProfessionChanges() {
+        MerchantOffer mending = bookOffer("mending");
+        TradeKey mendingKey = MerchantOfferTradeKeys.from(mending);
+        mending.setSpecialPriceDiff(-5);
+        assertEquals(7, mending.getCostA().getCount());
+        assertEquals(mendingKey, MerchantOfferTradeKeys.from(mending));
+
+        VillagerPotentialState initial = new VillagerPotentialState(
+                VillagerPotentialState.CURRENT_SCHEMA_VERSION,
+                Map.of(LIBRARIAN, 1.0)
+        ).assignProfession(LIBRARIAN, 100L);
+        AtomicReference<VillagerPotentialState> state = new AtomicReference<>(initial);
+        Villager villager = mock(Villager.class);
+        VillagerData data = mock(VillagerData.class);
+        when(villager.getVillagerData()).thenReturn(data);
+        when(data.getProfession()).thenReturn(VillagerProfession.LIBRARIAN);
+        when(villager.getData(any(Supplier.class))).thenAnswer(ignored -> state.get());
+        when(villager.setData(any(Supplier.class), any())).thenAnswer(invocation ->
+                state.getAndSet(invocation.getArgument(1))
         );
-        VillagerTrades.ItemListing compass = (entity, random) -> compassOffer();
+
+        MerchantOffers generated = new MerchantOffers();
+        generated.add(mending);
+        VillagerPotentialAttachments.recordGeneratedOffers(villager, generated, 0, 150L, 16);
+
+        TradePaletteState learned = state.get().tradePaletteFor(LIBRARIAN).orElseThrow();
+        assertEquals(List.of(mendingKey), learned.activeTrades());
+        assertEquals(0L, learned.offerHistory().get(mendingKey).timesUsed());
+
+        generated.clear();
+        state.set(state.get().clearActiveProfession().assignProfession(LIBRARIAN, 200L));
+        assertEquals(learned, state.get().tradePaletteFor(LIBRARIAN).orElseThrow());
+
+        Tag saved = VillagerPotentialAttachments.CODEC
+                .encodeStart(NbtOps.INSTANCE, state.get())
+                .getOrThrow();
+        VillagerPotentialState loaded = VillagerPotentialAttachments.CODEC
+                .parse(NbtOps.INSTANCE, saved)
+                .getOrThrow()
+                .assignProfession(FARMER, 300L)
+                .assignProfession(LIBRARIAN, 400L);
+        state.set(loaded);
+        assertEquals(learned, loaded.tradePaletteFor(LIBRARIAN).orElseThrow());
+
+        VillagerTrades.ItemListing mendingListing = (entity, random) -> bookOffer("mending");
         AtomicInteger unrelatedCandidateCalls = new AtomicInteger();
         VillagerTrades.ItemListing unrelated = (entity, random) -> {
             unrelatedCandidateCalls.incrementAndGet();
@@ -240,16 +302,19 @@ class TradeMemoryRerollTest {
         MerchantOffers restored = new MerchantOffers();
 
         SpecializedTradeSelection.restorePersistentOffers(
-                mock(Villager.class),
+                villager,
                 restored,
-                learned,
+                learned.activeTrades(),
                 List.<VillagerTrades.ItemListing[]>of(
-                        new VillagerTrades.ItemListing[]{compass, unrelated}
+                        new VillagerTrades.ItemListing[]{mendingListing, unrelated}
                 ),
                 RandomSource.create(93L)
         );
 
-        assertEquals(learned, restored.stream().map(MerchantOfferTradeKeys::from).toList());
+        assertEquals(
+                List.of(mendingKey),
+                restored.stream().map(MerchantOfferTradeKeys::from).toList()
+        );
         assertEquals(0, unrelatedCandidateCalls.get());
     }
 
