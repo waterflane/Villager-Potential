@@ -15,6 +15,8 @@ import org.waterflane.villager_potential.core.SpecializationDefinition;
 import org.waterflane.villager_potential.core.SpecializationId;
 import org.waterflane.villager_potential.core.TradeHistory;
 import org.waterflane.villager_potential.core.TradeKey;
+import org.waterflane.villager_potential.core.TradeMemoryRecovery;
+import org.waterflane.villager_potential.core.TradeMemoryRecoveryConfig;
 import org.waterflane.villager_potential.core.TradePaletteRerollStrategy;
 
 import java.util.ArrayList;
@@ -40,6 +42,8 @@ import java.util.function.ToDoubleFunction;
  */
 public final class SpecializedTradeSelection {
     private static final int PERSISTENT_MATCH_ATTEMPTS = 4096;
+    private static final TradeMemoryRecoveryConfig DEFAULT_MEMORY_RECOVERY =
+            new TradeMemoryRecoveryConfig(24_000L, 0.01, 24_000L, 24_000L, 0L);
 
     private SpecializedTradeSelection() {
     }
@@ -94,6 +98,7 @@ public final class SpecializedTradeSelection {
             return false;
         }
 
+        var career = potential.careerFor(professionId);
         addWeightedOffers(
                 villager,
                 offers,
@@ -102,13 +107,13 @@ public final class SpecializedTradeSelection {
                 profession,
                 villager.getVillagerData().getLevel(),
                 modifiers,
-                potential.careerFor(professionId)
-                        .map(career -> career.learnedSkill())
-                        .orElse(0.0),
+                career.map(value -> value.learnedSkill()).orElse(0.0),
                 Config.specializationBiasConfig(),
                 offerHistory,
                 Config.seenTradeWeightMultiplier(),
                 strategy,
+                career.map(value -> value.accumulatedProfessionTime()).orElse(0L),
+                Config.tradeMemoryRecoveryConfig(),
                 villager.getRandom()
         );
         return true;
@@ -206,6 +211,42 @@ public final class SpecializedTradeSelection {
             TradePaletteRerollStrategy strategy,
             RandomSource random
     ) {
+        addWeightedOffers(
+                villager,
+                offers,
+                candidates,
+                requestedOfferCount,
+                profession,
+                level,
+                specialization,
+                skill,
+                biasConfig,
+                offerHistory,
+                seenTradeWeightMultiplier,
+                strategy,
+                latestSeenTime(offerHistory),
+                DEFAULT_MEMORY_RECOVERY,
+                random
+        );
+    }
+
+    static void addWeightedOffers(
+            Villager villager,
+            MerchantOffers offers,
+            VillagerTrades.ItemListing[] candidates,
+            int requestedOfferCount,
+            VillagerProfession profession,
+            int level,
+            Optional<SpecializationDefinition> specialization,
+            double skill,
+            SpecializationBiasConfig biasConfig,
+            Map<TradeKey, TradeHistory> offerHistory,
+            double seenTradeWeightMultiplier,
+            TradePaletteRerollStrategy strategy,
+            long professionTime,
+            TradeMemoryRecoveryConfig recoveryConfig,
+            RandomSource random
+    ) {
         Objects.requireNonNull(villager, "villager");
         Objects.requireNonNull(offers, "offers");
         Objects.requireNonNull(candidates, "candidates");
@@ -214,6 +255,7 @@ public final class SpecializedTradeSelection {
         Objects.requireNonNull(biasConfig, "biasConfig");
         Objects.requireNonNull(offerHistory, "offerHistory");
         Objects.requireNonNull(strategy, "strategy");
+        Objects.requireNonNull(recoveryConfig, "recoveryConfig");
         Objects.requireNonNull(random, "random");
         if (!Double.isFinite(seenTradeWeightMultiplier)
                 || seenTradeWeightMultiplier < 0.0
@@ -245,11 +287,22 @@ public final class SpecializedTradeSelection {
                 .map(candidate -> generateCandidate(candidate, villager, random))
                 .flatMap(Optional::stream)
                 .collect(java.util.stream.Collectors.toCollection(ArrayList::new));
+        boolean resetCycle = strategy == TradePaletteRerollStrategy.CYCLIC
+                && TradeMemoryRecovery.shouldResetCycle(
+                offerHistory.values(),
+                professionTime,
+                recoveryConfig
+        );
         int offersAdded = 0;
         while (offersAdded < requestedOfferCount && !remaining.isEmpty()) {
             long cycleFloor = strategy == TradePaletteRerollStrategy.CYCLIC
                     ? remaining.stream()
-                    .mapToLong(candidate -> timesSeen(candidate.key(), offerHistory))
+                    .mapToLong(candidate -> TradeMemoryRecovery.effectiveCyclicCount(
+                            offerHistory.get(candidate.key()),
+                            professionTime,
+                            recoveryConfig,
+                            Config.isRareTradeProtected(candidate.key())
+                    ))
                     .min()
                     .orElse(0L)
                     : 0L;
@@ -265,7 +318,10 @@ public final class SpecializedTradeSelection {
                             offerHistory,
                             seenTradeWeightMultiplier,
                             strategy,
-                            cycleFloor
+                            cycleFloor,
+                            professionTime,
+                            recoveryConfig,
+                            resetCycle
                     ),
                     random
             );
@@ -365,7 +421,10 @@ public final class SpecializedTradeSelection {
             Map<TradeKey, TradeHistory> offerHistory,
             double seenTradeWeightMultiplier,
             TradePaletteRerollStrategy strategy,
-            long cycleFloor
+            long cycleFloor,
+            long professionTime,
+            TradeMemoryRecoveryConfig recoveryConfig,
+            boolean resetCycle
     ) {
         double specializationWeight = specializationWeight(
                 candidate.listing(),
@@ -375,21 +434,17 @@ public final class SpecializedTradeSelection {
                 skill,
                 biasConfig
         );
-        return switch (strategy) {
-            case WEIGHTED_MEMORY -> tradeMemoryWeight(
-                    specializationWeight,
-                    candidate.key(),
-                    offerHistory,
-                    seenTradeWeightMultiplier
-            );
-            case EXHAUST -> timesSeen(candidate.key(), offerHistory) == 0L
-                    ? specializationWeight
-                    : 0.0;
-            case CYCLIC -> timesSeen(candidate.key(), offerHistory) == cycleFloor
-                    ? specializationWeight
-                    : 0.0;
-            case PERSISTENT, VANILLA -> specializationWeight;
-        };
+        return TradeMemoryRecovery.candidateWeight(
+                strategy,
+                specializationWeight,
+                offerHistory.get(candidate.key()),
+                professionTime,
+                seenTradeWeightMultiplier,
+                recoveryConfig,
+                Config.isRareTradeProtected(candidate.key()),
+                cycleFloor,
+                resetCycle
+        );
     }
 
     private static double specializationWeight(
@@ -428,12 +483,12 @@ public final class SpecializedTradeSelection {
                 : baselineWeight;
     }
 
-    private static long timesSeen(
-            TradeKey candidate,
-            Map<TradeKey, TradeHistory> offerHistory
-    ) {
-        TradeHistory history = offerHistory.get(candidate);
-        return history == null ? 0L : history.timesSeen();
+    private static long latestSeenTime(Map<TradeKey, TradeHistory> offerHistory) {
+        return offerHistory.values().stream()
+                .filter(history -> history.lastSeen().isPresent())
+                .mapToLong(history -> history.lastSeen().getAsLong())
+                .max()
+                .orElse(0L);
     }
 
     private static void restorePersistentOffers(

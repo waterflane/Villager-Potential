@@ -8,6 +8,8 @@ import net.neoforged.fml.common.EventBusSubscriber;
 import net.neoforged.fml.event.config.ModConfigEvent;
 import net.neoforged.neoforge.common.ModConfigSpec;
 import org.waterflane.villager_potential.core.SpecializationBiasConfig;
+import org.waterflane.villager_potential.core.TradeKey;
+import org.waterflane.villager_potential.core.TradeMemoryRecoveryConfig;
 import org.waterflane.villager_potential.core.TradePaletteRerollStrategy;
 
 import java.util.List;
@@ -44,6 +46,28 @@ public class Config {
     private static final ModConfigSpec.DoubleValue SEEN_TRADE_WEIGHT_MULTIPLIER = BUILDER
             .comment("Weight multiplier for an offer this villager has previously seen (1 = no penalty, 0 = blacklist).")
             .defineInRange("tradeMemory.seenTradeWeightMultiplier", 0.25, 0.0, 1.0);
+    private static final ModConfigSpec.LongValue WEIGHTED_MEMORY_RECOVERY_TIME = BUILDER
+            .comment("Profession ticks until a WEIGHTED_MEMORY penalty fully recovers.")
+            .defineInRange("tradeMemory.weightedPenaltyRecoveryTime", 24_000L, 1L, Long.MAX_VALUE);
+    private static final ModConfigSpec.DoubleValue MINIMUM_CANDIDATE_WEIGHT = BUILDER
+            .comment("Absolute floor for a memory-penalized candidate, capped at its unpenalized weight.")
+            .defineInRange("tradeMemory.minimumCandidateWeight", 0.01, 0.0, Double.MAX_VALUE);
+    private static final ModConfigSpec.LongValue EXHAUST_RECOVERY_TIME = BUILDER
+            .comment("Profession ticks after which an EXHAUST candidate becomes eligible again.")
+            .defineInRange("tradeMemory.exhaustRecoveryTime", 24_000L, 1L, Long.MAX_VALUE);
+    private static final ModConfigSpec.LongValue CYCLIC_RESET_TIME = BUILDER
+            .comment("Profession ticks all CYCLIC candidates must be idle before a fresh cycle begins.")
+            .defineInRange("tradeMemory.cyclicResetTime", 24_000L, 1L, Long.MAX_VALUE);
+    private static final ModConfigSpec.LongValue RARE_TRADE_RECOVERY_TIME = BUILDER
+            .comment("Shorter recovery for configured rare results (0 disables rare-trade protection).")
+            .defineInRange("tradeMemory.rareTradeRecoveryTime", 0L, 0L, Long.MAX_VALUE);
+    private static final ModConfigSpec.ConfigValue<List<? extends String>> RARE_TRADE_RESULTS =
+            BUILDER.comment("Result item IDs protected by rareTradeRecoveryTime.")
+                    .defineListAllowEmpty(
+                            "tradeMemory.rareTradeResultItems",
+                            List.of(),
+                            Config::validateResourceLocation
+                    );
     private static final ModConfigSpec.EnumValue<TradePaletteRerollStrategy>
             TRADE_PALETTE_REROLL_STRATEGY = BUILDER
             .comment("Trade palette reroll strategy.")
@@ -61,6 +85,10 @@ public class Config {
 
     private static boolean validateItemName(final Object obj) {
         return obj instanceof String itemName && BuiltInRegistries.ITEM.containsKey(ResourceLocation.parse(itemName));
+    }
+
+    private static boolean validateResourceLocation(final Object obj) {
+        return obj instanceof String value && ResourceLocation.tryParse(value) != null;
     }
 
     static SpecializationBiasConfig specializationBiasConfig() {
@@ -81,6 +109,21 @@ public class Config {
 
     public static double seenTradeWeightMultiplier() {
         return SEEN_TRADE_WEIGHT_MULTIPLIER.get();
+    }
+
+    public static TradeMemoryRecoveryConfig tradeMemoryRecoveryConfig() {
+        return new TradeMemoryRecoveryConfig(
+                WEIGHTED_MEMORY_RECOVERY_TIME.get(),
+                MINIMUM_CANDIDATE_WEIGHT.get(),
+                EXHAUST_RECOVERY_TIME.get(),
+                CYCLIC_RESET_TIME.get(),
+                RARE_TRADE_RECOVERY_TIME.get()
+        );
+    }
+
+    public static boolean isRareTradeProtected(TradeKey candidate) {
+        return candidate instanceof TradeKey.Offer offer
+                && RARE_TRADE_RESULTS.get().contains(offer.result().itemId());
     }
 
     public static TradePaletteRerollStrategy tradePaletteRerollStrategy() {

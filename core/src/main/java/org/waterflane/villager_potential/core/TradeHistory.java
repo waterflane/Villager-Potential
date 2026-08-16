@@ -5,9 +5,9 @@ import java.util.OptionalLong;
 /**
  * Durable observations for one logical trade.
  *
- * <p>Timestamps are game times. They are optional so a migrated history can
- * retain old aggregate counts even when the old schema did not store when an
- * observation happened.</p>
+ * <p>Timestamps use a stable server counter: accumulated profession time for
+ * memory-based modes and game time otherwise. They are optional so a migrated
+ * history can retain old aggregate counts without an observation anchor.</p>
  */
 public record TradeHistory(
         long timesSeen,
@@ -54,6 +54,10 @@ public record TradeHistory(
                 increment(timesUsed),
                 OptionalLong.of(gameTime)
         );
+    }
+
+    public TradeHistory resetSeenCount() {
+        return timesSeen == 0L ? this : new TradeHistory(0L, lastSeen, timesUsed, lastUsed);
     }
 
     long mostRecentObservation() {

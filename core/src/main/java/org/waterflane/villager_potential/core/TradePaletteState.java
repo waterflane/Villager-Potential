@@ -5,6 +5,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 
 /**
  * Persistent, platform-independent trade selection state for one profession.
@@ -107,6 +108,22 @@ public record TradePaletteState(
         );
         pruneToCapacity(updatedHistory, trade, maximumHistoryEntries);
         return new TradePaletteState(activeTrades, updatedHistory);
+    }
+
+    /** Resets only CYCLIC seen counts; learned trades and use history are retained. */
+    public TradePaletteState resetSeenCounts(Set<TradeKey> trades) {
+        Objects.requireNonNull(trades, "trades");
+        if (trades.isEmpty()) {
+            return this;
+        }
+        Map<TradeKey, TradeHistory> updatedHistory = new HashMap<>(offerHistory);
+        trades.forEach(trade -> updatedHistory.computeIfPresent(
+                Objects.requireNonNull(trade, "trade"),
+                (ignored, history) -> history.resetSeenCount()
+        ));
+        return updatedHistory.equals(offerHistory)
+                ? this
+                : new TradePaletteState(activeTrades, updatedHistory);
     }
 
     private static Map<TradeKey, TradeHistory> aggregateLegacyHistory(

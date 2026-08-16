@@ -32,6 +32,7 @@ import org.waterflane.villager_potential.core.SkillProgressionConfig;
 import org.waterflane.villager_potential.core.SpecializationId;
 import org.waterflane.villager_potential.core.TradeHistory;
 import org.waterflane.villager_potential.core.TradeKey;
+import org.waterflane.villager_potential.core.TradeMemoryRecovery;
 import org.waterflane.villager_potential.core.TradePaletteState;
 import org.waterflane.villager_potential.core.TradePaletteRerollStrategy;
 import org.waterflane.villager_potential.core.VillagerPotentialState;
@@ -43,6 +44,7 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.OptionalLong;
 import java.util.Random;
+import java.util.Set;
 import java.util.UUID;
 import java.util.WeakHashMap;
 import java.util.random.RandomGenerator;
@@ -326,12 +328,14 @@ public final class VillagerPotentialAttachments {
         }
 
         VillagerPotentialState state = get(villager);
+        TradePaletteRerollStrategy strategy = Config.tradePaletteRerollStrategy();
+        long observationTime = tradeMemoryTime(state, profession, gameTime, strategy);
         VillagerPotentialState updatedState = state
                 .recordProfessionTrade(profession, gameTime, PROFESSION_ACTIVITY_CONFIG)
                 .recordTradeUse(
                         profession,
                         MerchantOfferTradeKeys.from(offer),
-                        gameTime,
+                        observationTime,
                         maximumHistoryEntries
                 );
         if (updatedState != state) {
@@ -397,17 +401,52 @@ public final class VillagerPotentialAttachments {
                 generatedTrades = List.of();
             }
         }
+        long observationTime = tradeMemoryTime(state, profession, gameTime, strategy);
+        if (strategy == TradePaletteRerollStrategy.CYCLIC) {
+            TradePaletteState palette = state.tradePaletteFor(profession)
+                    .orElse(TradePaletteState.empty());
+            boolean resetCycle = TradeMemoryRecovery.shouldResetCycle(
+                    palette.offerHistory().values(),
+                    observationTime,
+                    Config.tradeMemoryRecoveryConfig()
+            );
+            Set<TradeKey> resetTrades = palette.offerHistory().entrySet().stream()
+                    .filter(entry -> resetCycle || Config.isRareTradeProtected(entry.getKey())
+                            && TradeMemoryRecovery.effectiveCyclicCount(
+                            entry.getValue(),
+                            observationTime,
+                            Config.tradeMemoryRecoveryConfig(),
+                            true
+                    ) == 0L)
+                    .map(Map.Entry::getKey)
+                    .collect(java.util.stream.Collectors.toSet());
+            state = state.withTradePalette(profession, palette.resetSeenCounts(resetTrades));
+        }
         VillagerPotentialState updatedState = state.recordPresentedTrades(
                 profession,
                 presentedTrades,
                 generatedTrades,
-                gameTime,
+                observationTime,
                 maximumHistoryEntries,
                 strategy
         );
         if (updatedState != state) {
             villager.setData(POTENTIAL, updatedState);
         }
+    }
+
+    private static long tradeMemoryTime(
+            VillagerPotentialState state,
+            ProfessionId profession,
+            long gameTime,
+            TradePaletteRerollStrategy strategy
+    ) {
+        return switch (strategy) {
+            case WEIGHTED_MEMORY, EXHAUST, CYCLIC -> state.careerFor(profession)
+                    .map(ProfessionCareerState::accumulatedProfessionTime)
+                    .orElse(0L);
+            case PERSISTENT, VANILLA -> gameTime;
+        };
     }
 
     private static ProfessionId toCareerProfession(VillagerProfession profession) {
