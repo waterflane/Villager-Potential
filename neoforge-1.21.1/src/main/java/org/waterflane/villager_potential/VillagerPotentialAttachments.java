@@ -177,9 +177,17 @@ public final class VillagerPotentialAttachments {
             );
     private static final Codec<Map<ProfessionId, TradePaletteState>> TRADE_PALETTES_CODEC =
             Codec.unboundedMap(PROFESSION_ID_CODEC, TRADE_PALETTE_CODEC);
+    private static final Codec<Double> MARKET_DEMAND_SCORE_CODEC = Codec.either(
+            Codec.DOUBLE,
+            Codec.INT
+    ).xmap(
+            score -> score.map(value -> value, Integer::doubleValue),
+            Either::left
+    );
     private static final Codec<MarketDemandState> MARKET_DEMAND_STATE_CODEC =
             RecordCodecBuilder.create(instance -> instance.group(
-                    Codec.INT.fieldOf("score").forGetter(MarketDemandState::demandScore),
+                    MARKET_DEMAND_SCORE_CODEC.fieldOf("score")
+                            .forGetter(MarketDemandState::demandScore),
                     Codec.LONG.fieldOf("times_purchased")
                             .forGetter(MarketDemandState::timesPurchased),
                     Codec.LONG.fieldOf("last_purchase_game_time")
@@ -368,7 +376,12 @@ public final class VillagerPotentialAttachments {
                         observationTime,
                         maximumHistoryEntries
                 )
-                .recordTradePurchase(profession, trade, gameTime);
+                .recordTradePurchase(
+                        profession,
+                        trade,
+                        gameTime,
+                        Config.marketDemandConfig()
+                );
         if (updatedState != state) {
             villager.setData(POTENTIAL, updatedState);
         }

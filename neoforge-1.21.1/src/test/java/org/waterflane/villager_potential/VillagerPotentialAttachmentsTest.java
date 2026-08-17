@@ -310,7 +310,7 @@ class VillagerPotentialAttachmentsTest {
 
         assertEquals(original, restored);
         assertEquals(
-                new MarketDemandState(2, 2L, 450L),
+                MarketDemandState.firstPurchaseAt(400L).recordPurchase(450L),
                 restored.marketDemandFor(librarian, paper).orElseThrow()
         );
         assertEquals(
@@ -318,6 +318,23 @@ class VillagerPotentialAttachmentsTest {
                 restored.marketDemandFor(farmer, wheat).orElseThrow()
         );
         assertTrue(root.contains("market_demand", Tag.TAG_COMPOUND));
+
+        CompoundTag legacyRoot = root.copy();
+        legacyRoot.putInt("schema_version", 9);
+        legacyRoot.getCompound("market_demand")
+                .getList(librarian.toString(), Tag.TAG_COMPOUND)
+                .getCompound(0)
+                .getCompound("demand")
+                .putInt("score", 2);
+        VillagerPotentialState migrated = VillagerPotentialAttachments.CODEC
+                .parse(NbtOps.INSTANCE, legacyRoot)
+                .getOrThrow();
+
+        assertEquals(
+                new MarketDemandState(2.0, 2L, 450L),
+                migrated.marketDemandFor(librarian, paper).orElseThrow()
+        );
+        assertEquals(VillagerPotentialState.CURRENT_SCHEMA_VERSION, migrated.schemaVersion());
     }
 
     @Test

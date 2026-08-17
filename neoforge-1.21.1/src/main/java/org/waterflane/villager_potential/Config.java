@@ -7,6 +7,7 @@ import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.fml.common.EventBusSubscriber;
 import net.neoforged.fml.event.config.ModConfigEvent;
 import net.neoforged.neoforge.common.ModConfigSpec;
+import org.waterflane.villager_potential.core.MarketDemandConfig;
 import org.waterflane.villager_potential.core.SpecializationBiasConfig;
 import org.waterflane.villager_potential.core.TradeKey;
 import org.waterflane.villager_potential.core.TradeMemoryRecoveryConfig;
@@ -75,6 +76,21 @@ public class Config {
                     "tradePalette.rerollStrategy",
                     TradePaletteRerollStrategy.PERSISTENT
             );
+    private static final ModConfigSpec.DoubleValue MARKET_DEMAND_MINIMUM = BUILDER
+            .comment("Minimum demand score for one logical trade.")
+            .defineInRange("marketDemand.minimum", 0.0, -Double.MAX_VALUE, Double.MAX_VALUE);
+    private static final ModConfigSpec.DoubleValue MARKET_DEMAND_BASELINE = BUILDER
+            .comment("Demand score approached while a logical trade remains unused.")
+            .defineInRange("marketDemand.baseline", 0.0, -Double.MAX_VALUE, Double.MAX_VALUE);
+    private static final ModConfigSpec.DoubleValue MARKET_DEMAND_MAXIMUM = BUILDER
+            .comment("Maximum demand score for one logical trade.")
+            .defineInRange("marketDemand.maximum", 100.0, -Double.MAX_VALUE, Double.MAX_VALUE);
+    private static final ModConfigSpec.DoubleValue MARKET_DEMAND_INCREASE_PER_PURCHASE = BUILDER
+            .comment("Demand added by one completed purchase.")
+            .defineInRange("marketDemand.increasePerPurchase", 1.0, Double.MIN_NORMAL, Double.MAX_VALUE);
+    private static final ModConfigSpec.DoubleValue MARKET_DEMAND_DECAY_PER_TICK = BUILDER
+            .comment("Demand moved toward baseline per elapsed server tick (0 disables decay).")
+            .defineInRange("marketDemand.decayPerTick", 1.0 / 1_200.0, 0.0, Double.MAX_VALUE);
 
     static final ModConfigSpec SPEC = BUILDER.build();
 
@@ -128,6 +144,22 @@ public class Config {
 
     public static TradePaletteRerollStrategy tradePaletteRerollStrategy() {
         return TRADE_PALETTE_REROLL_STRATEGY.get();
+    }
+
+    public static MarketDemandConfig marketDemandConfig() {
+        double minimum = MARKET_DEMAND_MINIMUM.get();
+        double maximum = Math.max(MARKET_DEMAND_MAXIMUM.get(), minimum);
+        double baseline = Math.max(
+                minimum,
+                Math.min(maximum, MARKET_DEMAND_BASELINE.get())
+        );
+        return new MarketDemandConfig(
+                minimum,
+                baseline,
+                maximum,
+                MARKET_DEMAND_INCREASE_PER_PURCHASE.get(),
+                MARKET_DEMAND_DECAY_PER_TICK.get()
+        );
     }
 
     @SubscribeEvent

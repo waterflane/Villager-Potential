@@ -19,7 +19,7 @@ public record VillagerPotentialState(
         Map<ProfessionId, TradePaletteState> tradePalettes,
         Map<ProfessionId, Map<TradeKey, MarketDemandState>> marketDemand
 ) {
-    public static final int CURRENT_SCHEMA_VERSION = 9;
+    public static final int CURRENT_SCHEMA_VERSION = 10;
 
     public VillagerPotentialState {
         if (schemaVersion < 1) {
@@ -280,6 +280,22 @@ public record VillagerPotentialState(
     }
 
     /**
+     * Resolves one trade's lazily decayed demand at the supplied
+     * server/profession time without updating any stored demand entries.
+     */
+    public OptionalDouble marketDemandScoreFor(
+            ProfessionId professionId,
+            TradeKey trade,
+            long gameTime,
+            MarketDemandConfig config
+    ) {
+        Objects.requireNonNull(config, "config");
+        return marketDemandFor(professionId, trade)
+                .map(demand -> OptionalDouble.of(demand.scoreAt(gameTime, config)))
+                .orElseGet(OptionalDouble::empty);
+    }
+
+    /**
      * Records one completed purchase without changing activity, career state,
      * offer memory, or any pricing data.
      */
@@ -288,16 +304,31 @@ public record VillagerPotentialState(
             TradeKey trade,
             long gameTime
     ) {
+        return recordTradePurchase(
+                professionId,
+                trade,
+                gameTime,
+                MarketDemandConfig.DEFAULT
+        );
+    }
+
+    public VillagerPotentialState recordTradePurchase(
+            ProfessionId professionId,
+            TradeKey trade,
+            long gameTime,
+            MarketDemandConfig config
+    ) {
         Objects.requireNonNull(professionId, "professionId");
         Objects.requireNonNull(trade, "trade");
+        Objects.requireNonNull(config, "config");
         Map<TradeKey, MarketDemandState> professionDemand = marketDemand.getOrDefault(
                 professionId,
                 Map.of()
         );
         MarketDemandState demand = professionDemand.get(trade);
         MarketDemandState updatedDemand = demand == null
-                ? MarketDemandState.firstPurchaseAt(gameTime)
-                : demand.recordPurchase(gameTime);
+                ? MarketDemandState.firstPurchaseAt(gameTime, config)
+                : demand.recordPurchase(gameTime, config);
 
         Map<TradeKey, MarketDemandState> updatedProfessionDemand =
                 new HashMap<>(professionDemand);
@@ -595,6 +626,15 @@ public record VillagerPotentialState(
     ) {
         return switch (persistedSchemaVersion) {
             case CURRENT_SCHEMA_VERSION -> new VillagerPotentialState(
+                    CURRENT_SCHEMA_VERSION,
+                    persistedAptitudes,
+                    persistedCareers,
+                    persistedActiveProfession,
+                    persistedProfessionActivities,
+                    persistedTradePalettes,
+                    persistedMarketDemand
+            );
+            case 9 -> new VillagerPotentialState(
                     CURRENT_SCHEMA_VERSION,
                     persistedAptitudes,
                     persistedCareers,

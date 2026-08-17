@@ -194,6 +194,26 @@ class VillagerPotentialStateTest {
     }
 
     @Test
+    void marketDemandReadsDecayLazilyWithoutRewritingStoredTrades() {
+        ProfessionId librarian = ProfessionId.parse("minecraft:librarian");
+        TradeKey paper = trade("minecraft:paper", "minecraft:emerald");
+        MarketDemandConfig config = new MarketDemandConfig(0.0, 0.0, 10.0, 2.0, 0.25);
+        VillagerPotentialState state = VillagerPotentialState.createDefault()
+                .recordTradePurchase(librarian, paper, 100L, config);
+        Map<ProfessionId, Map<TradeKey, MarketDemandState>> storedDemand = state.marketDemand();
+
+        assertEquals(
+                1.0,
+                state.marketDemandScoreFor(librarian, paper, 104L, config).orElseThrow()
+        );
+        assertEquals(storedDemand, state.marketDemand());
+        assertEquals(
+                1.0,
+                state.marketDemandScoreFor(librarian, paper, 104L, config).orElseThrow()
+        );
+    }
+
+    @Test
     void storesOneStableSpecializationPerProfessionCareer() {
         ProfessionId librarian = ProfessionId.parse("minecraft:librarian");
         SpecializationId enchanter =
@@ -520,6 +540,26 @@ class VillagerPotentialStateTest {
 
         assertTrue(migrated.tradePalettes().isEmpty());
         assertEquals(activity, migrated.professionActivities().get(librarian));
+        assertEquals(VillagerPotentialState.CURRENT_SCHEMA_VERSION, migrated.schemaVersion());
+    }
+
+    @Test
+    void migratesVersionNineDemandWithoutLosingItsTimeAnchor() {
+        ProfessionId librarian = ProfessionId.parse("minecraft:librarian");
+        TradeKey paper = trade("minecraft:paper", "minecraft:emerald");
+        MarketDemandState demand = new MarketDemandState(7.0, 4L, 300L);
+
+        VillagerPotentialState migrated = VillagerPotentialState.migrate(
+                9,
+                Map.of(),
+                Map.of(),
+                java.util.Optional.empty(),
+                Map.of(),
+                Map.of(),
+                Map.of(librarian, Map.of(paper, demand))
+        );
+
+        assertEquals(demand, migrated.marketDemandFor(librarian, paper).orElseThrow());
         assertEquals(VillagerPotentialState.CURRENT_SCHEMA_VERSION, migrated.schemaVersion());
     }
 
