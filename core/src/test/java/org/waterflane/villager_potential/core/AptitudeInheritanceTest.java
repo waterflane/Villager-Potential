@@ -76,6 +76,24 @@ class AptitudeInheritanceTest {
     }
 
     @Test
+    void mutationChanceCanLeaveInheritedAptitudeUnchanged() {
+        VillagerPotentialState parent = state(Map.of(LIBRARIAN, 1.2));
+        AptitudeInheritanceConfig config = new AptitudeInheritanceConfig(
+                true,
+                1.0,
+                0.0,
+                0.0,
+                1.0
+        );
+
+        assertEquals(
+                1.2,
+                inherit(parent, parent, List.of(LIBRARIAN), config, gaussianRandom(10.0))
+                        .aptitudeFor(LIBRARIAN).orElseThrow()
+        );
+    }
+
+    @Test
     void configuredInheritanceStrengthBlendsTowardNeutralMean() {
         VillagerPotentialState parent = state(Map.of(LIBRARIAN, 1.4));
 

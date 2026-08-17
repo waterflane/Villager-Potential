@@ -419,6 +419,9 @@ public record VillagerPotentialState(
     ) {
         Objects.requireNonNull(professionId, "professionId");
         Objects.requireNonNull(config, "config");
+        if (!config.enabled()) {
+            return 1.0;
+        }
         ProfessionActivityState activity = professionActivities.get(professionId);
         return activity == null ? config.baseline() : activity.scoreAt(gameTime, config);
     }
@@ -434,6 +437,9 @@ public record VillagerPotentialState(
     ) {
         Objects.requireNonNull(professionId, "professionId");
         Objects.requireNonNull(config, "config");
+        if (!config.enabled()) {
+            return this;
+        }
         ProfessionActivityState activity = professionActivities.get(professionId);
         ProfessionActivityState updatedActivity = activity == null
                 ? ProfessionActivityState.recordFirstTrade(gameTime, config)

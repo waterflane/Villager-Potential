@@ -5,6 +5,7 @@ import org.junit.jupiter.api.Test;
 import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 class ProfessionActivityStateTest {
@@ -17,6 +18,25 @@ class ProfessionActivityStateTest {
             0.15,
             0.01
     );
+
+    @Test
+    void disabledActivityIsNeutralAndDoesNotChangeStoredState() {
+        ProfessionActivityConfig disabled = new ProfessionActivityConfig(
+                false,
+                0.5,
+                0.8,
+                2.0,
+                0.1,
+                0.01
+        );
+        VillagerPotentialState state = new VillagerPotentialState(
+                VillagerPotentialState.CURRENT_SCHEMA_VERSION,
+                Map.of(LIBRARIAN, 1.0)
+        );
+
+        assertEquals(1.0, state.professionActivityFor(LIBRARIAN, 10L, disabled));
+        assertSame(state, state.recordProfessionTrade(LIBRARIAN, 10L, disabled));
+    }
 
     @Test
     void tradeIncreasesProfessionActivityWithoutAddingSkill() {

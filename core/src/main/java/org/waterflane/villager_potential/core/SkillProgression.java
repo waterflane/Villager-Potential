@@ -42,31 +42,29 @@ public final class SkillProgression {
             throw new IllegalArgumentException("elapsedProfessionTime must not be negative");
         }
 
-        double boundedSkill = clamp(
-                learnedSkill,
-                config.minimumSkill(),
-                config.maximumSkill()
-        );
-        if (elapsedProfessionTime == 0L
+        if (!config.enabled()
+                || elapsedProfessionTime == 0L
                 || aptitude == 0.0
                 || activityFactor == 0.0
                 || config.progressionRate() == 0.0) {
-            return boundedSkill;
+            return learnedSkill;
+        }
+        if (learnedSkill >= config.maximumSkill()) {
+            return learnedSkill;
         }
 
+        double progressionStart = Math.max(learnedSkill, config.minimumSkill());
+        double effectiveAptitude = 1.0
+                + (aptitude - 1.0) * config.aptitudeInfluence();
         double gainedSkill = elapsedProfessionTime
                 * config.progressionRate()
-                * aptitude
+                * effectiveAptitude
                 * activityFactor;
         if (!Double.isFinite(gainedSkill)
-                || gainedSkill >= config.maximumSkill() - boundedSkill) {
+                || gainedSkill >= config.maximumSkill() - progressionStart) {
             return config.maximumSkill();
         }
-        return clamp(
-                boundedSkill + gainedSkill,
-                config.minimumSkill(),
-                config.maximumSkill()
-        );
+        return progressionStart + gainedSkill;
     }
 
     /**
@@ -97,8 +95,8 @@ public final class SkillProgression {
 
         double currentLevelStart = thresholds.thresholdForLevel(currentLevel);
         double nextLevelSkill = thresholds.thresholdForLevel(currentLevel + 1);
-        double levelProgress = (boundedSkill - currentLevelStart)
-                / (nextLevelSkill - currentLevelStart);
+        double levelProgress = Math.max(0.0, (boundedSkill - currentLevelStart)
+                / (nextLevelSkill - currentLevelStart));
         return new ProfessionLevelProgress(
                 currentLevel,
                 boundedSkill,

@@ -117,9 +117,10 @@ public class Config {
     static SpecializationBiasConfig specializationBiasConfig() {
         double maximumBias = SPECIALIZATION_MAXIMUM_BIAS.get();
         double minimumBias = Math.min(SPECIALIZATION_MINIMUM_BIAS.get(), maximumBias);
+        var skillConfig = ServerConfig.gameplayConfig().skill();
         return new SpecializationBiasConfig(
-                VillagerPotentialAttachments.SKILL_PROGRESSION_CONFIG.minimumSkill(),
-                VillagerPotentialAttachments.SKILL_PROGRESSION_CONFIG.maximumSkill(),
+                skillConfig.minimumSkill(),
+                skillConfig.maximumSkill(),
                 minimumBias,
                 maximumBias,
                 SPECIALIZATION_BIAS_CURVE_EXPONENT.get()

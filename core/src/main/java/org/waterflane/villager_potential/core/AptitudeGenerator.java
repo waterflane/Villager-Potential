@@ -7,7 +7,6 @@ import java.util.random.RandomGenerator;
  * Generates bounded aptitude values without depending on a game platform.
  */
 public final class AptitudeGenerator {
-    private static final double RARE_TALENT_STANDARD_DEVIATIONS = 3.0;
     private static final int MAX_SAMPLE_ATTEMPTS = 100;
 
     private AptitudeGenerator() {
@@ -17,18 +16,22 @@ public final class AptitudeGenerator {
         Objects.requireNonNull(config, "config");
         Objects.requireNonNull(random, "random");
 
+        if (!config.enabled()) {
+            return 1.0;
+        }
         if (config.variance() == 0.0) {
             return config.mean();
         }
 
-        boolean rareTalent = random.nextDouble() < config.rareTalentChance();
+        boolean rareTalent = config.rareTalents().enabled()
+                && random.nextDouble() < config.rareTalentChance();
         double standardDeviation = Math.sqrt(config.variance());
         double lastSample = config.mean();
 
         for (int attempt = 0; attempt < MAX_SAMPLE_ATTEMPTS; attempt++) {
             double deviation = random.nextGaussian();
             if (rareTalent) {
-                deviation = RARE_TALENT_STANDARD_DEVIATIONS + Math.abs(deviation);
+                deviation = config.rareTalentStrength() + Math.abs(deviation);
             }
 
             lastSample = config.mean() + standardDeviation * deviation;

@@ -75,6 +75,9 @@ public final class AptitudeInheritance {
             AptitudeInheritanceConfig inheritanceConfig,
             RandomGenerator random
     ) {
+        if (!inheritanceConfig.enabled()) {
+            return AptitudeGenerator.generate(generationConfig, random);
+        }
         double firstAptitude = boundedParentAptitude(firstParent, profession, generationConfig);
         double secondAptitude = boundedParentAptitude(secondParent, profession, generationConfig);
         double parentAverage = (firstAptitude + secondAptitude) / 2.0;
@@ -88,7 +91,9 @@ public final class AptitudeInheritance {
             inherited += AptitudeGenerator.generate(generationConfig, random)
                     * inheritanceConfig.randomContribution();
         }
-        if (inheritanceConfig.mutationVariance() > 0.0) {
+        if (inheritanceConfig.mutationVariance() > 0.0
+                && (inheritanceConfig.mutationChance() >= 1.0
+                || random.nextDouble() < inheritanceConfig.mutationChance())) {
             inherited += random.nextGaussian() * Math.sqrt(inheritanceConfig.mutationVariance());
         }
 

@@ -10,6 +10,20 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class AptitudeGeneratorTest {
     @Test
+    void disabledAptitudesUseTheNeutralMultiplier() {
+        AptitudeGenerationConfig config = new AptitudeGenerationConfig(
+                false,
+                2.0,
+                3.0,
+                2.5,
+                0.04,
+                new RareTalentConfig(true, 1.0, 4.0)
+        );
+
+        assertEquals(1.0, AptitudeGenerator.generate(config, new Random(1L)));
+    }
+
+    @Test
     void generatedValuesStayWithinConfiguredBounds() {
         AptitudeGenerationConfig config = new AptitudeGenerationConfig(
                 0.5,
@@ -76,6 +90,22 @@ class AptitudeGeneratorTest {
 
         assertTrue(rareTalent >= ordinaryConfig.mean() + 3.0 * Math.sqrt(ordinaryConfig.variance()));
         assertTrue(rareTalent > ordinary);
+    }
+
+    @Test
+    void rareTalentStrengthControlsTheExceptionalRange() {
+        AptitudeGenerationConfig config = new AptitudeGenerationConfig(
+                0.0,
+                10.0,
+                1.0,
+                0.04,
+                1.0,
+                4.0
+        );
+
+        double aptitude = AptitudeGenerator.generate(config, new Random(123L));
+
+        assertTrue(aptitude >= config.mean() + 4.0 * Math.sqrt(config.variance()));
     }
 
     @Test

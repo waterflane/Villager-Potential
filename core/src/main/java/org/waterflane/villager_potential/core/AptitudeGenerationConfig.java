@@ -4,18 +4,56 @@ package org.waterflane.villager_potential.core;
  * Platform-independent parameters for aptitude generation.
  */
 public record AptitudeGenerationConfig(
+        boolean enabled,
         double minimum,
         double maximum,
         double mean,
         double variance,
-        double rareTalentChance
+        RareTalentConfig rareTalents
 ) {
+    public AptitudeGenerationConfig(
+            double minimum,
+            double maximum,
+            double mean,
+            double variance,
+            double rareTalentChance
+    ) {
+        this(
+                true,
+                minimum,
+                maximum,
+                mean,
+                variance,
+                new RareTalentConfig(true, rareTalentChance, 3.0)
+        );
+    }
+
+    public AptitudeGenerationConfig(
+            double minimum,
+            double maximum,
+            double mean,
+            double variance,
+            double rareTalentChance,
+            double rareTalentStrength
+    ) {
+        this(
+                true,
+                minimum,
+                maximum,
+                mean,
+                variance,
+                new RareTalentConfig(true, rareTalentChance, rareTalentStrength)
+        );
+    }
+
     public AptitudeGenerationConfig {
         requireFinite("minimum", minimum);
         requireFinite("maximum", maximum);
         requireFinite("mean", mean);
         requireFinite("variance", variance);
-        requireFinite("rareTalentChance", rareTalentChance);
+        if (rareTalents == null) {
+            throw new NullPointerException("rareTalents");
+        }
 
         if (minimum >= maximum) {
             throw new IllegalArgumentException("minimum must be less than maximum");
@@ -26,9 +64,14 @@ public record AptitudeGenerationConfig(
         if (variance < 0.0) {
             throw new IllegalArgumentException("variance must not be negative");
         }
-        if (rareTalentChance < 0.0 || rareTalentChance > 1.0) {
-            throw new IllegalArgumentException("rareTalentChance must be between zero and one");
-        }
+    }
+
+    public double rareTalentChance() {
+        return rareTalents.chance();
+    }
+
+    public double rareTalentStrength() {
+        return rareTalents.strength();
     }
 
     private static void requireFinite(String name, double value) {

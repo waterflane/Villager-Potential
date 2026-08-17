@@ -50,6 +50,24 @@ class SkillProgressionTest {
     }
 
     @Test
+    void aptitudeInfluenceCanBlendAptitudeTowardNeutral() {
+        SkillProgressionConfig halfInfluence = new SkillProgressionConfig(
+                true,
+                0.001,
+                0.5,
+                0.0,
+                1.0,
+                CONFIG.professionLevelThresholds()
+        );
+
+        assertEquals(
+                0.125,
+                SkillProgression.advance(0.0, 100L, 1.5, halfInfluence),
+                0.000_000_1
+        );
+    }
+
+    @Test
     void activityFactorMultipliesTimeBasedProgress() {
         double inactiveSkill = SkillProgression.advance(0.0, 100L, 1.0, 1.0, CONFIG);
         double activeSkill = SkillProgression.advance(0.0, 100L, 1.0, 1.5, CONFIG);
@@ -63,6 +81,20 @@ class SkillProgressionTest {
     void skillBoundsAreEnforced() {
         assertEquals(1.0, SkillProgression.advance(0.9, Long.MAX_VALUE, 2.0, CONFIG));
         assertEquals(0.0, SkillProgression.advance(0.0, 100L, 0.0, CONFIG));
+    }
+
+    @Test
+    void loweringConfiguredMaximumNeverReducesPersistedSkill() {
+        SkillProgressionConfig loweredMaximum = new SkillProgressionConfig(
+                true,
+                0.001,
+                1.0,
+                0.0,
+                0.8,
+                new ProfessionLevelThresholds(0.0, 0.2, 0.4, 0.6, 0.8)
+        );
+
+        assertEquals(0.95, SkillProgression.advance(0.95, 100L, 1.0, loweredMaximum));
     }
 
     @Test

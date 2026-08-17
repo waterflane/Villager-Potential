@@ -37,6 +37,7 @@ import org.waterflane.villager_potential.core.TradeMemoryRecovery;
 import org.waterflane.villager_potential.core.TradePaletteState;
 import org.waterflane.villager_potential.core.TradePaletteRerollStrategy;
 import org.waterflane.villager_potential.core.VillagerPotentialState;
+import org.waterflane.villager_potential.core.VillagerPotentialConfig;
 
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -51,31 +52,17 @@ import java.util.WeakHashMap;
 import java.util.random.RandomGenerator;
 
 public final class VillagerPotentialAttachments {
-    private static final ProfessionTenureEligibility TENURE_ELIGIBILITY =
-            ProfessionTenureEligibility.ADULT;
     static final long PROFESSION_PROGRESS_INTERVAL_TICKS = 20L;
-    static final SkillProgressionConfig SKILL_PROGRESSION_CONFIG = new SkillProgressionConfig(
-            0.001,
-            0.0,
-            1.0,
-            List.of(0.2, 0.5, 0.8, 1.0)
-    );
+    static final SkillProgressionConfig SKILL_PROGRESSION_CONFIG =
+            VillagerPotentialConfig.DEFAULT.skill();
     static final ProfessionActivityConfig PROFESSION_ACTIVITY_CONFIG =
-            new ProfessionActivityConfig(0.5, 1.0, 2.0, 0.1, 0.0001);
+            VillagerPotentialConfig.DEFAULT.activity();
     private static final Map<Villager, ProfessionProgressBatch> PROFESSION_PROGRESS_BATCHES =
             new WeakHashMap<>();
-    static final AptitudeGenerationConfig APTITUDE_CONFIG = new AptitudeGenerationConfig(
-            0.5,
-            2.0,
-            1.0,
-            0.09,
-            0.02
-    );
-    static final AptitudeInheritanceConfig INHERITANCE_CONFIG = new AptitudeInheritanceConfig(
-            0.7,
-            0.2,
-            0.01
-    );
+    static final AptitudeGenerationConfig APTITUDE_CONFIG =
+            VillagerPotentialConfig.DEFAULT.aptitude();
+    static final AptitudeInheritanceConfig INHERITANCE_CONFIG =
+            VillagerPotentialConfig.DEFAULT.inheritance();
     private static final long INITIALIZATION_SALT = 0x56494C4C41474552L;
     private static final long INHERITANCE_SALT = 0x494E484552495453L;
     private static final long SPECIALIZATION_SALT = 0x5350454349414C53L;
@@ -270,6 +257,7 @@ public final class VillagerPotentialAttachments {
 
     static void trackProfession(Villager villager, long assignmentTime) {
         Objects.requireNonNull(villager, "villager");
+        VillagerPotentialConfig config = ServerConfig.gameplayConfig();
         VillagerProfession profession = villager.getVillagerData().getProfession();
         ProfessionId currentProfession = toCareerProfession(profession);
         ProfessionProgressBatch batch = PROFESSION_PROGRESS_BATCHES.get(villager);
@@ -280,7 +268,7 @@ public final class VillagerPotentialAttachments {
             state = get(villager);
             updatedState = batch == null
                     ? state
-                    : progressMatchingProfession(state, batch);
+                    : progressMatchingProfession(state, batch, config);
             updatedState = assignProfession(
                     updatedState,
                     currentProfession,
@@ -294,7 +282,8 @@ public final class VillagerPotentialAttachments {
 
         batch.observeGameTime(assignmentTime);
 
-        if (currentProfession != null && TENURE_ELIGIBILITY.canAccumulate(villager)) {
+        if (currentProfession != null
+                && ProfessionTenureEligibility.from(config.career()).canAccumulate(villager)) {
             batch.addElapsedTick();
         }
 
@@ -303,7 +292,7 @@ public final class VillagerPotentialAttachments {
                 state = get(villager);
                 updatedState = state;
             }
-            updatedState = progressMatchingProfession(updatedState, batch);
+            updatedState = progressMatchingProfession(updatedState, batch, config);
             batch.clearElapsedTime();
         }
 
@@ -323,7 +312,11 @@ public final class VillagerPotentialAttachments {
         }
 
         VillagerPotentialState state = get(villager);
-        VillagerPotentialState updatedState = progressMatchingProfession(state, batch);
+        VillagerPotentialState updatedState = progressMatchingProfession(
+                state,
+                batch,
+                ServerConfig.gameplayConfig()
+        );
         if (updatedState != state) {
             villager.setData(POTENTIAL, updatedState);
         }
@@ -339,10 +332,11 @@ public final class VillagerPotentialAttachments {
         }
 
         VillagerPotentialState state = get(villager);
+        ProfessionActivityConfig activityConfig = ServerConfig.gameplayConfig().activity();
         VillagerPotentialState updatedState = state.recordProfessionTrade(
                 profession,
                 gameTime,
-                PROFESSION_ACTIVITY_CONFIG
+                activityConfig
         );
         if (updatedState != state) {
             villager.setData(POTENTIAL, updatedState);
@@ -365,11 +359,12 @@ public final class VillagerPotentialAttachments {
         }
 
         VillagerPotentialState state = get(villager);
+        VillagerPotentialConfig gameplayConfig = ServerConfig.gameplayConfig();
         TradePaletteRerollStrategy strategy = Config.tradePaletteRerollStrategy();
         long observationTime = tradeMemoryTime(state, profession, gameTime, strategy);
         TradeKey trade = MerchantOfferTradeKeys.from(offer);
         VillagerPotentialState updatedState = state
-                .recordProfessionTrade(profession, gameTime, PROFESSION_ACTIVITY_CONFIG)
+                .recordProfessionTrade(profession, gameTime, gameplayConfig.activity())
                 .recordTradeUse(
                         profession,
                         trade,
@@ -520,7 +515,8 @@ public final class VillagerPotentialAttachments {
 
     private static VillagerPotentialState progressMatchingProfession(
             VillagerPotentialState state,
-            ProfessionProgressBatch batch
+            ProfessionProgressBatch batch,
+            VillagerPotentialConfig config
     ) {
         if (batch.elapsedProfessionTime() == 0L
                 || !state.activeProfession().equals(Optional.ofNullable(batch.profession()))) {
@@ -529,8 +525,8 @@ public final class VillagerPotentialAttachments {
         return state.progressActiveProfession(
                 batch.elapsedProfessionTime(),
                 batch.lastObservedGameTime(),
-                SKILL_PROGRESSION_CONFIG,
-                PROFESSION_ACTIVITY_CONFIG
+                config.skill(),
+                config.activity()
         );
     }
 
@@ -560,7 +556,7 @@ public final class VillagerPotentialAttachments {
         int earnedLevel = SkillProgression.vanillaProfessionLevel(
                 learnedSkill,
                 currentLevel,
-                SKILL_PROGRESSION_CONFIG
+                ServerConfig.gameplayConfig().skill()
         );
         return earnedLevel > currentLevel
                 && villager instanceof VillagerLevelUpAccess access
@@ -641,12 +637,13 @@ public final class VillagerPotentialAttachments {
             return existingChildState;
         }
 
+        VillagerPotentialConfig config = ServerConfig.gameplayConfig();
         VillagerPotentialState inheritedState = AptitudeInheritance.inherit(
                 get(firstParent),
                 get(secondParent),
                 VillagerProfessionIds.supportedVanillaProfessions(),
-                APTITUDE_CONFIG,
-                INHERITANCE_CONFIG,
+                config.aptitude(),
+                config.inheritance(),
                 random
         );
         child.setData(POTENTIAL, inheritedState);
@@ -655,9 +652,10 @@ public final class VillagerPotentialAttachments {
 
     static VillagerPotentialState initialize(long worldSeed, UUID villagerId) {
         Random random = new Random(initializationSeed(worldSeed, villagerId));
+        AptitudeGenerationConfig aptitudeConfig = ServerConfig.gameplayConfig().aptitude();
         Map<ProfessionId, Double> aptitudes = new LinkedHashMap<>();
         for (ProfessionId professionId : VillagerProfessionIds.supportedVanillaProfessions()) {
-            aptitudes.put(professionId, AptitudeGenerator.generate(APTITUDE_CONFIG, random));
+            aptitudes.put(professionId, AptitudeGenerator.generate(aptitudeConfig, random));
         }
         return new VillagerPotentialState(VillagerPotentialState.CURRENT_SCHEMA_VERSION, aptitudes);
     }
