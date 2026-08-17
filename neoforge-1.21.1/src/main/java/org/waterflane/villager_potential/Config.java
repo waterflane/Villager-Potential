@@ -8,6 +8,7 @@ import net.neoforged.fml.common.EventBusSubscriber;
 import net.neoforged.fml.event.config.ModConfigEvent;
 import net.neoforged.neoforge.common.ModConfigSpec;
 import org.waterflane.villager_potential.core.MarketDemandConfig;
+import org.waterflane.villager_potential.core.MarketDemandPriceConfig;
 import org.waterflane.villager_potential.core.SpecializationBiasConfig;
 import org.waterflane.villager_potential.core.TradeKey;
 import org.waterflane.villager_potential.core.TradeMemoryRecoveryConfig;
@@ -91,6 +92,12 @@ public class Config {
     private static final ModConfigSpec.DoubleValue MARKET_DEMAND_DECAY_PER_TICK = BUILDER
             .comment("Demand moved toward baseline per elapsed server tick (0 disables decay).")
             .defineInRange("marketDemand.decayPerTick", 1.0 / 1_200.0, 0.0, Double.MAX_VALUE);
+    private static final ModConfigSpec.DoubleValue MARKET_DEMAND_MINIMUM_PRICE_MULTIPLIER = BUILDER
+            .comment("Price multiplier at minimum demand (1 keeps low demand neutral).")
+            .defineInRange("marketDemand.minimumPriceMultiplier", 1.0, 0.01, 1.0);
+    private static final ModConfigSpec.DoubleValue MARKET_DEMAND_MAXIMUM_PRICE_MULTIPLIER = BUILDER
+            .comment("Price multiplier at maximum demand.")
+            .defineInRange("marketDemand.maximumPriceMultiplier", 2.0, 1.0, 64.0);
 
     static final ModConfigSpec SPEC = BUILDER.build();
 
@@ -159,6 +166,13 @@ public class Config {
                 maximum,
                 MARKET_DEMAND_INCREASE_PER_PURCHASE.get(),
                 MARKET_DEMAND_DECAY_PER_TICK.get()
+        );
+    }
+
+    public static MarketDemandPriceConfig marketDemandPriceConfig() {
+        return new MarketDemandPriceConfig(
+                MARKET_DEMAND_MINIMUM_PRICE_MULTIPLIER.get(),
+                MARKET_DEMAND_MAXIMUM_PRICE_MULTIPLIER.get()
         );
     }
 
