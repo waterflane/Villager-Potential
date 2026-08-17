@@ -2,11 +2,16 @@ package org.waterflane.villager_potential.core;
 
 /** Bounds for the price multiplier produced by market demand. */
 public record MarketDemandPriceConfig(
+        boolean enabled,
         double minimumMultiplier,
         double maximumMultiplier
 ) {
     public static final MarketDemandPriceConfig DEFAULT =
-            new MarketDemandPriceConfig(1.0, 2.0);
+            new MarketDemandPriceConfig(true, 1.0, 2.0);
+
+    public MarketDemandPriceConfig(double minimumMultiplier, double maximumMultiplier) {
+        this(true, minimumMultiplier, maximumMultiplier);
+    }
 
     public MarketDemandPriceConfig {
         if (!Double.isFinite(minimumMultiplier)

@@ -44,7 +44,9 @@ public final class MarketDemandStock {
                 (demandScore - demandConfig.baseline()) / demandRange
         );
         int additionalUses = (int) Math.floor(
-                demandFraction * stockConfig.maximumAdditionalUses()
+                demandFraction
+                        * stockConfig.influenceStrength()
+                        * stockConfig.maximumAdditionalUses()
         );
         additionalUses = Math.min(additionalUses, roomUnderAbsoluteCap);
         return vanillaMaximumUses + Math.max(0, additionalUses);

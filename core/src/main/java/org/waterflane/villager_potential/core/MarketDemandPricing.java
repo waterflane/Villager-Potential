@@ -21,6 +21,9 @@ public final class MarketDemandPricing {
         if (!Double.isFinite(demandScore)) {
             throw new IllegalArgumentException("demandScore must be finite");
         }
+        if (!demandConfig.enabled() || !priceConfig.enabled()) {
+            return 1.0;
+        }
 
         double boundedDemand = clamp(
                 demandScore,

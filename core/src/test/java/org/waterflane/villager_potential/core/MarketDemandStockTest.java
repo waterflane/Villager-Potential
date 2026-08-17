@@ -3,6 +3,7 @@ package org.waterflane.villager_potential.core;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 class MarketDemandStockTest {
     private static final MarketDemandConfig DEMAND = new MarketDemandConfig(
@@ -31,6 +32,20 @@ class MarketDemandStockTest {
     }
 
     @Test
+    void stockInfluenceStrengthScalesWithinBothHardCaps() {
+        MarketDemandStockConfig halfStrength = new MarketDemandStockConfig(
+                true,
+                0.5,
+                8,
+                18
+        );
+
+        assertEquals(16, MarketDemandStock.maximumUses(
+                12, DEMAND.maximum(), DEMAND, halfStrength
+        ));
+    }
+
+    @Test
     void additionalAndAbsoluteCapsBothApply() {
         MarketDemandStockConfig additionalCap = new MarketDemandStockConfig(true, 3, 64);
         MarketDemandStockConfig absoluteCap = new MarketDemandStockConfig(true, 20, 16);
@@ -38,5 +53,21 @@ class MarketDemandStockTest {
         assertEquals(15, MarketDemandStock.maximumUses(12, 1_000.0, DEMAND, additionalCap));
         assertEquals(16, MarketDemandStock.maximumUses(12, 1_000.0, DEMAND, absoluteCap));
         assertEquals(20, MarketDemandStock.maximumUses(20, 1_000.0, DEMAND, absoluteCap));
+    }
+
+    @Test
+    void rejectsInvalidStrengthAndHardCaps() {
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> new MarketDemandStockConfig(true, 1.1, 4, 16)
+        );
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> new MarketDemandStockConfig(true, 1.0, -1, 16)
+        );
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> new MarketDemandStockConfig(true, 1.0, 4, 0)
+        );
     }
 }

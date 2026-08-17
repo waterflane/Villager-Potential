@@ -321,6 +321,9 @@ public record VillagerPotentialState(
         Objects.requireNonNull(professionId, "professionId");
         Objects.requireNonNull(trade, "trade");
         Objects.requireNonNull(config, "config");
+        if (!config.enabled()) {
+            return this;
+        }
         Map<TradeKey, MarketDemandState> professionDemand = marketDemand.getOrDefault(
                 professionId,
                 Map.of()

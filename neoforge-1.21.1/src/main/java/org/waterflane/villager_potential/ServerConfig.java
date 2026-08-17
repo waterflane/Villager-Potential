@@ -1,21 +1,39 @@
 package org.waterflane.villager_potential;
 
+import net.minecraft.resources.ResourceLocation;
 import net.neoforged.neoforge.common.ModConfigSpec;
 import org.waterflane.villager_potential.core.AptitudeGenerationConfig;
 import org.waterflane.villager_potential.core.AptitudeInheritanceConfig;
 import org.waterflane.villager_potential.core.CareerProgressionConfig;
+import org.waterflane.villager_potential.core.MarketDemandConfig;
+import org.waterflane.villager_potential.core.MarketDemandPriceConfig;
 import org.waterflane.villager_potential.core.MarketDemandStockConfig;
+import org.waterflane.villager_potential.core.MarketEconomyConfig;
+import org.waterflane.villager_potential.core.ProfessionId;
 import org.waterflane.villager_potential.core.ProfessionActivityConfig;
 import org.waterflane.villager_potential.core.ProfessionLevelThresholds;
 import org.waterflane.villager_potential.core.RareTalentConfig;
 import org.waterflane.villager_potential.core.SkillProgressionConfig;
+import org.waterflane.villager_potential.core.SpecializationConfig;
+import org.waterflane.villager_potential.core.TradeMemoryRecoveryConfig;
+import org.waterflane.villager_potential.core.TradePaletteConfig;
+import org.waterflane.villager_potential.core.TradePaletteRerollStrategy;
 import org.waterflane.villager_potential.core.VillagerPotentialConfig;
+import org.waterflane.villager_potential.core.VillagerTradeConfig;
+
+import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
 
 /** World-owned SERVER settings mapped into loader-neutral core configuration. */
 public final class ServerConfig {
     private static final ModConfigSpec.Builder BUILDER = new ModConfigSpec.Builder();
     static final VillagerPotentialConfig DEFAULT_GAMEPLAY = VillagerPotentialConfig.DEFAULT;
-    static final MarketDemandStockConfig DEFAULT_MARKET_DEMAND_STOCK = MarketDemandStockConfig.DISABLED;
+    static final VillagerTradeConfig DEFAULT_TRADES = VillagerTradeConfig.DEFAULT;
+    static final MarketDemandStockConfig DEFAULT_MARKET_DEMAND_STOCK =
+            DEFAULT_TRADES.economy().stock();
 
     private static final ModConfigSpec.BooleanValue APTITUDE_ENABLED;
     private static final ModConfigSpec.DoubleValue APTITUDE_MEAN;
@@ -49,7 +67,33 @@ public final class ServerConfig {
     private static final ModConfigSpec.DoubleValue LEVEL_JOURNEYMAN;
     private static final ModConfigSpec.DoubleValue LEVEL_EXPERT;
     private static final ModConfigSpec.DoubleValue LEVEL_MASTER;
+    private static final ModConfigSpec.BooleanValue SPECIALIZATIONS_ENABLED;
+    private static final ModConfigSpec.DoubleValue SPECIALIZATION_GLOBAL_STRENGTH;
+    private static final ModConfigSpec.DoubleValue SPECIALIZATION_MINIMUM_BIAS;
+    private static final ModConfigSpec.DoubleValue SPECIALIZATION_MAXIMUM_BIAS;
+    private static final ModConfigSpec.DoubleValue SPECIALIZATION_CURVE_EXPONENT;
+    private static final ModConfigSpec.ConfigValue<List<? extends String>>
+            SPECIALIZATION_PROFESSION_OVERRIDES;
+    private static final ModConfigSpec.EnumValue<TradePaletteRerollStrategy> PALETTE_MODE;
+    private static final ModConfigSpec.DoubleValue REPEATED_TRADE_PENALTY;
+    private static final ModConfigSpec.DoubleValue MINIMUM_CANDIDATE_WEIGHT;
+    private static final ModConfigSpec.LongValue MEMORY_DECAY_TICKS;
+    private static final ModConfigSpec.BooleanValue RARE_TRADE_PROTECTION_ENABLED;
+    private static final ModConfigSpec.LongValue RARE_TRADE_RECOVERY_TICKS;
+    private static final ModConfigSpec.ConfigValue<List<? extends String>> RARE_TRADE_RESULTS;
+    private static final ModConfigSpec.LongValue EXHAUSTION_RECOVERY_TICKS;
+    private static final ModConfigSpec.LongValue CYCLE_RECOVERY_TICKS;
+    private static final ModConfigSpec.BooleanValue DEMAND_ENABLED;
+    private static final ModConfigSpec.DoubleValue DEMAND_GAIN_PER_USE;
+    private static final ModConfigSpec.DoubleValue DEMAND_DECAY_PER_TICK;
+    private static final ModConfigSpec.DoubleValue DEMAND_MINIMUM;
+    private static final ModConfigSpec.DoubleValue DEMAND_BASELINE;
+    private static final ModConfigSpec.DoubleValue DEMAND_MAXIMUM;
+    private static final ModConfigSpec.BooleanValue PRICE_INFLUENCE_ENABLED;
+    private static final ModConfigSpec.DoubleValue MINIMUM_PRICE_MULTIPLIER;
+    private static final ModConfigSpec.DoubleValue MAXIMUM_PRICE_MULTIPLIER;
     private static final ModConfigSpec.BooleanValue DEMAND_INFLUENCES_STOCK;
+    private static final ModConfigSpec.DoubleValue STOCK_INFLUENCE_STRENGTH;
     private static final ModConfigSpec.IntValue MAXIMUM_ADDITIONAL_USES;
     private static final ModConfigSpec.IntValue MAXIMUM_USES_PER_OFFER;
 
@@ -168,22 +212,124 @@ public final class ServerConfig {
         LEVEL_MASTER = threshold("master", levels.masterSkill(), "Master");
         BUILDER.pop();
 
-        BUILDER.push("marketDemand").push("stock");
+        SpecializationConfig specializations = DEFAULT_TRADES.specializations();
+        BUILDER.push("specializations");
+        SPECIALIZATIONS_ENABLED = BUILDER
+                .comment("Enable datapack-defined professional specialization weights; false keeps stored assignments but uses neutral weights.")
+                .define("enabled", specializations.enabled());
+        SPECIALIZATION_GLOBAL_STRENGTH = BUILDER
+                .comment("Global specialization strength from 0.0 (neutral) to 1.0 (full configured bias).")
+                .defineInRange("globalStrength", specializations.globalStrength(), 0.0, 1.0);
+        SPECIALIZATION_MINIMUM_BIAS = BUILDER
+                .comment("Bias fraction from 0.0 to 1.0 expressed at minimum professional skill.")
+                .defineInRange("minimumBias", specializations.minimumBiasStrength(), 0.0, 1.0);
+        SPECIALIZATION_MAXIMUM_BIAS = BUILDER
+                .comment("Bias fraction from 0.0 to 1.0 expressed at maximum professional skill; must be at least minimumBias.")
+                .defineInRange("maximumBias", specializations.maximumBiasStrength(), 0.0, 1.0);
+        SPECIALIZATION_CURVE_EXPONENT = BUILDER
+                .comment("Positive 0.01-100.0 exponent for skill-strengthened bias; larger values delay strong specialization.")
+                .defineInRange("curveExponent", specializations.curveExponent(), 0.01, 100.0);
+        SPECIALIZATION_PROFESSION_OVERRIDES = BUILDER
+                .comment(
+                        "Optional per-profession strength overrides as namespaced_id=value, for example minecraft:librarian=0.75.",
+                        "Values range from 0.0 to 1.0. These do not replace datapack specialization definitions."
+                )
+                .defineListAllowEmpty("professionStrengthOverrides", List.of(), ServerConfig::validProfessionOverride);
+        BUILDER.pop();
+
+        TradePaletteConfig palette = DEFAULT_TRADES.palette();
+        BUILDER.push("palette");
+        PALETTE_MODE = BUILDER
+                .comment(
+                        "Trade palette policy: PERSISTENT, VANILLA, WEIGHTED_MEMORY, EXHAUST, or CYCLIC.",
+                        "Mode changes never delete stored learned trades or history."
+                )
+                .defineEnum("mode", palette.mode());
+        BUILDER.pop();
+
+        BUILDER.push("memory");
+        REPEATED_TRADE_PENALTY = BUILDER
+                .comment("Repeated-trade weight penalty from 0.0 (none) to 1.0 (full), used only by WEIGHTED_MEMORY.")
+                .defineInRange("repeatedTradePenalty", palette.repeatedTradePenalty(), 0.0, 1.0);
+        MINIMUM_CANDIDATE_WEIGHT = BUILDER
+                .comment("Absolute candidate-weight floor from 0.0 upward while a repeated-trade penalty recovers.")
+                .defineInRange("minimumCandidateWeight", palette.recovery().minimumCandidateWeight(), 0.0, Double.MAX_VALUE);
+        MEMORY_DECAY_TICKS = BUILDER
+                .comment("Eligible profession ticks from 1 upward until a WEIGHTED_MEMORY penalty fully decays.")
+                .defineInRange("decayTicks", palette.recovery().weightedPenaltyRecoveryTime(), 1L, Long.MAX_VALUE);
+        RARE_TRADE_PROTECTION_ENABLED = BUILDER
+                .comment("Give configured rare result items the shorter recovery below; false leaves their history unchanged and unprotected.")
+                .define("rareTradeProtectionEnabled", palette.rareTradeProtectionEnabled());
+        RARE_TRADE_RECOVERY_TICKS = BUILDER
+                .comment("Rare-result recovery in eligible profession ticks; 0 disables shortened recovery.")
+                .defineInRange("rareTradeRecoveryTicks", palette.recovery().rareTradeRecoveryTime(), 0L, Long.MAX_VALUE);
+        RARE_TRADE_RESULTS = BUILDER
+                .comment("Namespaced result item IDs eligible for rare-trade recovery protection.")
+                .defineListAllowEmpty("rareTradeResultItems", List.of(), ServerConfig::validNamespacedId);
+        EXHAUSTION_RECOVERY_TICKS = BUILDER
+                .comment("Eligible profession ticks from 1 upward before an EXHAUST candidate can return.")
+                .defineInRange("exhaustionRecoveryTicks", palette.recovery().exhaustRecoveryTime(), 1L, Long.MAX_VALUE);
+        CYCLE_RECOVERY_TICKS = BUILDER
+                .comment("Eligible profession ticks from 1 upward that all CYCLIC candidates must be idle before reset.")
+                .defineInRange("cycleRecoveryTicks", palette.recovery().cyclicResetTime(), 1L, Long.MAX_VALUE);
+        BUILDER.pop();
+
+        MarketEconomyConfig economy = DEFAULT_TRADES.economy();
+        MarketDemandConfig demand = economy.demand();
+        BUILDER.push("economy").push("demand");
+        DEMAND_ENABLED = BUILDER
+                .comment("Record per-trade demand from successful uses; false preserves stored demand without updating or applying it.")
+                .define("enabled", demand.enabled());
+        DEMAND_GAIN_PER_USE = BUILDER
+                .comment("Demand score gained per successful trade use; positive score units per use.")
+                .defineInRange("gainPerSuccessfulUse", demand.increasePerPurchase(), Double.MIN_NORMAL, Double.MAX_VALUE);
+        DEMAND_DECAY_PER_TICK = BUILDER
+                .comment("Demand score moved toward baseline per server tick; 0.0 disables decay.")
+                .defineInRange("decayPerTick", demand.decayPerTick(), 0.0, Double.MAX_VALUE);
+        DEMAND_MINIMUM = BUILDER
+                .comment("Finite lower bound for each logical trade's demand score.")
+                .defineInRange("minimum", demand.minimum(), -Double.MAX_VALUE, Double.MAX_VALUE);
+        DEMAND_BASELINE = BUILDER
+                .comment("Finite neutral demand score approached during decay; must lie within minimum and maximum.")
+                .defineInRange("baseline", demand.baseline(), -Double.MAX_VALUE, Double.MAX_VALUE);
+        DEMAND_MAXIMUM = BUILDER
+                .comment("Finite upper bound for each logical trade's demand score.")
+                .defineInRange("maximum", demand.maximum(), -Double.MAX_VALUE, Double.MAX_VALUE);
+        BUILDER.pop();
+
+        MarketDemandPriceConfig price = economy.price();
+        BUILDER.push("price");
+        PRICE_INFLUENCE_ENABLED = BUILDER
+                .comment("Apply demand to prices independently of stock influence; false preserves vanilla-adjusted prices.")
+                .define("enabled", price.enabled());
+        MINIMUM_PRICE_MULTIPLIER = BUILDER
+                .comment("Price multiplier from 0.01 to 1.0 at minimum demand; baseline remains neutral at 1.0.")
+                .defineInRange("minimumMultiplier", price.minimumMultiplier(), 0.01, 1.0);
+        MAXIMUM_PRICE_MULTIPLIER = BUILDER
+                .comment("Price multiplier from 1.0 to 64.0 at maximum demand; item stack limits still apply.")
+                .defineInRange("maximumMultiplier", price.maximumMultiplier(), 1.0, 64.0);
+        BUILDER.pop();
+
+        MarketDemandStockConfig stock = economy.stock();
+        BUILDER.push("stock");
         DEMAND_INFLUENCES_STOCK = BUILDER
                 .comment(
-                        "Allow Potential market demand to add uses after a vanilla-approved villager restock.",
+                        "Apply demand to stock independently of price influence after a vanilla-approved restock.",
                         "This never creates extra restocks or bypasses workstation and daily timing checks."
                 )
-                .define("enabled", DEFAULT_MARKET_DEMAND_STOCK.enabled());
+                .define("enabled", stock.enabled());
+        STOCK_INFLUENCE_STRENGTH = BUILDER
+                .comment("Stock influence from 0.0 (neutral) to 1.0 (full configured additional-use cap).")
+                .defineInRange("influenceStrength", stock.influenceStrength(), 0.0, 1.0);
         MAXIMUM_ADDITIONAL_USES = BUILDER
-                .comment("Maximum uses demand may add to one offer per restock.")
-                .defineInRange("maximumAdditionalUses", DEFAULT_MARKET_DEMAND_STOCK.maximumAdditionalUses(), 0, 64);
+                .comment("Hard cap from 0 to 64 on uses demand may add to one offer per restock.")
+                .defineInRange("maximumAdditionalUses", stock.maximumAdditionalUses(), 0, 64);
         MAXIMUM_USES_PER_OFFER = BUILDER
                 .comment(
-                        "Hard ceiling above which demand will not raise an offer's total uses.",
+                        "Hard total-use ceiling from 1 to 64 above which demand cannot raise an offer.",
                         "Existing vanilla or modded offers above this value are never reduced."
                 )
-                .defineInRange("maximumUsesPerOffer", DEFAULT_MARKET_DEMAND_STOCK.maximumUsesPerOffer(), 1, 64);
+                .defineInRange("maximumUsesPerOffer", stock.maximumUsesPerOffer(), 1, 64);
         BUILDER.pop(2);
     }
 
@@ -263,18 +409,191 @@ public final class ServerConfig {
         );
     }
 
-    public static MarketDemandStockConfig marketDemandStockConfig() {
-        return new MarketDemandStockConfig(
-                DEMAND_INFLUENCES_STOCK.get(),
-                MAXIMUM_ADDITIONAL_USES.get(),
-                MAXIMUM_USES_PER_OFFER.get()
+    public static VillagerTradeConfig tradeConfig() {
+        if (!SPEC.isLoaded()) {
+            return DEFAULT_TRADES;
+        }
+        return mapTrade(new TradeValues(
+                new SpecializationValues(
+                        SPECIALIZATIONS_ENABLED.get(),
+                        SPECIALIZATION_GLOBAL_STRENGTH.get(),
+                        SPECIALIZATION_MINIMUM_BIAS.get(),
+                        SPECIALIZATION_MAXIMUM_BIAS.get(),
+                        SPECIALIZATION_CURVE_EXPONENT.get(),
+                        List.copyOf(SPECIALIZATION_PROFESSION_OVERRIDES.get())
+                ),
+                new PaletteValues(
+                        PALETTE_MODE.get(),
+                        REPEATED_TRADE_PENALTY.get(),
+                        MINIMUM_CANDIDATE_WEIGHT.get(),
+                        MEMORY_DECAY_TICKS.get(),
+                        RARE_TRADE_PROTECTION_ENABLED.get(),
+                        RARE_TRADE_RECOVERY_TICKS.get(),
+                        List.copyOf(RARE_TRADE_RESULTS.get()),
+                        EXHAUSTION_RECOVERY_TICKS.get(),
+                        CYCLE_RECOVERY_TICKS.get()
+                ),
+                new EconomyValues(
+                        DEMAND_ENABLED.get(),
+                        DEMAND_GAIN_PER_USE.get(),
+                        DEMAND_DECAY_PER_TICK.get(),
+                        DEMAND_MINIMUM.get(),
+                        DEMAND_BASELINE.get(),
+                        DEMAND_MAXIMUM.get(),
+                        PRICE_INFLUENCE_ENABLED.get(),
+                        MINIMUM_PRICE_MULTIPLIER.get(),
+                        MAXIMUM_PRICE_MULTIPLIER.get(),
+                        DEMAND_INFLUENCES_STOCK.get(),
+                        STOCK_INFLUENCE_STRENGTH.get(),
+                        MAXIMUM_ADDITIONAL_USES.get(),
+                        MAXIMUM_USES_PER_OFFER.get()
+                )
+        ));
+    }
+
+    static VillagerTradeConfig mapTrade(TradeValues values) {
+        SpecializationValues specialization = values.specializations();
+        PaletteValues palette = values.palette();
+        EconomyValues economy = values.economy();
+        return new VillagerTradeConfig(
+                new SpecializationConfig(
+                        specialization.enabled(),
+                        specialization.globalStrength(),
+                        specialization.minimumBias(),
+                        specialization.maximumBias(),
+                        specialization.curveExponent(),
+                        parseProfessionOverrides(specialization.professionOverrides())
+                ),
+                new TradePaletteConfig(
+                        palette.mode(),
+                        DEFAULT_TRADES.palette().maximumHistoryEntries(),
+                        palette.repeatedTradePenalty(),
+                        new TradeMemoryRecoveryConfig(
+                                palette.memoryDecayTicks(),
+                                palette.minimumCandidateWeight(),
+                                palette.exhaustionRecoveryTicks(),
+                                palette.cycleRecoveryTicks(),
+                                palette.rareTradeRecoveryTicks()
+                        ),
+                        palette.rareTradeProtectionEnabled(),
+                        parseNamespacedIds(palette.rareTradeResultItems())
+                ),
+                new MarketEconomyConfig(
+                        new MarketDemandConfig(
+                                economy.demandEnabled(),
+                                economy.demandMinimum(),
+                                economy.demandBaseline(),
+                                economy.demandMaximum(),
+                                economy.demandGainPerUse(),
+                                economy.demandDecayPerTick()
+                        ),
+                        new MarketDemandPriceConfig(
+                                economy.priceEnabled(),
+                                economy.minimumPriceMultiplier(),
+                                economy.maximumPriceMultiplier()
+                        ),
+                        new MarketDemandStockConfig(
+                                economy.stockEnabled(),
+                                economy.stockInfluenceStrength(),
+                                economy.maximumAdditionalUses(),
+                                economy.maximumUsesPerOffer()
+                        )
+                )
         );
+    }
+
+    static TradeValues defaultTradeValues() {
+        SpecializationConfig specialization = DEFAULT_TRADES.specializations();
+        TradePaletteConfig palette = DEFAULT_TRADES.palette();
+        MarketEconomyConfig economy = DEFAULT_TRADES.economy();
+        return new TradeValues(
+                new SpecializationValues(
+                        specialization.enabled(),
+                        specialization.globalStrength(),
+                        specialization.minimumBiasStrength(),
+                        specialization.maximumBiasStrength(),
+                        specialization.curveExponent(),
+                        List.of()
+                ),
+                new PaletteValues(
+                        palette.mode(),
+                        palette.repeatedTradePenalty(),
+                        palette.recovery().minimumCandidateWeight(),
+                        palette.recovery().weightedPenaltyRecoveryTime(),
+                        palette.rareTradeProtectionEnabled(),
+                        palette.recovery().rareTradeRecoveryTime(),
+                        List.copyOf(palette.rareTradeResultItems()),
+                        palette.recovery().exhaustRecoveryTime(),
+                        palette.recovery().cyclicResetTime()
+                ),
+                new EconomyValues(
+                        economy.demand().enabled(),
+                        economy.demand().increasePerPurchase(),
+                        economy.demand().decayPerTick(),
+                        economy.demand().minimum(),
+                        economy.demand().baseline(),
+                        economy.demand().maximum(),
+                        economy.price().enabled(),
+                        economy.price().minimumMultiplier(),
+                        economy.price().maximumMultiplier(),
+                        economy.stock().enabled(),
+                        economy.stock().influenceStrength(),
+                        economy.stock().maximumAdditionalUses(),
+                        economy.stock().maximumUsesPerOffer()
+                )
+        );
+    }
+
+    public static MarketDemandStockConfig marketDemandStockConfig() {
+        return tradeConfig().economy().stock();
     }
 
     private static ModConfigSpec.DoubleValue threshold(String name, double defaultValue, String levelName) {
         return BUILDER
                 .comment("Inclusive 0.0-1000000.0 skill threshold for " + levelName + "; all five must be strictly ordered.")
                 .defineInRange(name, defaultValue, 0.0, 1_000_000.0);
+    }
+
+    private static boolean validProfessionOverride(Object value) {
+        if (!(value instanceof String entry)) {
+            return false;
+        }
+        int separator = entry.lastIndexOf('=');
+        if (separator <= 0 || separator == entry.length() - 1) {
+            return false;
+        }
+        try {
+            ProfessionId.parse(entry.substring(0, separator));
+            double strength = Double.parseDouble(entry.substring(separator + 1));
+            return Double.isFinite(strength) && strength >= 0.0 && strength <= 1.0;
+        } catch (IllegalArgumentException ignored) {
+            return false;
+        }
+    }
+
+    private static boolean validNamespacedId(Object value) {
+        return value instanceof String id && ResourceLocation.tryParse(id) != null;
+    }
+
+    private static Map<ProfessionId, Double> parseProfessionOverrides(List<String> entries) {
+        Map<ProfessionId, Double> overrides = new LinkedHashMap<>();
+        for (String entry : entries) {
+            if (!validProfessionOverride(entry)) {
+                continue;
+            }
+            int separator = entry.lastIndexOf('=');
+            overrides.put(
+                    ProfessionId.parse(entry.substring(0, separator)),
+                    Double.parseDouble(entry.substring(separator + 1))
+            );
+        }
+        return overrides;
+    }
+
+    private static Set<String> parseNamespacedIds(List<String> entries) {
+        Set<String> ids = new LinkedHashSet<>();
+        entries.stream().filter(ServerConfig::validNamespacedId).forEach(ids::add);
+        return ids;
     }
 
     record Values(AptitudeValues aptitude, RareTalentValues rareTalents, InheritanceValues inheritance, CareerValues career, SkillValues skill, ActivityValues activity, LevelValues levels) {
@@ -299,5 +618,52 @@ public final class ServerConfig {
     }
 
     record LevelValues(double novice, double apprentice, double journeyman, double expert, double master) {
+    }
+
+    record TradeValues(
+            SpecializationValues specializations,
+            PaletteValues palette,
+            EconomyValues economy
+    ) {
+    }
+
+    record SpecializationValues(
+            boolean enabled,
+            double globalStrength,
+            double minimumBias,
+            double maximumBias,
+            double curveExponent,
+            List<String> professionOverrides
+    ) {
+    }
+
+    record PaletteValues(
+            TradePaletteRerollStrategy mode,
+            double repeatedTradePenalty,
+            double minimumCandidateWeight,
+            long memoryDecayTicks,
+            boolean rareTradeProtectionEnabled,
+            long rareTradeRecoveryTicks,
+            List<String> rareTradeResultItems,
+            long exhaustionRecoveryTicks,
+            long cycleRecoveryTicks
+    ) {
+    }
+
+    record EconomyValues(
+            boolean demandEnabled,
+            double demandGainPerUse,
+            double demandDecayPerTick,
+            double demandMinimum,
+            double demandBaseline,
+            double demandMaximum,
+            boolean priceEnabled,
+            double minimumPriceMultiplier,
+            double maximumPriceMultiplier,
+            boolean stockEnabled,
+            double stockInfluenceStrength,
+            int maximumAdditionalUses,
+            int maximumUsesPerOffer
+    ) {
     }
 }

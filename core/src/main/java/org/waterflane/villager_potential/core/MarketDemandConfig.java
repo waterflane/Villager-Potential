@@ -7,6 +7,7 @@ package org.waterflane.villager_potential.core;
  * wall-clock time participates in demand evaluation.</p>
  */
 public record MarketDemandConfig(
+        boolean enabled,
         double minimum,
         double baseline,
         double maximum,
@@ -14,12 +15,23 @@ public record MarketDemandConfig(
         double decayPerTick
 ) {
     public static final MarketDemandConfig DEFAULT = new MarketDemandConfig(
+            true,
             0.0,
             0.0,
             100.0,
             1.0,
             1.0 / 1_200.0
     );
+
+    public MarketDemandConfig(
+            double minimum,
+            double baseline,
+            double maximum,
+            double increasePerPurchase,
+            double decayPerTick
+    ) {
+        this(true, minimum, baseline, maximum, increasePerPurchase, decayPerTick);
+    }
 
     public MarketDemandConfig {
         if (!Double.isFinite(minimum)) {

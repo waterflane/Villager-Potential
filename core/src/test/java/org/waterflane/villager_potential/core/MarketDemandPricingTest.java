@@ -25,6 +25,16 @@ class MarketDemandPricingTest {
     }
 
     @Test
+    void disabledPriceInfluenceIsNeutralWhileDemandCanRemainEnabled() {
+        MarketDemandPriceConfig disabled = new MarketDemandPriceConfig(false, 0.75, 1.5);
+
+        assertEquals(1.0, MarketDemandPricing.multiplier(100.0, DEMAND, disabled));
+        assertEquals(20, MarketDemandPricing.adjustedPrice(
+                20, 20, 64, 100.0, DEMAND, disabled
+        ));
+    }
+
+    @Test
     void highDemandIncreasesPriceWithinConfiguredAndItemCaps() {
         assertEquals(0.75, MarketDemandPricing.multiplier(0.0, DEMAND, PRICE));
         assertEquals(1.5, MarketDemandPricing.multiplier(100.0, DEMAND, PRICE));

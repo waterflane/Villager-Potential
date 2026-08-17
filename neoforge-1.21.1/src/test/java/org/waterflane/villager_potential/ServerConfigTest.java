@@ -2,6 +2,11 @@ package org.waterflane.villager_potential;
 
 import org.junit.jupiter.api.Test;
 import org.waterflane.villager_potential.core.VillagerPotentialConfig;
+import org.waterflane.villager_potential.core.ProfessionId;
+import org.waterflane.villager_potential.core.TradePaletteRerollStrategy;
+import org.waterflane.villager_potential.core.VillagerTradeConfig;
+
+import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -9,6 +14,8 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class ServerConfigTest {
+    private static final ProfessionId LIBRARIAN = ProfessionId.parse("minecraft:librarian");
+
     @Test
     void defaultValuesMapToEnabledIntendedGameplay() {
         VillagerPotentialConfig mapped = ServerConfig.map(ServerConfig.defaultValues());
@@ -92,6 +99,82 @@ class ServerConfigTest {
         );
     }
 
+    @Test
+    void tradeDefaultsUsePersistentPaletteWithoutCompatibilityFallbacks() {
+        VillagerTradeConfig mapped = ServerConfig.mapTrade(ServerConfig.defaultTradeValues());
+
+        assertEquals(VillagerTradeConfig.DEFAULT, mapped);
+        assertEquals(VillagerTradeConfig.DEFAULT, ServerConfig.tradeConfig());
+        assertEquals(TradePaletteRerollStrategy.PERSISTENT, mapped.palette().mode());
+        assertTrue(mapped.specializations().enabled());
+        assertTrue(mapped.economy().demand().enabled());
+        assertTrue(mapped.economy().price().enabled());
+    }
+
+    @Test
+    void everyPaletteModeMapsExactly() {
+        for (TradePaletteRerollStrategy mode : TradePaletteRerollStrategy.values()) {
+            assertEquals(mode, ServerConfig.mapTrade(tradeValues(
+                    mode,
+                    List.of(),
+                    true,
+                    true,
+                    false
+            )).palette().mode());
+        }
+    }
+
+    @Test
+    void namespacedProfessionOverridesApplyAndUnknownIdsRemainSafe() {
+        VillagerTradeConfig mapped = ServerConfig.mapTrade(tradeValues(
+                TradePaletteRerollStrategy.PERSISTENT,
+                List.of(
+                        "minecraft:librarian=0.4",
+                        "othermod:unknown_profession=0.2",
+                        "not an override"
+                ),
+                true,
+                true,
+                false
+        ));
+
+        assertEquals(0.4, mapped.specializations().strengthFor(LIBRARIAN));
+        assertEquals(
+                0.2,
+                mapped.specializations().strengthFor(
+                        ProfessionId.parse("othermod:unknown_profession")
+                )
+        );
+        assertEquals(1.0, mapped.specializations().strengthFor(
+                ProfessionId.parse("minecraft:farmer")
+        ));
+        assertEquals(2, mapped.specializations().professionStrengthOverrides().size());
+    }
+
+    @Test
+    void priceAndStockTogglesMapIndependently() {
+        VillagerTradeConfig priceOnly = ServerConfig.mapTrade(tradeValues(
+                TradePaletteRerollStrategy.PERSISTENT,
+                List.of(),
+                true,
+                true,
+                false
+        ));
+        VillagerTradeConfig stockOnly = ServerConfig.mapTrade(tradeValues(
+                TradePaletteRerollStrategy.PERSISTENT,
+                List.of(),
+                true,
+                false,
+                true
+        ));
+
+        assertTrue(priceOnly.economy().price().enabled());
+        assertFalse(priceOnly.economy().stock().enabled());
+        assertFalse(stockOnly.economy().price().enabled());
+        assertTrue(stockOnly.economy().stock().enabled());
+        assertTrue(stockOnly.economy().demand().enabled());
+    }
+
     private static ServerConfig.Values customValues() {
         return new ServerConfig.Values(
                 new ServerConfig.AptitudeValues(true, 1.2, 0.16, 0.4, 2.4),
@@ -101,6 +184,51 @@ class ServerConfigTest {
                 new ServerConfig.SkillValues(true, 0.002, 0.5, 0.0, 2.0),
                 new ServerConfig.ActivityValues(true, 0.2, 0.0002, 0.8, 3.0),
                 new ServerConfig.LevelValues(0.1, 0.4, 0.8, 1.2, 1.8)
+        );
+    }
+
+    private static ServerConfig.TradeValues tradeValues(
+            TradePaletteRerollStrategy mode,
+            List<String> overrides,
+            boolean demandEnabled,
+            boolean priceEnabled,
+            boolean stockEnabled
+    ) {
+        return new ServerConfig.TradeValues(
+                new ServerConfig.SpecializationValues(
+                        true,
+                        1.0,
+                        0.1,
+                        1.0,
+                        2.0,
+                        overrides
+                ),
+                new ServerConfig.PaletteValues(
+                        mode,
+                        0.75,
+                        0.01,
+                        24_000L,
+                        true,
+                        1_200L,
+                        List.of("minecraft:enchanted_book"),
+                        24_000L,
+                        48_000L
+                ),
+                new ServerConfig.EconomyValues(
+                        demandEnabled,
+                        2.0,
+                        0.01,
+                        -10.0,
+                        0.0,
+                        100.0,
+                        priceEnabled,
+                        0.8,
+                        1.75,
+                        stockEnabled,
+                        0.5,
+                        6,
+                        24
+                )
         );
     }
 }

@@ -27,6 +27,22 @@ class MarketDemandStateTest {
     }
 
     @Test
+    void disabledDemandPreservesStoredStateAndReadsAsBaseline() {
+        MarketDemandConfig disabled = new MarketDemandConfig(
+                false,
+                -5.0,
+                2.0,
+                10.0,
+                4.0,
+                0.5
+        );
+        MarketDemandState stored = new MarketDemandState(8.0, 3L, 100L);
+
+        assertEquals(disabled.baseline(), stored.scoreAt(1_000L, disabled));
+        assertEquals(stored, stored.recordPurchase(1_000L, disabled));
+    }
+
+    @Test
     void demandFallsTowardBaselineOverElapsedServerTime() {
         MarketDemandState demand = MarketDemandState.firstPurchaseAt(100L, CONFIG);
 

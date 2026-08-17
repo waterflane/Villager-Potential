@@ -54,6 +54,9 @@ public record MarketDemandState(
     public double scoreAt(long gameTime, MarketDemandConfig config) {
         Objects.requireNonNull(config, "config");
         validateGameTime(gameTime);
+        if (!config.enabled()) {
+            return config.baseline();
+        }
 
         double boundedScore = clamp(demandScore, config.minimum(), config.maximum());
         long elapsedTicks = gameTime <= lastPurchaseGameTime
@@ -74,6 +77,9 @@ public record MarketDemandState(
     public MarketDemandState recordPurchase(long gameTime, MarketDemandConfig config) {
         Objects.requireNonNull(config, "config");
         validateGameTime(gameTime);
+        if (!config.enabled()) {
+            return this;
+        }
         long effectiveGameTime = Math.max(gameTime, lastPurchaseGameTime);
         return new MarketDemandState(
                 Math.min(

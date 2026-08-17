@@ -98,7 +98,7 @@ public final class SpecializedTradeSelection {
                 villager.getVillagerData().getLevel(),
                 modifiers,
                 career.map(value -> value.learnedSkill()).orElse(0.0),
-                Config.specializationBiasConfig(),
+                Config.specializationBiasConfig(professionId),
                 offerHistory,
                 Config.seenTradeWeightMultiplier(),
                 strategy,
