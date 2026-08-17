@@ -22,6 +22,7 @@ import org.waterflane.villager_potential.core.AptitudeGenerationConfig;
 import org.waterflane.villager_potential.core.AptitudeGenerator;
 import org.waterflane.villager_potential.core.AptitudeInheritance;
 import org.waterflane.villager_potential.core.AptitudeInheritanceConfig;
+import org.waterflane.villager_potential.core.MarketDemandState;
 import org.waterflane.villager_potential.core.ProfessionActivityConfig;
 import org.waterflane.villager_potential.core.ProfessionActivityState;
 import org.waterflane.villager_potential.core.ProfessionCareerState;
@@ -176,6 +177,30 @@ public final class VillagerPotentialAttachments {
             );
     private static final Codec<Map<ProfessionId, TradePaletteState>> TRADE_PALETTES_CODEC =
             Codec.unboundedMap(PROFESSION_ID_CODEC, TRADE_PALETTE_CODEC);
+    private static final Codec<MarketDemandState> MARKET_DEMAND_STATE_CODEC =
+            RecordCodecBuilder.create(instance -> instance.group(
+                    Codec.INT.fieldOf("score").forGetter(MarketDemandState::demandScore),
+                    Codec.LONG.fieldOf("times_purchased")
+                            .forGetter(MarketDemandState::timesPurchased),
+                    Codec.LONG.fieldOf("last_purchase_game_time")
+                            .forGetter(MarketDemandState::lastPurchaseGameTime)
+            ).apply(instance, MarketDemandState::new));
+    private static final Codec<PersistedMarketDemand> MARKET_DEMAND_ENTRY_CODEC =
+            RecordCodecBuilder.create(instance -> instance.group(
+                    TRADE_KEY_CODEC.fieldOf("trade").forGetter(PersistedMarketDemand::trade),
+                    MARKET_DEMAND_STATE_CODEC.fieldOf("demand")
+                            .forGetter(PersistedMarketDemand::demand)
+            ).apply(instance, PersistedMarketDemand::new));
+    private static final Codec<Map<TradeKey, MarketDemandState>> PROFESSION_MARKET_DEMAND_CODEC =
+            MARKET_DEMAND_ENTRY_CODEC.listOf().xmap(
+                    VillagerPotentialAttachments::marketDemandFromEntries,
+                    VillagerPotentialAttachments::marketDemandToEntries
+            );
+    private static final Codec<Map<ProfessionId, Map<TradeKey, MarketDemandState>>>
+            MARKET_DEMAND_CODEC = Codec.unboundedMap(
+                    PROFESSION_ID_CODEC,
+                    PROFESSION_MARKET_DEMAND_CODEC
+            );
     static final Codec<VillagerPotentialState> CODEC = RecordCodecBuilder.<PersistedState>create(instance -> instance.group(
             Codec.INT.fieldOf("schema_version").forGetter(PersistedState::schemaVersion),
             APTITUDES_CODEC.optionalFieldOf("aptitudes", Map.of()).forGetter(PersistedState::aptitudes),
@@ -185,7 +210,9 @@ public final class VillagerPotentialAttachments {
             PROFESSION_ACTIVITIES_CODEC.optionalFieldOf("profession_activity", Map.of())
                     .forGetter(PersistedState::professionActivities),
             TRADE_PALETTES_CODEC.optionalFieldOf("trade_palettes", Map.of())
-                    .forGetter(PersistedState::tradePalettes)
+                    .forGetter(PersistedState::tradePalettes),
+            MARKET_DEMAND_CODEC.optionalFieldOf("market_demand", Map.of())
+                    .forGetter(PersistedState::marketDemand)
     ).apply(instance, PersistedState::new)).comapFlatMap(
             persisted -> migrate(
                     persisted.schemaVersion(),
@@ -193,7 +220,8 @@ public final class VillagerPotentialAttachments {
                     persisted.careers(),
                     persisted.activeProfession(),
                     persisted.professionActivities(),
-                    persisted.tradePalettes()
+                    persisted.tradePalettes(),
+                    persisted.marketDemand()
             ),
             state -> new PersistedState(
                     state.schemaVersion(),
@@ -201,7 +229,8 @@ public final class VillagerPotentialAttachments {
                     state.careers(),
                     state.activeProfession(),
                     state.professionActivities(),
-                    state.tradePalettes()
+                    state.tradePalettes(),
+                    state.marketDemand()
             )
     );
 
@@ -330,14 +359,16 @@ public final class VillagerPotentialAttachments {
         VillagerPotentialState state = get(villager);
         TradePaletteRerollStrategy strategy = Config.tradePaletteRerollStrategy();
         long observationTime = tradeMemoryTime(state, profession, gameTime, strategy);
+        TradeKey trade = MerchantOfferTradeKeys.from(offer);
         VillagerPotentialState updatedState = state
                 .recordProfessionTrade(profession, gameTime, PROFESSION_ACTIVITY_CONFIG)
                 .recordTradeUse(
                         profession,
-                        MerchantOfferTradeKeys.from(offer),
+                        trade,
                         observationTime,
                         maximumHistoryEntries
-                );
+                )
+                .recordTradePurchase(profession, trade, gameTime);
         if (updatedState != state) {
             villager.setData(POTENTIAL, updatedState);
         }
@@ -535,14 +566,16 @@ public final class VillagerPotentialAttachments {
         );
         if (!state.careers().isEmpty()
                 || !state.professionActivities().isEmpty()
-                || !state.tradePalettes().isEmpty()) {
+                || !state.tradePalettes().isEmpty()
+                || !state.marketDemand().isEmpty()) {
             initializedState = new VillagerPotentialState(
                     VillagerPotentialState.CURRENT_SCHEMA_VERSION,
                     initializedState.aptitudes(),
                     state.careers(),
                     state.activeProfession(),
                     state.professionActivities(),
-                    state.tradePalettes()
+                    state.tradePalettes(),
+                    state.marketDemand()
             );
         }
         entity.setData(POTENTIAL, initializedState);
@@ -677,13 +710,30 @@ public final class VillagerPotentialAttachments {
         return value.isPresent() ? OptionalLong.of(value.orElseThrow()) : OptionalLong.empty();
     }
 
+    private static Map<TradeKey, MarketDemandState> marketDemandFromEntries(
+            List<PersistedMarketDemand> entries
+    ) {
+        Map<TradeKey, MarketDemandState> demand = new LinkedHashMap<>();
+        entries.forEach(entry -> demand.put(entry.trade(), entry.demand()));
+        return demand;
+    }
+
+    private static List<PersistedMarketDemand> marketDemandToEntries(
+            Map<TradeKey, MarketDemandState> demand
+    ) {
+        return demand.entrySet().stream()
+                .map(entry -> new PersistedMarketDemand(entry.getKey(), entry.getValue()))
+                .toList();
+    }
+
     private static DataResult<VillagerPotentialState> migrate(
             int schemaVersion,
             Map<ProfessionId, Double> aptitudes,
             Map<ProfessionId, ProfessionCareerState> careers,
             Optional<ProfessionId> activeProfession,
             Map<ProfessionId, ProfessionActivityState> professionActivities,
-            Map<ProfessionId, TradePaletteState> tradePalettes
+            Map<ProfessionId, TradePaletteState> tradePalettes,
+            Map<ProfessionId, Map<TradeKey, MarketDemandState>> marketDemand
     ) {
         try {
             return DataResult.success(VillagerPotentialState.migrate(
@@ -692,7 +742,8 @@ public final class VillagerPotentialAttachments {
                     careers,
                     activeProfession,
                     professionActivities,
-                    tradePalettes
+                    tradePalettes,
+                    marketDemand
             ));
         } catch (IllegalArgumentException exception) {
             return DataResult.error(exception::getMessage);
@@ -705,8 +756,12 @@ public final class VillagerPotentialAttachments {
             Map<ProfessionId, ProfessionCareerState> careers,
             Optional<ProfessionId> activeProfession,
             Map<ProfessionId, ProfessionActivityState> professionActivities,
-            Map<ProfessionId, TradePaletteState> tradePalettes
+            Map<ProfessionId, TradePaletteState> tradePalettes,
+            Map<ProfessionId, Map<TradeKey, MarketDemandState>> marketDemand
     ) {
+    }
+
+    private record PersistedMarketDemand(TradeKey trade, MarketDemandState demand) {
     }
 
     private record PersistedTradeHistory(TradeKey trade, TradeHistory history) {

@@ -16,9 +16,10 @@ public record VillagerPotentialState(
         Map<ProfessionId, ProfessionCareerState> careers,
         Optional<ProfessionId> activeProfession,
         Map<ProfessionId, ProfessionActivityState> professionActivities,
-        Map<ProfessionId, TradePaletteState> tradePalettes
+        Map<ProfessionId, TradePaletteState> tradePalettes,
+        Map<ProfessionId, Map<TradeKey, MarketDemandState>> marketDemand
 ) {
-    public static final int CURRENT_SCHEMA_VERSION = 8;
+    public static final int CURRENT_SCHEMA_VERSION = 9;
 
     public VillagerPotentialState {
         if (schemaVersion < 1) {
@@ -47,6 +48,33 @@ public record VillagerPotentialState(
         Objects.requireNonNull(tradePalettes, "tradePalettes");
         tradePalettes.forEach(VillagerPotentialState::validateTradePalette);
         tradePalettes = Map.copyOf(tradePalettes);
+
+        Objects.requireNonNull(marketDemand, "marketDemand");
+        Map<ProfessionId, Map<TradeKey, MarketDemandState>> copiedMarketDemand = new HashMap<>();
+        marketDemand.forEach((profession, demand) -> {
+            validateMarketDemand(profession, demand);
+            copiedMarketDemand.put(profession, Map.copyOf(demand));
+        });
+        marketDemand = Map.copyOf(copiedMarketDemand);
+    }
+
+    public VillagerPotentialState(
+            int schemaVersion,
+            Map<ProfessionId, Double> aptitudes,
+            Map<ProfessionId, ProfessionCareerState> careers,
+            Optional<ProfessionId> activeProfession,
+            Map<ProfessionId, ProfessionActivityState> professionActivities,
+            Map<ProfessionId, TradePaletteState> tradePalettes
+    ) {
+        this(
+                schemaVersion,
+                aptitudes,
+                careers,
+                activeProfession,
+                professionActivities,
+                tradePalettes,
+                Map.of()
+        );
     }
 
     public VillagerPotentialState(
@@ -90,6 +118,7 @@ public record VillagerPotentialState(
                 Map.of(),
                 Optional.empty(),
                 Map.of(),
+                Map.of(),
                 Map.of()
         );
     }
@@ -110,7 +139,8 @@ public record VillagerPotentialState(
                 careers,
                 activeProfession,
                 professionActivities,
-                tradePalettes
+                tradePalettes,
+                marketDemand
         );
     }
 
@@ -156,7 +186,8 @@ public record VillagerPotentialState(
                 updatedCareers,
                 activeProfession,
                 professionActivities,
-                tradePalettes
+                tradePalettes,
+                marketDemand
         );
     }
 
@@ -185,7 +216,8 @@ public record VillagerPotentialState(
                 updatedCareers,
                 Optional.of(professionId),
                 professionActivities,
-                tradePalettes
+                tradePalettes,
+                marketDemand
         );
     }
 
@@ -199,7 +231,8 @@ public record VillagerPotentialState(
                 careers,
                 Optional.empty(),
                 professionActivities,
-                tradePalettes
+                tradePalettes,
+                marketDemand
         );
     }
 
@@ -231,7 +264,55 @@ public record VillagerPotentialState(
                 careers,
                 activeProfession,
                 professionActivities,
-                updatedPalettes
+                updatedPalettes,
+                marketDemand
+        );
+    }
+
+    /** Returns demand recorded for one logical trade in exactly one profession. */
+    public Optional<MarketDemandState> marketDemandFor(
+            ProfessionId professionId,
+            TradeKey trade
+    ) {
+        Objects.requireNonNull(professionId, "professionId");
+        Objects.requireNonNull(trade, "trade");
+        return Optional.ofNullable(marketDemand.getOrDefault(professionId, Map.of()).get(trade));
+    }
+
+    /**
+     * Records one completed purchase without changing activity, career state,
+     * offer memory, or any pricing data.
+     */
+    public VillagerPotentialState recordTradePurchase(
+            ProfessionId professionId,
+            TradeKey trade,
+            long gameTime
+    ) {
+        Objects.requireNonNull(professionId, "professionId");
+        Objects.requireNonNull(trade, "trade");
+        Map<TradeKey, MarketDemandState> professionDemand = marketDemand.getOrDefault(
+                professionId,
+                Map.of()
+        );
+        MarketDemandState demand = professionDemand.get(trade);
+        MarketDemandState updatedDemand = demand == null
+                ? MarketDemandState.firstPurchaseAt(gameTime)
+                : demand.recordPurchase(gameTime);
+
+        Map<TradeKey, MarketDemandState> updatedProfessionDemand =
+                new HashMap<>(professionDemand);
+        updatedProfessionDemand.put(trade, updatedDemand);
+        Map<ProfessionId, Map<TradeKey, MarketDemandState>> updatedMarketDemand =
+                new HashMap<>(marketDemand);
+        updatedMarketDemand.put(professionId, updatedProfessionDemand);
+        return new VillagerPotentialState(
+                schemaVersion,
+                aptitudes,
+                careers,
+                activeProfession,
+                professionActivities,
+                tradePalettes,
+                updatedMarketDemand
         );
     }
 
@@ -339,7 +420,8 @@ public record VillagerPotentialState(
                 careers,
                 activeProfession,
                 updatedActivities,
-                tradePalettes
+                tradePalettes,
+                marketDemand
         );
     }
 
@@ -491,14 +573,44 @@ public record VillagerPotentialState(
             Map<ProfessionId, ProfessionActivityState> persistedProfessionActivities,
             Map<ProfessionId, TradePaletteState> persistedTradePalettes
     ) {
+        return migrate(
+                persistedSchemaVersion,
+                persistedAptitudes,
+                persistedCareers,
+                persistedActiveProfession,
+                persistedProfessionActivities,
+                persistedTradePalettes,
+                Map.of()
+        );
+    }
+
+    public static VillagerPotentialState migrate(
+            int persistedSchemaVersion,
+            Map<ProfessionId, Double> persistedAptitudes,
+            Map<ProfessionId, ProfessionCareerState> persistedCareers,
+            Optional<ProfessionId> persistedActiveProfession,
+            Map<ProfessionId, ProfessionActivityState> persistedProfessionActivities,
+            Map<ProfessionId, TradePaletteState> persistedTradePalettes,
+            Map<ProfessionId, Map<TradeKey, MarketDemandState>> persistedMarketDemand
+    ) {
         return switch (persistedSchemaVersion) {
-            case CURRENT_SCHEMA_VERSION, 7 -> new VillagerPotentialState(
+            case CURRENT_SCHEMA_VERSION -> new VillagerPotentialState(
                     CURRENT_SCHEMA_VERSION,
                     persistedAptitudes,
                     persistedCareers,
                     persistedActiveProfession,
                     persistedProfessionActivities,
-                    persistedTradePalettes
+                    persistedTradePalettes,
+                    persistedMarketDemand
+            );
+            case 8, 7 -> new VillagerPotentialState(
+                    CURRENT_SCHEMA_VERSION,
+                    persistedAptitudes,
+                    persistedCareers,
+                    persistedActiveProfession,
+                    persistedProfessionActivities,
+                    persistedTradePalettes,
+                    Map.of()
             );
             case 6, 5 -> new VillagerPotentialState(
                     CURRENT_SCHEMA_VERSION,
@@ -570,5 +682,17 @@ public record VillagerPotentialState(
     ) {
         Objects.requireNonNull(professionId, "professionId");
         Objects.requireNonNull(tradePalette, "tradePalette");
+    }
+
+    private static void validateMarketDemand(
+            ProfessionId professionId,
+            Map<TradeKey, MarketDemandState> professionDemand
+    ) {
+        Objects.requireNonNull(professionId, "professionId");
+        Objects.requireNonNull(professionDemand, "professionDemand");
+        professionDemand.forEach((trade, demand) -> {
+            Objects.requireNonNull(trade, "trade");
+            Objects.requireNonNull(demand, "demand");
+        });
     }
 }

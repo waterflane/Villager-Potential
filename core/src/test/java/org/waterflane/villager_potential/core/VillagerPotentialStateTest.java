@@ -145,6 +145,55 @@ class VillagerPotentialStateTest {
     }
 
     @Test
+    void presentingAnOfferDoesNotCreateMarketDemand() {
+        ProfessionId librarian = ProfessionId.parse("minecraft:librarian");
+        TradeKey trade = trade("minecraft:emerald", "minecraft:book");
+
+        VillagerPotentialState state = VillagerPotentialState.createDefault()
+                .recordPresentedTrades(
+                        librarian,
+                        List.of(trade),
+                        List.of(trade),
+                        100L,
+                        16
+                );
+
+        assertTrue(state.marketDemandFor(librarian, trade).isEmpty());
+        assertTrue(state.marketDemand().isEmpty());
+    }
+
+    @Test
+    void marketDemandIsIsolatedByTradeAndProfessionAndDoesNotCreateActivity() {
+        ProfessionId librarian = ProfessionId.parse("minecraft:librarian");
+        ProfessionId farmer = ProfessionId.parse("minecraft:farmer");
+        TradeKey paper = trade("minecraft:paper", "minecraft:emerald");
+        TradeKey book = trade("minecraft:emerald", "minecraft:book");
+
+        VillagerPotentialState librarianPurchase = VillagerPotentialState.createDefault()
+                .recordTradePurchase(librarian, paper, 100L);
+
+        assertEquals(
+                MarketDemandState.firstPurchaseAt(100L),
+                librarianPurchase.marketDemandFor(librarian, paper).orElseThrow()
+        );
+        assertTrue(librarianPurchase.marketDemandFor(librarian, book).isEmpty());
+        assertTrue(librarianPurchase.marketDemandFor(farmer, paper).isEmpty());
+        assertTrue(librarianPurchase.professionActivities().isEmpty());
+        assertTrue(librarianPurchase.tradePalettes().isEmpty());
+
+        VillagerPotentialState farmerPurchase = librarianPurchase
+                .recordTradePurchase(farmer, paper, 200L);
+        assertEquals(
+                MarketDemandState.firstPurchaseAt(100L),
+                farmerPurchase.marketDemandFor(librarian, paper).orElseThrow()
+        );
+        assertEquals(
+                MarketDemandState.firstPurchaseAt(200L),
+                farmerPurchase.marketDemandFor(farmer, paper).orElseThrow()
+        );
+    }
+
+    @Test
     void storesOneStableSpecializationPerProfessionCareer() {
         ProfessionId librarian = ProfessionId.parse("minecraft:librarian");
         SpecializationId enchanter =

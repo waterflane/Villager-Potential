@@ -73,5 +73,10 @@ class VillagerTradeActivityTest {
                 updated.tradePaletteFor(LIBRARIAN).orElseThrow()
                         .offerHistory().get(MerchantOfferTradeKeys.from(offer)).timesUsed()
         );
+        assertEquals(
+                1,
+                updated.marketDemandFor(LIBRARIAN, MerchantOfferTradeKeys.from(offer))
+                        .orElseThrow().demandScore()
+        );
     }
 }

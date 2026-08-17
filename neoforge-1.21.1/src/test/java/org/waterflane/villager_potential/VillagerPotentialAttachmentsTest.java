@@ -9,6 +9,7 @@ import net.neoforged.neoforge.event.entity.EntityJoinLevelEvent;
 import net.neoforged.neoforge.event.tick.EntityTickEvent;
 import org.junit.jupiter.api.Test;
 import org.waterflane.villager_potential.core.AptitudeInheritance;
+import org.waterflane.villager_potential.core.MarketDemandState;
 import org.waterflane.villager_potential.core.ProfessionCareerState;
 import org.waterflane.villager_potential.core.ProfessionId;
 import org.waterflane.villager_potential.core.SpecializationId;
@@ -280,6 +281,43 @@ class VillagerPotentialAttachmentsTest {
         assertTrue(root.getCompound("trade_palettes")
                 .getCompound(librarian.toString())
                 .contains("offer_history", Tag.TAG_LIST));
+    }
+
+    @Test
+    void marketDemandSurvivesSerializationPerProfessionAndTrade() {
+        ProfessionId librarian = ProfessionId.parse("minecraft:librarian");
+        ProfessionId farmer = ProfessionId.parse("minecraft:farmer");
+        TradeKey paper = new TradeKey.Offer(
+                new TradeKey.Item("minecraft:paper", 24),
+                new TradeKey.Item("minecraft:emerald", 1)
+        );
+        TradeKey wheat = new TradeKey.Offer(
+                new TradeKey.Item("minecraft:wheat", 20),
+                new TradeKey.Item("minecraft:emerald", 1)
+        );
+        VillagerPotentialState original = VillagerPotentialState.createDefault()
+                .recordTradePurchase(librarian, paper, 400L)
+                .recordTradePurchase(librarian, paper, 450L)
+                .recordTradePurchase(farmer, wheat, 500L);
+
+        Tag serialized = VillagerPotentialAttachments.CODEC
+                .encodeStart(NbtOps.INSTANCE, original)
+                .getOrThrow();
+        VillagerPotentialState restored = VillagerPotentialAttachments.CODEC
+                .parse(NbtOps.INSTANCE, serialized)
+                .getOrThrow();
+        CompoundTag root = (CompoundTag) serialized;
+
+        assertEquals(original, restored);
+        assertEquals(
+                new MarketDemandState(2, 2L, 450L),
+                restored.marketDemandFor(librarian, paper).orElseThrow()
+        );
+        assertEquals(
+                MarketDemandState.firstPurchaseAt(500L),
+                restored.marketDemandFor(farmer, wheat).orElseThrow()
+        );
+        assertTrue(root.contains("market_demand", Tag.TAG_COMPOUND));
     }
 
     @Test
