@@ -1,6 +1,7 @@
 package org.waterflane.villager_potential;
 
 import net.minecraft.resources.ResourceLocation;
+import net.neoforged.fml.event.config.ModConfigEvent;
 import net.neoforged.neoforge.common.ModConfigSpec;
 import org.waterflane.villager_potential.core.AptitudeGenerationConfig;
 import org.waterflane.villager_potential.core.AptitudeInheritanceConfig;
@@ -19,13 +20,17 @@ import org.waterflane.villager_potential.core.TradeMemoryRecoveryConfig;
 import org.waterflane.villager_potential.core.TradePaletteConfig;
 import org.waterflane.villager_potential.core.TradePaletteRerollStrategy;
 import org.waterflane.villager_potential.core.VillagerPotentialConfig;
+import org.waterflane.villager_potential.core.VillagerPotentialConfiguration;
 import org.waterflane.villager_potential.core.VillagerTradeConfig;
 
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
+import java.util.concurrent.CompletableFuture;
+import java.util.function.Supplier;
 
 /** World-owned SERVER settings mapped into loader-neutral core configuration. */
 public final class ServerConfig {
@@ -234,7 +239,7 @@ public final class ServerConfig {
                         "Optional per-profession strength overrides as namespaced_id=value, for example minecraft:librarian=0.75.",
                         "Values range from 0.0 to 1.0. These do not replace datapack specialization definitions."
                 )
-                .defineListAllowEmpty("professionStrengthOverrides", List.of(), ServerConfig::validProfessionOverride);
+                .defineListAllowEmpty("professionStrengthOverrides", List.of(), String.class::isInstance);
         BUILDER.pop();
 
         TradePaletteConfig palette = DEFAULT_TRADES.palette();
@@ -334,15 +339,18 @@ public final class ServerConfig {
     }
 
     static final ModConfigSpec SPEC = BUILDER.build();
+    private static volatile VillagerPotentialConfiguration activeConfiguration =
+            VillagerPotentialConfiguration.DEFAULT;
 
     private ServerConfig() {
     }
 
     public static VillagerPotentialConfig gameplayConfig() {
-        if (!SPEC.isLoaded()) {
-            return DEFAULT_GAMEPLAY;
-        }
-        return map(new Values(
+        return activeConfiguration.gameplay();
+    }
+
+    private static Values currentValues() {
+        return new Values(
                 new AptitudeValues(APTITUDE_ENABLED.get(), APTITUDE_MEAN.get(), APTITUDE_VARIANCE.get(), APTITUDE_MINIMUM.get(), APTITUDE_MAXIMUM.get()),
                 new RareTalentValues(RARE_TALENTS_ENABLED.get(), RARE_TALENT_CHANCE.get(), RARE_TALENT_STRENGTH.get()),
                 new InheritanceValues(INHERITANCE_ENABLED.get(), INHERITANCE_STRENGTH.get(), RANDOM_CONTRIBUTION.get(), MUTATION_CHANCE.get(), MUTATION_VARIANCE.get()),
@@ -350,13 +358,16 @@ public final class ServerConfig {
                 new SkillValues(SKILL_ENABLED.get(), SKILL_BASE_RATE.get(), SKILL_APTITUDE_INFLUENCE.get(), SKILL_MINIMUM.get(), SKILL_MAXIMUM.get()),
                 new ActivityValues(ACTIVITY_ENABLED.get(), ACTIVITY_GAIN_PER_TRADE.get(), ACTIVITY_DECAY_RATE.get(), ACTIVITY_BASELINE.get(), ACTIVITY_MAXIMUM.get()),
                 new LevelValues(LEVEL_NOVICE.get(), LEVEL_APPRENTICE.get(), LEVEL_JOURNEYMAN.get(), LEVEL_EXPERT.get(), LEVEL_MASTER.get())
-        ));
+        );
     }
 
     static VillagerPotentialConfig map(Values values) {
-        ProfessionLevelThresholds thresholds = new ProfessionLevelThresholds(
-                values.levels().novice(), values.levels().apprentice(),
-                values.levels().journeyman(), values.levels().expert(), values.levels().master()
+        ProfessionLevelThresholds thresholds = validateSection("levels", () ->
+                new ProfessionLevelThresholds(
+                        values.levels().novice(), values.levels().apprentice(),
+                        values.levels().journeyman(), values.levels().expert(),
+                        values.levels().master()
+                )
         );
         AptitudeValues aptitude = values.aptitude();
         RareTalentValues rareTalents = values.rareTalents();
@@ -365,27 +376,37 @@ public final class ServerConfig {
         SkillValues skill = values.skill();
         ActivityValues activity = values.activity();
         return new VillagerPotentialConfig(
-                new AptitudeGenerationConfig(
-                        aptitude.enabled(), aptitude.minimum(), aptitude.maximum(),
-                        aptitude.mean(), aptitude.variance(),
-                        new RareTalentConfig(rareTalents.enabled(), rareTalents.chance(), rareTalents.strength())
+                validateSection("aptitude", () -> new AptitudeGenerationConfig(
+                                aptitude.enabled(), aptitude.minimum(), aptitude.maximum(),
+                                aptitude.mean(), aptitude.variance(),
+                                validateSection("rareTalents", () -> new RareTalentConfig(
+                                        rareTalents.enabled(), rareTalents.chance(),
+                                        rareTalents.strength()
+                                ))
+                        )
                 ),
-                new AptitudeInheritanceConfig(
-                        inheritance.enabled(), inheritance.inheritanceStrength(),
-                        inheritance.randomContribution(), inheritance.mutationChance(), inheritance.mutationVariance()
+                validateSection("inheritance", () -> new AptitudeInheritanceConfig(
+                                inheritance.enabled(), inheritance.inheritanceStrength(),
+                                inheritance.randomContribution(), inheritance.mutationChance(),
+                                inheritance.mutationVariance()
+                        )
                 ),
-                new CareerProgressionConfig(
-                        career.enabled(), career.adultsOnly(),
-                        career.requireJobSite(), career.requireWorkActivity()
+                validateSection("career", () -> new CareerProgressionConfig(
+                                career.enabled(), career.adultsOnly(),
+                                career.requireJobSite(), career.requireWorkActivity()
+                        )
                 ),
-                new SkillProgressionConfig(
-                        skill.enabled(), skill.baseProgressionRate(), skill.aptitudeInfluence(),
-                        skill.minimum(), skill.maximum(), thresholds
+                validateSection("skill", () -> new SkillProgressionConfig(
+                                skill.enabled(), skill.baseProgressionRate(),
+                                skill.aptitudeInfluence(), skill.minimum(), skill.maximum(),
+                                thresholds
+                        )
                 ),
-                new ProfessionActivityConfig(
-                        activity.enabled(), DEFAULT_GAMEPLAY.activity().minimum(),
-                        activity.baseline(), activity.maximumMultiplier(),
-                        activity.gainPerSuccessfulTrade(), activity.decayRate()
+                validateSection("activity", () -> new ProfessionActivityConfig(
+                                activity.enabled(), DEFAULT_GAMEPLAY.activity().minimum(),
+                                activity.baseline(), activity.maximumMultiplier(),
+                                activity.gainPerSuccessfulTrade(), activity.decayRate()
+                        )
                 )
         );
     }
@@ -410,10 +431,11 @@ public final class ServerConfig {
     }
 
     public static VillagerTradeConfig tradeConfig() {
-        if (!SPEC.isLoaded()) {
-            return DEFAULT_TRADES;
-        }
-        return mapTrade(new TradeValues(
+        return activeConfiguration.trades();
+    }
+
+    private static TradeValues currentTradeValues() {
+        return new TradeValues(
                 new SpecializationValues(
                         SPECIALIZATIONS_ENABLED.get(),
                         SPECIALIZATION_GLOBAL_STRENGTH.get(),
@@ -448,7 +470,65 @@ public final class ServerConfig {
                         MAXIMUM_ADDITIONAL_USES.get(),
                         MAXIMUM_USES_PER_OFFER.get()
                 )
-        ));
+        );
+    }
+
+    static VillagerPotentialConfiguration validate(Values gameplay, TradeValues trades) {
+        Objects.requireNonNull(gameplay, "gameplay");
+        Objects.requireNonNull(trades, "trades");
+        try {
+            return new VillagerPotentialConfiguration(map(gameplay), mapTrade(trades));
+        } catch (IllegalArgumentException | NullPointerException exception) {
+            throw new IllegalArgumentException(
+                    "Invalid Villager Potential server configuration: "
+                            + exception.getMessage(),
+                    exception
+            );
+        }
+    }
+
+    static VillagerPotentialConfiguration prepareValidatedConfiguration() {
+        return SPEC.isLoaded()
+                ? validate(currentValues(), currentTradeValues())
+                : VillagerPotentialConfiguration.DEFAULT;
+    }
+
+    static VillagerPotentialConfiguration activeConfiguration() {
+        return activeConfiguration;
+    }
+
+    static void activate(VillagerPotentialConfiguration configuration) {
+        activeConfiguration = Objects.requireNonNull(configuration, "configuration");
+    }
+
+    static CompletableFuture<Void> reload(
+            Supplier<? extends CompletableFuture<Void>> resourceReload
+    ) {
+        return reload(prepareValidatedConfiguration(), resourceReload);
+    }
+
+    static CompletableFuture<Void> reload(
+            VillagerPotentialConfiguration candidate,
+            Supplier<? extends CompletableFuture<Void>> resourceReload
+    ) {
+        Objects.requireNonNull(candidate, "candidate");
+        Objects.requireNonNull(resourceReload, "resourceReload");
+        final CompletableFuture<Void> resources;
+        try {
+            resources = Objects.requireNonNull(
+                    resourceReload.get(),
+                    "resourceReload result"
+            );
+        } catch (RuntimeException exception) {
+            return CompletableFuture.failedFuture(exception);
+        }
+        return resources.thenRun(() -> activate(candidate));
+    }
+
+    static void onConfigEvent(ModConfigEvent event) {
+        if (event.getConfig().getSpec() == SPEC) {
+            activate(prepareValidatedConfiguration());
+        }
     }
 
     static VillagerTradeConfig mapTrade(TradeValues values) {
@@ -456,15 +536,15 @@ public final class ServerConfig {
         PaletteValues palette = values.palette();
         EconomyValues economy = values.economy();
         return new VillagerTradeConfig(
-                new SpecializationConfig(
+                validateSection("specializations", () -> new SpecializationConfig(
                         specialization.enabled(),
                         specialization.globalStrength(),
                         specialization.minimumBias(),
                         specialization.maximumBias(),
                         specialization.curveExponent(),
                         parseProfessionOverrides(specialization.professionOverrides())
-                ),
-                new TradePaletteConfig(
+                )),
+                validateSection("palette/memory", () -> new TradePaletteConfig(
                         palette.mode(),
                         DEFAULT_TRADES.palette().maximumHistoryEntries(),
                         palette.repeatedTradePenalty(),
@@ -477,8 +557,8 @@ public final class ServerConfig {
                         ),
                         palette.rareTradeProtectionEnabled(),
                         parseNamespacedIds(palette.rareTradeResultItems())
-                ),
-                new MarketEconomyConfig(
+                )),
+                validateSection("economy", () -> new MarketEconomyConfig(
                         new MarketDemandConfig(
                                 economy.demandEnabled(),
                                 economy.demandMinimum(),
@@ -498,7 +578,7 @@ public final class ServerConfig {
                                 economy.maximumAdditionalUses(),
                                 economy.maximumUsesPerOffer()
                         )
-                )
+                ))
         );
     }
 
@@ -554,38 +634,50 @@ public final class ServerConfig {
                 .defineInRange(name, defaultValue, 0.0, 1_000_000.0);
     }
 
-    private static boolean validProfessionOverride(Object value) {
-        if (!(value instanceof String entry)) {
-            return false;
-        }
-        int separator = entry.lastIndexOf('=');
-        if (separator <= 0 || separator == entry.length() - 1) {
-            return false;
-        }
-        try {
-            ProfessionId.parse(entry.substring(0, separator));
-            double strength = Double.parseDouble(entry.substring(separator + 1));
-            return Double.isFinite(strength) && strength >= 0.0 && strength <= 1.0;
-        } catch (IllegalArgumentException ignored) {
-            return false;
-        }
-    }
-
     private static boolean validNamespacedId(Object value) {
         return value instanceof String id && ResourceLocation.tryParse(id) != null;
     }
 
     private static Map<ProfessionId, Double> parseProfessionOverrides(List<String> entries) {
         Map<ProfessionId, Double> overrides = new LinkedHashMap<>();
-        for (String entry : entries) {
-            if (!validProfessionOverride(entry)) {
-                continue;
+        for (int index = 0; index < entries.size(); index++) {
+            String entry = entries.get(index);
+            if (entry == null) {
+                throw new IllegalArgumentException(
+                        "specializations.professionStrengthOverrides[" + index + "] must be a string"
+                );
             }
             int separator = entry.lastIndexOf('=');
-            overrides.put(
-                    ProfessionId.parse(entry.substring(0, separator)),
-                    Double.parseDouble(entry.substring(separator + 1))
-            );
+            if (separator <= 0 || separator != entry.indexOf('=')
+                    || separator == entry.length() - 1) {
+                throw new IllegalArgumentException(
+                        "specializations.professionStrengthOverrides[" + index
+                                + "] must use namespaced_profession_id=value"
+                );
+            }
+            ProfessionId profession;
+            double strength;
+            try {
+                profession = ProfessionId.parse(entry.substring(0, separator));
+                strength = Double.parseDouble(entry.substring(separator + 1));
+            } catch (IllegalArgumentException exception) {
+                throw new IllegalArgumentException(
+                        "Invalid specialization profession override '" + entry + "': "
+                                + exception.getMessage(),
+                        exception
+                );
+            }
+            if (!Double.isFinite(strength) || strength < 0.0 || strength > 1.0) {
+                throw new IllegalArgumentException(
+                        "Specialization strength for " + profession
+                                + " must be finite and between zero and one"
+                );
+            }
+            if (overrides.putIfAbsent(profession, strength) != null) {
+                throw new IllegalArgumentException(
+                        "Duplicate specialization profession override for " + profession
+                );
+            }
         }
         return overrides;
     }
@@ -594,6 +686,17 @@ public final class ServerConfig {
         Set<String> ids = new LinkedHashSet<>();
         entries.stream().filter(ServerConfig::validNamespacedId).forEach(ids::add);
         return ids;
+    }
+
+    private static <T> T validateSection(String section, Supplier<T> factory) {
+        try {
+            return factory.get();
+        } catch (IllegalArgumentException | NullPointerException exception) {
+            throw new IllegalArgumentException(
+                    section + ": " + exception.getMessage(),
+                    exception
+            );
+        }
     }
 
     record Values(AptitudeValues aptitude, RareTalentValues rareTalents, InheritanceValues inheritance, CareerValues career, SkillValues skill, ActivityValues activity, LevelValues levels) {

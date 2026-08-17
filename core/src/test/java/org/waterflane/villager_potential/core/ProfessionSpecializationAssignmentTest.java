@@ -7,6 +7,7 @@ import java.util.Optional;
 import java.util.Random;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class ProfessionSpecializationAssignmentTest {
@@ -141,6 +142,28 @@ class ProfessionSpecializationAssignmentTest {
                 LIBRARIAN_GENERAL,
                 emptyDefinition.specializationFor(LIBRARIAN).orElseThrow()
         );
+    }
+
+    @Test
+    void disappearingDefinitionDoesNotReplacePersistentSpecializationIdentity() {
+        VillagerPotentialState assigned = enter(
+                VillagerPotentialState.createDefault(),
+                LIBRARIAN,
+                100L,
+                Optional.of(definition(LIBRARIAN, LIBRARIAN_GENERAL, ENCHANTER)),
+                1L
+        );
+
+        VillagerPotentialState afterReload = enter(
+                assigned,
+                LIBRARIAN,
+                100L,
+                Optional.empty(),
+                99L
+        );
+
+        assertSame(assigned, afterReload);
+        assertEquals(ENCHANTER, afterReload.specializationFor(LIBRARIAN).orElseThrow());
     }
 
     private static VillagerPotentialState enter(

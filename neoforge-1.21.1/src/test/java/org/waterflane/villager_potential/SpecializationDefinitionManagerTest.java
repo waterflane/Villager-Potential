@@ -22,6 +22,7 @@ import java.util.concurrent.CompletionException;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
+import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
@@ -110,6 +111,26 @@ class SpecializationDefinitionManagerTest {
 
         assertTrue(exception.getCause().getMessage().contains("finite and non-negative"));
         assertTrue(manager.definitions().isEmpty());
+    }
+
+    @Test
+    void malformedReloadRetainsThePreviousUsableDefinitions() {
+        SpecializationDefinitionManager manager = new SpecializationDefinitionManager();
+        reload(manager, Map.of("test:librarian", definition(
+                "minecraft:librarian",
+                "test:enchanter",
+                "test:books",
+                2.0
+        )));
+        var previous = manager.definitions();
+
+        assertThrows(
+                CompletionException.class,
+                () -> reload(manager, Map.of("test:broken", "{ not json"))
+        );
+
+        assertSame(previous, manager.definitions());
+        assertTrue(manager.definitionFor(LIBRARIAN).isPresent());
     }
 
     @Test

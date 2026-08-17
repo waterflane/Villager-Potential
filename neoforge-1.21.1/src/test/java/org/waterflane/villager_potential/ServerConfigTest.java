@@ -130,8 +130,7 @@ class ServerConfigTest {
                 TradePaletteRerollStrategy.PERSISTENT,
                 List.of(
                         "minecraft:librarian=0.4",
-                        "othermod:unknown_profession=0.2",
-                        "not an override"
+                        "othermod:unknown_profession=0.2"
                 ),
                 true,
                 true,
