@@ -70,9 +70,12 @@ class MerchantOfferTradeKeysTest {
 
         TradeKey first = MerchantOfferTradeKeys.from(offer);
         TradeKey second = MerchantOfferTradeKeys.from(offer);
+        MerchantOfferTradeKeys.Identity identity = MerchantOfferTradeKeys.identify(offer);
 
         assertEquals(new TradeKey.Fallback("merchant-offer:" + offer.getClass().getName()), first);
         assertEquals(first, second);
+        assertEquals(first, identity.key());
+        org.junit.jupiter.api.Assertions.assertFalse(identity.stable());
     }
 
     private static MerchantOffer bookOffer(String enchantmentPath, int level) {

@@ -22,6 +22,7 @@ import org.waterflane.villager_potential.core.AptitudeGenerationConfig;
 import org.waterflane.villager_potential.core.AptitudeGenerator;
 import org.waterflane.villager_potential.core.AptitudeInheritance;
 import org.waterflane.villager_potential.core.AptitudeInheritanceConfig;
+import org.waterflane.villager_potential.core.AptitudeProvisioning;
 import org.waterflane.villager_potential.core.MarketDemandState;
 import org.waterflane.villager_potential.core.ProfessionActivityConfig;
 import org.waterflane.villager_potential.core.ProfessionActivityState;
@@ -68,6 +69,7 @@ public final class VillagerPotentialAttachments {
     private static final long INITIALIZATION_SALT = 0x56494C4C41474552L;
     private static final long INHERITANCE_SALT = 0x494E484552495453L;
     private static final long SPECIALIZATION_SALT = 0x5350454349414C53L;
+    private static final long LAZY_APTITUDE_SALT = 0x4150544954554445L;
     private static final Codec<ProfessionId> PROFESSION_ID_CODEC = Codec.STRING.comapFlatMap(
             VillagerPotentialAttachments::parseProfessionId,
             ProfessionId::toString
@@ -407,11 +409,18 @@ public final class VillagerPotentialAttachments {
         VillagerPotentialConfig gameplayConfig = ServerConfig.gameplayConfig();
         TradePaletteRerollStrategy strategy = Config.tradePaletteRerollStrategy();
         long observationTime = tradeMemoryTime(state, profession, gameTime, strategy);
-        TradeKey trade = MerchantOfferTradeKeys.from(offer);
-        Optional<MarketDemandState> previousDemand = state.marketDemandFor(profession, trade);
-        VillagerPotentialState updatedState = state
-                .recordProfessionTrade(profession, gameTime, gameplayConfig.activity())
-                .recordTradeUse(
+        MerchantOfferTradeKeys.Identity identity = MerchantOfferTradeKeys.identify(offer);
+        TradeKey trade = identity.key();
+        Optional<MarketDemandState> previousDemand = identity.stable()
+                ? state.marketDemandFor(profession, trade)
+                : Optional.empty();
+        VillagerPotentialState updatedState = state.recordProfessionTrade(
+                profession,
+                gameTime,
+                gameplayConfig.activity()
+        );
+        if (identity.stable()) {
+            updatedState = updatedState.recordTradeUse(
                         profession,
                         trade,
                         observationTime,
@@ -423,6 +432,7 @@ public final class VillagerPotentialAttachments {
                         gameTime,
                         Config.marketDemandConfig()
                 );
+        }
         if (updatedState != state) {
             persistAndEmit(villager, state, updatedState);
         }
@@ -435,7 +445,9 @@ public final class VillagerPotentialAttachments {
                         view
                 )
         );
-        Optional<MarketDemandState> updatedDemand = updatedState.marketDemandFor(profession, trade);
+        Optional<MarketDemandState> updatedDemand = identity.stable()
+                ? updatedState.marketDemandFor(profession, trade)
+                : Optional.empty();
         if (!updatedDemand.equals(previousDemand) && updatedDemand.isPresent()) {
             MarketDemandState demand = updatedDemand.orElseThrow();
             VillagerPotentialTradeEvents.emitDemandChanged(
@@ -494,11 +506,15 @@ public final class VillagerPotentialAttachments {
         }
 
         List<TradeKey> presentedTrades = offers.stream()
-                .map(MerchantOfferTradeKeys::from)
+                .map(MerchantOfferTradeKeys::identify)
+                .filter(MerchantOfferTradeKeys.Identity::stable)
+                .map(MerchantOfferTradeKeys.Identity::key)
                 .toList();
         List<TradeKey> generatedTrades = offers.subList(firstGeneratedIndex, offers.size())
                 .stream()
-                .map(MerchantOfferTradeKeys::from)
+                .map(MerchantOfferTradeKeys::identify)
+                .filter(MerchantOfferTradeKeys.Identity::stable)
+                .map(MerchantOfferTradeKeys.Identity::key)
                 .toList();
         VillagerPotentialState state = get(villager);
         List<TradeKey> previouslyLearned = state.tradePaletteFor(profession)
@@ -586,7 +602,7 @@ public final class VillagerPotentialAttachments {
     private static ProfessionId toCareerProfession(VillagerProfession profession) {
         return profession == VillagerProfession.NONE || profession == VillagerProfession.NITWIT
                 ? null
-                : VillagerProfessionIds.fromMinecraft(profession);
+                : VillagerProfessionIds.tryFromMinecraft(profession).orElse(null);
     }
 
     private static VillagerPotentialState assignProfession(
@@ -599,8 +615,15 @@ public final class VillagerPotentialAttachments {
         if (profession == null) {
             return state.clearActiveProfession();
         }
-        return ProfessionSpecializationAssignment.enterProfession(
+        VillagerPotentialConfig config = ServerConfig.gameplayConfig();
+        VillagerPotentialState provisioned = AptitudeProvisioning.ensure(
                 state,
+                profession,
+                config.aptitude(),
+                new Random(lazyAptitudeSeed(worldSeed, villagerId, profession))
+        );
+        return ProfessionSpecializationAssignment.enterProfession(
+                provisioned,
                 profession,
                 assignmentTime,
                 SpecializationDefinitionManager.INSTANCE.definitionFor(profession),
@@ -851,6 +874,28 @@ public final class VillagerPotentialAttachments {
             professionSalt *= 0x100000001B3L;
         }
         return mixedSeed(worldSeed, villagerId, professionSalt);
+    }
+
+    private static long lazyAptitudeSeed(
+            long worldSeed,
+            UUID villagerId,
+            ProfessionId professionId
+    ) {
+        return mixedSeed(
+                worldSeed,
+                villagerId,
+                professionSalt(LAZY_APTITUDE_SALT, professionId)
+        );
+    }
+
+    private static long professionSalt(long baseSalt, ProfessionId professionId) {
+        long professionSalt = baseSalt;
+        String profession = professionId.toString();
+        for (int index = 0; index < profession.length(); index++) {
+            professionSalt ^= profession.charAt(index);
+            professionSalt *= 0x100000001B3L;
+        }
+        return professionSalt;
     }
 
     private static long mixedSeed(long worldSeed, UUID villagerId, long salt) {

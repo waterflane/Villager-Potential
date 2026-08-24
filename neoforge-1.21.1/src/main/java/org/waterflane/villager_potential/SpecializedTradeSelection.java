@@ -58,7 +58,12 @@ public final class SpecializedTradeSelection {
     ) {
         Objects.requireNonNull(villager, "villager");
         VillagerProfession profession = villager.getVillagerData().getProfession();
-        ProfessionId professionId = VillagerProfessionIds.fromMinecraft(profession);
+        Optional<ProfessionId> portableProfession =
+                VillagerProfessionIds.tryFromMinecraft(profession);
+        if (portableProfession.isEmpty()) {
+            return false;
+        }
+        ProfessionId professionId = portableProfession.orElseThrow();
         Optional<ProfessionSpecializationDefinition> professionDefinition =
                 SpecializationDefinitionManager.INSTANCE.definitionFor(professionId);
         var potential = VillagerPotentialAttachments.get(villager);
@@ -71,14 +76,20 @@ public final class SpecializedTradeSelection {
         if (strategy == TradePaletteRerollStrategy.PERSISTENT
                 && offers.isEmpty()
                 && !learnedTrades.isEmpty()) {
-            restorePersistentOffers(
+            boolean restored = tryRestorePersistentOffers(
                     villager,
                     offers,
                     learnedTrades,
                     profession,
                     villager.getVillagerData().getLevel(),
+                    candidates,
                     villager.getRandom()
             );
+            if (!restored) {
+                // Unknown or removed content stays under the originating trade
+                // system. The mixin's RETURN hook may still observe stable keys.
+                return false;
+            }
             VillagerPotentialTradeEvents.emitTradeProcessing(
                     new VillagerPotentialTradeEvents.TradeProcessing(
                             villager,
@@ -322,6 +333,7 @@ public final class SpecializedTradeSelection {
         while (offersAdded < requestedOfferCount && !remaining.isEmpty()) {
             long cycleFloor = strategy == TradePaletteRerollStrategy.CYCLIC
                     ? remaining.stream()
+                    .filter(GeneratedCandidate::stableIdentity)
                     .mapToLong(candidate -> TradeMemoryRecovery.effectiveCyclicCount(
                             offerHistory.get(candidate.key()),
                             professionTime,
@@ -351,7 +363,8 @@ public final class SpecializedTradeSelection {
                                     level,
                                     specialization,
                                     offerHistory,
-                                    strategy
+                                    strategy,
+                                    candidate.stableIdentity()
                             ))
                             .toList(),
                     rules,
@@ -425,7 +438,8 @@ public final class SpecializedTradeSelection {
                                     level,
                                     specialization,
                                     Map.of(),
-                                    strategy
+                                    strategy,
+                                    false
                             ))
                             .toList(),
                     rules,
@@ -486,7 +500,8 @@ public final class SpecializedTradeSelection {
                                     level,
                                     specialization,
                                     Map.of(),
-                                    strategy
+                                    strategy,
+                                    candidate.stableIdentity()
                             ))
                             .toList(),
                     rules,
@@ -508,15 +523,16 @@ public final class SpecializedTradeSelection {
             int level,
             Optional<SpecializationDefinition> specialization,
             Map<TradeKey, TradeHistory> offerHistory,
-            TradePaletteRerollStrategy strategy
+            TradePaletteRerollStrategy strategy,
+            boolean stableIdentity
     ) {
         if (!VillagerPotentialTradeEvents.hasCandidateWeightModifiers()) {
             return new TradeSelectionResolver.Candidate(
                     1.0,
                     specializationModifier(candidate, profession, level, specialization),
                     1.0,
-                    key == null ? null : offerHistory.get(key),
-                    key != null && Config.isRareTradeProtected(key)
+                    key == null || !stableIdentity ? null : offerHistory.get(key),
+                    key != null && stableIdentity && Config.isRareTradeProtected(key)
             );
         }
         ProfessionId professionId = VillagerProfessionIds.fromMinecraft(profession);
@@ -539,8 +555,8 @@ public final class SpecializedTradeSelection {
                         .map(definition -> definition.weightModifierFor(category))
                         .orElse(1.0),
                 1.0,
-                key == null ? null : offerHistory.get(key),
-                key != null && Config.isRareTradeProtected(key),
+                key == null || !stableIdentity ? null : offerHistory.get(key),
+                key != null && stableIdentity && Config.isRareTradeProtected(key),
                 weight -> VillagerPotentialTradeEvents.modifyCandidateWeight(
                         weightContext,
                         weight
@@ -605,23 +621,54 @@ public final class SpecializedTradeSelection {
                 .orElse(0L);
     }
 
-    private static void restorePersistentOffers(
+    private static boolean tryRestorePersistentOffers(
             Villager villager,
             MerchantOffers offers,
             List<TradeKey> learnedTrades,
             VillagerProfession profession,
             int maximumLevel,
+            VillagerTrades.ItemListing[] currentCandidates,
             RandomSource random
     ) {
+        if (learnedTrades.stream().anyMatch(trade -> !MerchantOfferTradeKeys.isStable(trade))) {
+            return false;
+        }
         Int2ObjectMap<VillagerTrades.ItemListing[]> pools = tradePools(villager, profession);
         List<VillagerTrades.ItemListing[]> unlockedPools = new ArrayList<>();
-        for (int level = 1; level <= maximumLevel; level++) {
-            VillagerTrades.ItemListing[] pool = pools == null ? null : pools.get(level);
-            if (pool != null) {
-                unlockedPools.add(pool);
+        boolean currentCandidatesAreRegisteredPool = false;
+        if (pools != null) {
+            for (int level = 1; level <= maximumLevel; level++) {
+                if (pools.get(level) == currentCandidates) {
+                    currentCandidatesAreRegisteredPool = true;
+                    break;
+                }
             }
         }
-        restorePersistentOffers(villager, offers, learnedTrades, unlockedPools, random);
+        if (pools == null || !currentCandidatesAreRegisteredPool) {
+            // A foreign system supplied its own candidate array. Never replace
+            // that system with the built-in/static profession pool.
+            unlockedPools.add(currentCandidates);
+        } else {
+            for (int level = 1; level <= maximumLevel; level++) {
+                VillagerTrades.ItemListing[] pool = pools.get(level);
+                if (pool != null) {
+                    unlockedPools.add(pool);
+                }
+            }
+        }
+        int firstRestoredIndex = offers.size();
+        int restored = restorePersistentOffersInternal(
+                villager,
+                offers,
+                learnedTrades,
+                unlockedPools,
+                random
+        );
+        if (restored == learnedTrades.size()) {
+            return true;
+        }
+        offers.subList(firstRestoredIndex, offers.size()).clear();
+        return false;
     }
 
     static void restorePersistentOffers(
@@ -636,7 +683,18 @@ public final class SpecializedTradeSelection {
         Objects.requireNonNull(learnedTrades, "learnedTrades");
         Objects.requireNonNull(unlockedPools, "unlockedPools");
         Objects.requireNonNull(random, "random");
+        restorePersistentOffersInternal(villager, offers, learnedTrades, unlockedPools, random);
+    }
+
+    private static int restorePersistentOffersInternal(
+            Villager villager,
+            MerchantOffers offers,
+            List<TradeKey> learnedTrades,
+            List<VillagerTrades.ItemListing[]> unlockedPools,
+            RandomSource random
+    ) {
         Set<ListingSlot> consumed = new HashSet<>();
+        int restoredCount = 0;
         for (TradeKey learnedTrade : learnedTrades) {
             Optional<MatchedOffer> match = findPersistentOffer(
                     villager,
@@ -649,8 +707,10 @@ public final class SpecializedTradeSelection {
                 MatchedOffer restored = match.orElseThrow();
                 consumed.add(restored.slot());
                 offers.add(restored.offer());
+                restoredCount++;
             }
         }
+        return restoredCount;
     }
 
     private static Optional<MatchedOffer> findPersistentOffer(
@@ -672,7 +732,11 @@ public final class SpecializedTradeSelection {
                     if (offer == null) {
                         continue;
                     }
-                    TradeKey generated = MerchantOfferTradeKeys.from(offer);
+                    MerchantOfferTradeKeys.Identity identity = MerchantOfferTradeKeys.identify(offer);
+                    if (!identity.stable()) {
+                        break;
+                    }
+                    TradeKey generated = identity.key();
                     if (generated.equals(learnedTrade)) {
                         return Optional.of(new MatchedOffer(slot, offer));
                     }
@@ -716,19 +780,24 @@ public final class SpecializedTradeSelection {
             RandomSource random
     ) {
         MerchantOffer offer = listing.getOffer(villager, random);
+        MerchantOfferTradeKeys.Identity identity = offer == null
+                ? null
+                : MerchantOfferTradeKeys.identify(offer);
         return offer == null
                 ? Optional.empty()
                 : Optional.of(new GeneratedCandidate(
                         listing,
                         offer,
-                        MerchantOfferTradeKeys.from(offer)
+                        identity.key(),
+                        identity.stable()
                 ));
     }
 
     private record GeneratedCandidate(
             VillagerTrades.ItemListing listing,
             MerchantOffer offer,
-            TradeKey key
+            TradeKey key,
+            boolean stableIdentity
     ) {
     }
 

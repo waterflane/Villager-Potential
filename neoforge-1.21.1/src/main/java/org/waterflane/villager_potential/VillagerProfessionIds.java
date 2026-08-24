@@ -43,7 +43,19 @@ public final class VillagerProfessionIds {
         if (registryName == null) {
             throw new IllegalArgumentException("Villager profession is not registered");
         }
+        return fromRegistryName(registryName);
+    }
 
+    /** Conservative lookup for runtime content that may still be registering. */
+    public static Optional<ProfessionId> tryFromMinecraft(VillagerProfession profession) {
+        ResourceLocation registryName = BuiltInRegistries.VILLAGER_PROFESSION.getKey(
+                Objects.requireNonNull(profession, "profession")
+        );
+        return Optional.ofNullable(registryName).map(VillagerProfessionIds::fromRegistryName);
+    }
+
+    public static ProfessionId fromRegistryName(ResourceLocation registryName) {
+        Objects.requireNonNull(registryName, "registryName");
         return new ProfessionId(registryName.getNamespace(), registryName.getPath());
     }
 
@@ -61,6 +73,6 @@ public final class VillagerProfessionIds {
     }
 
     private static ProfessionId vanilla(String path) {
-        return new ProfessionId(ResourceLocation.DEFAULT_NAMESPACE, path);
+        return fromRegistryName(ResourceLocation.withDefaultNamespace(path));
     }
 }

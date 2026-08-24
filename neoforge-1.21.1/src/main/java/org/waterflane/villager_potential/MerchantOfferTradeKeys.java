@@ -43,6 +43,15 @@ public final class MerchantOfferTradeKeys {
      * demand and temporary reputation discounts do not affect identity.
      */
     public static TradeKey from(MerchantOffer offer) {
+        return identify(offer).key();
+    }
+
+    /**
+     * Identifies an offer and reports whether the key is safe for durable
+     * memory/demand. An unstable fallback is still returned so foreign offers
+     * can pass through hooks without being rejected.
+     */
+    public static Identity identify(MerchantOffer offer) {
         Objects.requireNonNull(offer, "offer");
         try {
             TradeKey.Item costA = item(offer.getBaseCostA());
@@ -50,10 +59,21 @@ public final class MerchantOfferTradeKeys {
             Optional<TradeKey.Item> costB = costBStack.isEmpty()
                     ? Optional.empty()
                     : Optional.of(item(costBStack));
-            return new TradeKey.Offer(costA, costB, item(offer.getResult()));
+            TradeKey key = new TradeKey.Offer(costA, costB, item(offer.getResult()));
+            return new Identity(key, isStable(key));
         } catch (RuntimeException exception) {
-            return fallbackFor(offer);
+            return new Identity(fallbackFor(offer), false);
         }
+    }
+
+    public static boolean isStable(TradeKey key) {
+        Objects.requireNonNull(key, "key");
+        if (!(key instanceof TradeKey.Offer offer)) {
+            return false;
+        }
+        return stableItem(offer.costA())
+                && offer.costB().map(MerchantOfferTradeKeys::stableItem).orElse(true)
+                && stableItem(offer.result());
     }
 
     /**
@@ -79,6 +99,12 @@ public final class MerchantOfferTradeKeys {
                 stack.getCount(),
                 components(stack.getComponentsPatch())
         );
+    }
+
+    private static boolean stableItem(TradeKey.Item item) {
+        return !item.itemId().startsWith("unregistered:")
+                && !item.components().contains("unregistered:")
+                && !item.components().contains("fallback:");
     }
 
     private static String itemId(Item item) {
@@ -192,5 +218,14 @@ public final class MerchantOfferTradeKeys {
     }
 
     private record ComponentValue(String type, String value) {
+    }
+
+    public record Identity(TradeKey key, boolean stable) {
+        public Identity {
+            Objects.requireNonNull(key, "key");
+            if (stable && !isStable(key)) {
+                throw new IllegalArgumentException("Only structured portable keys are stable");
+            }
+        }
     }
 }

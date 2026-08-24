@@ -83,3 +83,28 @@ Event collections and Potential snapshots are immutable.
 All hooks are synchronous and server-thread-only. Listeners should finish
 quickly and must not retain or mutate Minecraft offer collections. The API has
 no Bukkit or Paper dependency.
+
+## External content and future bridges
+
+Registered modded professions use their registry name as a portable
+`ProfessionId`. Aptitude is generated deterministically when a villager first
+enters a profession that was not known during initial creation. Career time,
+skill, the `villager_potential:general` fallback specialization, and persistence
+then use the same core state as built-in professions.
+
+Foreign trade listings default to the `general` category. Structured offers
+made from registered items and persistable components receive durable
+`TradeKey` values and can participate in palette memory, demand, and persistent
+restoration. If that identity cannot be established, the offer receives a
+preserve-only fallback key: it remains available through its original trade
+system but does not enter memory or demand. If every learned persistent offer
+cannot be restored, Villager Potential yields to the originating trade system
+instead of cancelling it or returning an incomplete palette.
+
+For a future companion bridge, use the versioned
+`core.api.VillagerPotentialService` SPI and obtain its NeoForge implementation
+from `VillagerPotentialServices.forServer(server)`. It looks up loaded villagers
+by UUID, returns immutable views, and exposes only supported explicit mutations.
+A bridge running in a genuinely compatible plugin or hybrid environment may
+delegate to this service. Stock NeoForge is not claimed to be Paper-compatible;
+this project contains no Bukkit or Paper API or compatibility shim.

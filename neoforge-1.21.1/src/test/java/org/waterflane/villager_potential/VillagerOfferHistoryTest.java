@@ -5,6 +5,9 @@ import net.minecraft.world.entity.npc.VillagerData;
 import net.minecraft.world.entity.npc.VillagerProfession;
 import net.minecraft.world.item.trading.MerchantOffer;
 import net.minecraft.world.item.trading.MerchantOffers;
+import net.minecraft.world.item.trading.ItemCost;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
 import org.junit.jupiter.api.Test;
 import org.waterflane.villager_potential.core.ProfessionId;
 import org.waterflane.villager_potential.core.TradeHistory;
@@ -13,6 +16,7 @@ import org.waterflane.villager_potential.core.VillagerPotentialState;
 
 import java.util.Map;
 import java.util.OptionalLong;
+import java.util.Optional;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Supplier;
 
@@ -34,7 +38,14 @@ class VillagerOfferHistoryTest {
         AtomicReference<VillagerPotentialState> state = new AtomicReference<>(initial);
         Villager villager = mock(Villager.class);
         VillagerData data = mock(VillagerData.class);
-        MerchantOffer offer = mock(MerchantOffer.class);
+        MerchantOffer offer = new MerchantOffer(
+                new ItemCost(Items.EMERALD, 4),
+                Optional.empty(),
+                new ItemStack(Items.COMPASS),
+                12,
+                5,
+                0.05F
+        );
         MerchantOffers offers = new MerchantOffers();
         offers.add(offer);
 

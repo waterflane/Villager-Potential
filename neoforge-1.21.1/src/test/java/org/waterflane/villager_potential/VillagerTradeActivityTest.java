@@ -5,6 +5,9 @@ import net.minecraft.world.entity.npc.Villager;
 import net.minecraft.world.entity.npc.VillagerData;
 import net.minecraft.world.entity.npc.VillagerProfession;
 import net.minecraft.world.item.trading.MerchantOffer;
+import net.minecraft.world.item.trading.ItemCost;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
 import net.neoforged.neoforge.event.entity.player.TradeWithVillagerEvent;
 import org.junit.jupiter.api.Test;
 import org.waterflane.villager_potential.core.ProfessionCareerState;
@@ -12,6 +15,7 @@ import org.waterflane.villager_potential.core.ProfessionId;
 import org.waterflane.villager_potential.core.VillagerPotentialState;
 
 import java.util.Map;
+import java.util.Optional;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Supplier;
 
@@ -39,7 +43,14 @@ class VillagerTradeActivityTest {
         VillagerData villagerData = mock(VillagerData.class);
         ServerLevel level = mock(ServerLevel.class);
         TradeWithVillagerEvent event = mock(TradeWithVillagerEvent.class);
-        MerchantOffer offer = mock(MerchantOffer.class);
+        MerchantOffer offer = new MerchantOffer(
+                new ItemCost(Items.EMERALD, 4),
+                Optional.empty(),
+                new ItemStack(Items.COMPASS),
+                12,
+                5,
+                0.05F
+        );
 
         when(event.getAbstractVillager()).thenReturn(villager);
         when(event.getMerchantOffer()).thenReturn(offer);
