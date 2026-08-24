@@ -7,6 +7,7 @@ import java.util.OptionalLong;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class TradePaletteStateTest {
@@ -70,6 +71,30 @@ class TradePaletteStateTest {
                 );
 
         assertEquals(List.of(PAPER, BOOK, COMPASS), state.activeTrades());
+    }
+
+    @Test
+    void observingNoNewOffersReusesTheUnchangedPalette() {
+        TradePaletteState learned = TradePaletteState.empty().recordPresented(
+                List.of(PAPER),
+                List.of(PAPER),
+                100L,
+                16
+        );
+
+        for (TradePaletteRerollStrategy strategy : TradePaletteRerollStrategy.values()) {
+            assertSame(
+                    learned,
+                    learned.recordPresented(
+                            List.of(PAPER),
+                            List.of(),
+                            200L,
+                            16,
+                            strategy
+                    ),
+                    strategy.name()
+            );
+        }
     }
 
     @Test

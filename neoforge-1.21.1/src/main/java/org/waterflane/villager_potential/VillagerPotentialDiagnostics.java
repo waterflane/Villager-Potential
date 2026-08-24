@@ -9,7 +9,6 @@ import org.waterflane.villager_potential.core.TradePaletteRerollStrategy;
 
 import java.util.Objects;
 import java.util.UUID;
-import java.util.function.Supplier;
 
 /** Concise opt-in diagnostics; never logs per-tick progression or full state. */
 final class VillagerPotentialDiagnostics {
@@ -35,17 +34,23 @@ final class VillagerPotentialDiagnostics {
             int schemaVersion,
             int aptitudeCount
     ) {
-        write(logger, enabled, "initialized villager=" + villager + " schema=" + schemaVersion
-                + " aptitudes=" + aptitudeCount);
+        if (enabled) {
+            write(logger, true, "initialized villager=" + villager + " schema=" + schemaVersion
+                    + " aptitudes=" + aptitudeCount);
+        }
     }
 
     static void migration(int previousSchema, int schema) {
-        info(() -> "migrated Potential schema=" + previousSchema + "->" + schema);
+        if (enabled()) {
+            write(LOGGER, true, "migrated Potential schema=" + previousSchema + "->" + schema);
+        }
     }
 
     static void inheritance(UUID child, UUID firstParent, UUID secondParent) {
-        info(() -> "inherited villager=" + child + " parents=" + firstParent + ","
-                + secondParent);
+        if (enabled()) {
+            write(LOGGER, true, "inherited villager=" + child + " parents=" + firstParent + ","
+                    + secondParent);
+        }
     }
 
     static void profession(
@@ -53,9 +58,11 @@ final class VillagerPotentialDiagnostics {
             java.util.Optional<ProfessionId> previous,
             java.util.Optional<ProfessionId> profession
     ) {
-        info(() -> "profession villager=" + villager + " "
-                + previous.map(Object::toString).orElse("none") + "->"
-                + profession.map(Object::toString).orElse("none"));
+        if (enabled()) {
+            write(LOGGER, true, "profession villager=" + villager + " "
+                    + previous.map(Object::toString).orElse("none") + "->"
+                    + profession.map(Object::toString).orElse("none"));
+        }
     }
 
     static void specialization(
@@ -63,13 +70,17 @@ final class VillagerPotentialDiagnostics {
             ProfessionId profession,
             SpecializationId specialization
     ) {
-        info(() -> "specialization villager=" + villager + " profession=" + profession
-                + " value=" + specialization);
+        if (enabled()) {
+            write(LOGGER, true, "specialization villager=" + villager + " profession="
+                    + profession + " value=" + specialization);
+        }
     }
 
     static void learned(UUID villager, ProfessionId profession, int count) {
-        info(() -> "learned trades villager=" + villager + " profession=" + profession
-                + " new=" + count);
+        if (enabled()) {
+            write(LOGGER, true, "learned trades villager=" + villager + " profession="
+                    + profession + " new=" + count);
+        }
     }
 
     static void tradeDecision(
@@ -78,8 +89,10 @@ final class VillagerPotentialDiagnostics {
             TradePaletteRerollStrategy strategy,
             String decision
     ) {
-        info(() -> "trade decision villager=" + villager + " profession=" + profession
-                + " mode=" + strategy + " decision=" + decision);
+        if (enabled()) {
+            write(LOGGER, true, "trade decision villager=" + villager + " profession="
+                    + profession + " mode=" + strategy + " decision=" + decision);
+        }
     }
 
     static double weight(
@@ -102,8 +115,10 @@ final class VillagerPotentialDiagnostics {
             double previous,
             double current
     ) {
-        info(() -> "demand villager=" + villager + " profession=" + profession
-                + " trade=" + trade + " score=" + previous + "->" + current);
+        if (enabled()) {
+            write(LOGGER, true, "demand villager=" + villager + " profession=" + profession
+                    + " trade=" + trade + " score=" + previous + "->" + current);
+        }
     }
 
     static void price(
@@ -114,15 +129,15 @@ final class VillagerPotentialDiagnostics {
             int vanillaPrice,
             int adjustedPrice
     ) {
-        info(() -> "price villager=" + villager + " profession=" + profession
-                + " trade=" + trade + " demand=" + demand + " value=" + vanillaPrice
-                + "->" + adjustedPrice);
+        if (enabled()) {
+            write(LOGGER, true, "price villager=" + villager + " profession=" + profession
+                    + " trade=" + trade + " demand=" + demand + " value=" + vanillaPrice
+                    + "->" + adjustedPrice);
+        }
     }
 
-    static void info(Supplier<String> message) {
-        if (ServerConfig.diagnosticLoggingEnabled()) {
-            write(LOGGER, true, Objects.requireNonNull(message, "message").get());
-        }
+    private static boolean enabled() {
+        return ServerConfig.diagnosticLoggingEnabled();
     }
 
     static void write(Logger logger, boolean enabled, String message) {

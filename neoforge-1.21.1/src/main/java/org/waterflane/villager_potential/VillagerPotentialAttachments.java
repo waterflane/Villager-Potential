@@ -400,7 +400,7 @@ public final class VillagerPotentialAttachments {
         batch.observeGameTime(assignmentTime);
 
         if (currentProfession != null
-                && ProfessionTenureEligibility.from(config.career()).canAccumulate(villager)) {
+                && ProfessionTenureEligibility.canAccumulate(villager, config.career())) {
             batch.addElapsedTick();
         }
 
@@ -597,29 +597,24 @@ public final class VillagerPotentialAttachments {
             return;
         }
 
-        List<TradeKey> presentedTrades = offers.stream()
-                .map(MerchantOfferTradeKeys::identify)
-                .filter(MerchantOfferTradeKeys.Identity::stable)
-                .map(MerchantOfferTradeKeys.Identity::key)
-                .toList();
+        VillagerPotentialState state = get(villager);
+        List<TradeKey> previouslyLearned = state.tradePaletteFor(profession)
+                .map(TradePaletteState::activeTrades)
+                .orElse(List.of());
+        if (strategy == TradePaletteRerollStrategy.PERSISTENT
+                && firstGeneratedIndex == 0
+                && !previouslyLearned.isEmpty()) {
+            // Restoration has already materialized the exact learned logical
+            // offers. Avoid identifying every offer and rebuilding an
+            // unchanged palette merely to rediscover that nothing is new.
+            return;
+        }
         List<TradeKey> generatedTrades = offers.subList(firstGeneratedIndex, offers.size())
                 .stream()
                 .map(MerchantOfferTradeKeys::identify)
                 .filter(MerchantOfferTradeKeys.Identity::stable)
                 .map(MerchantOfferTradeKeys.Identity::key)
                 .toList();
-        VillagerPotentialState state = get(villager);
-        List<TradeKey> previouslyLearned = state.tradePaletteFor(profession)
-                .map(TradePaletteState::activeTrades)
-                .orElse(List.of());
-        if (strategy == TradePaletteRerollStrategy.PERSISTENT) {
-            List<TradeKey> learnedTrades = state.tradePaletteFor(profession)
-                    .map(TradePaletteState::activeTrades)
-                    .orElse(List.of());
-            if (firstGeneratedIndex == 0 && !learnedTrades.isEmpty()) {
-                generatedTrades = List.of();
-            }
-        }
         long observationTime = tradeMemoryTime(state, profession, gameTime, strategy);
         if (strategy == TradePaletteRerollStrategy.CYCLIC) {
             TradePaletteState palette = state.tradePaletteFor(profession)
@@ -643,7 +638,7 @@ public final class VillagerPotentialAttachments {
         }
         VillagerPotentialState updatedState = state.recordPresentedTrades(
                 profession,
-                presentedTrades,
+                List.of(),
                 generatedTrades,
                 observationTime,
                 maximumHistoryEntries,

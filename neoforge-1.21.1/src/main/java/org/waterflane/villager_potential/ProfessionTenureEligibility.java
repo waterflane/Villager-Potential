@@ -16,7 +16,14 @@ import java.util.Objects;
 interface ProfessionTenureEligibility {
     static ProfessionTenureEligibility from(CareerProgressionConfig config) {
         Objects.requireNonNull(config, "config");
-        return villager -> config.enabled()
+        return villager -> canAccumulate(villager, config);
+    }
+
+    /** Allocation-free entry point for the per-villager tick path. */
+    static boolean canAccumulate(Villager villager, CareerProgressionConfig config) {
+        Objects.requireNonNull(villager, "villager");
+        Objects.requireNonNull(config, "config");
+        return config.enabled()
                 && (!config.adultsOnly() || !villager.isBaby())
                 && (!config.requireJobSite()
                 || villager.getBrain().hasMemoryValue(MemoryModuleType.JOB_SITE))

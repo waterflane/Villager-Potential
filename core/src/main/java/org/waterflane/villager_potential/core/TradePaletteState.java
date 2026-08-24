@@ -69,6 +69,9 @@ public record TradePaletteState(
         Objects.requireNonNull(newlyGeneratedTrades, "newlyGeneratedTrades");
         Objects.requireNonNull(strategy, "strategy");
         validateMaximumHistoryEntries(maximumHistoryEntries);
+        if (newlyGeneratedTrades.isEmpty()) {
+            return this;
+        }
 
         Map<TradeKey, TradeHistory> updatedHistory = new HashMap<>(offerHistory);
         for (TradeKey trade : newlyGeneratedTrades) {

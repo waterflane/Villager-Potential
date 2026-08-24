@@ -1,6 +1,5 @@
 package org.waterflane.villager_potential.core;
 
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 
@@ -88,14 +87,15 @@ public final class TradeSelectionResolver {
             return -1;
         }
 
-        List<Double> weights = new ArrayList<>(candidates.size());
+        double[] weights = new double[candidates.size()];
         double maximumWeight = 0.0;
         double firstPositiveWeight = 0.0;
         boolean uniform = true;
         int positiveCount = 0;
+        int weightIndex = 0;
         for (Candidate candidate : candidates) {
             double weight = resolvedWeight(Objects.requireNonNull(candidate, "candidate"), rules);
-            weights.add(weight);
+            weights[weightIndex++] = weight;
             maximumWeight = Math.max(maximumWeight, weight);
             if (weight > 0.0) {
                 if (positiveCount == 0) {
@@ -114,8 +114,8 @@ public final class TradeSelectionResolver {
         // eligible candidates have the same effective weight.
         if (uniform) {
             int selected = random.nextInt(positiveCount);
-            for (int index = 0; index < weights.size(); index++) {
-                if (weights.get(index) > 0.0 && selected-- == 0) {
+            for (int index = 0; index < weights.length; index++) {
+                if (weights[index] > 0.0 && selected-- == 0) {
                     return index;
                 }
             }
@@ -128,8 +128,8 @@ public final class TradeSelectionResolver {
         double target = random.nextDouble() * normalizedTotal;
         double cumulativeWeight = 0.0;
         int lastPositiveIndex = -1;
-        for (int index = 0; index < weights.size(); index++) {
-            double weight = weights.get(index);
+        for (int index = 0; index < weights.length; index++) {
+            double weight = weights[index];
             if (weight == 0.0) {
                 continue;
             }

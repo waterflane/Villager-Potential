@@ -347,6 +347,7 @@ public final class SpecializedTradeSelection {
                 professionTime,
                 recoveryConfig
         );
+        TradeSelectionResolver.SelectionRandom selectionRandom = selectionRandom(random);
         int offersAdded = 0;
         while (offersAdded < requestedOfferCount && !remaining.isEmpty()) {
             long cycleFloor = strategy == TradePaletteRerollStrategy.CYCLIC
@@ -386,7 +387,7 @@ public final class SpecializedTradeSelection {
                             ))
                             .toList(),
                     rules,
-                    selectionRandom(random)
+                    selectionRandom
             );
             if (selectedIndex < 0) {
                 break;
@@ -445,6 +446,7 @@ public final class SpecializedTradeSelection {
                 0L,
                 false
         );
+        TradeSelectionResolver.SelectionRandom selectionRandom = selectionRandom(random);
         int offersAdded = 0;
         while (offersAdded < requestedOfferCount && !remaining.isEmpty()) {
             int selectedIndex = TradeSelectionResolver.selectIndex(
@@ -462,7 +464,7 @@ public final class SpecializedTradeSelection {
                             ))
                             .toList(),
                     rules,
-                    selectionRandom(random)
+                    selectionRandom
             );
             if (selectedIndex < 0) {
                 break;
@@ -507,6 +509,7 @@ public final class SpecializedTradeSelection {
                 0L,
                 false
         );
+        TradeSelectionResolver.SelectionRandom selectionRandom = selectionRandom(random);
         int offersAdded = 0;
         while (offersAdded < requestedOfferCount && !remaining.isEmpty()) {
             int selectedIndex = TradeSelectionResolver.selectIndex(
@@ -524,7 +527,7 @@ public final class SpecializedTradeSelection {
                             ))
                             .toList(),
                     rules,
-                    selectionRandom(random)
+                    selectionRandom
             );
             if (selectedIndex < 0) {
                 break;
