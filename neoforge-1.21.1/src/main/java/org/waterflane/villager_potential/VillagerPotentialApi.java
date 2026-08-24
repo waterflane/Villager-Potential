@@ -104,6 +104,56 @@ public final class VillagerPotentialApi {
         ));
     }
 
+    public static PotentialView setAptitude(
+            Villager villager,
+            ProfessionId profession,
+            double aptitude
+    ) {
+        return PotentialViews.snapshot(VillagerPotentialAttachments.adminSetAptitude(
+                requireVillager(villager),
+                Objects.requireNonNull(profession, "profession"),
+                aptitude
+        ));
+    }
+
+    public static PotentialView setSkill(
+            Villager villager,
+            ProfessionId profession,
+            double skill
+    ) {
+        return PotentialViews.snapshot(VillagerPotentialAttachments.adminSetSkill(
+                requireVillager(villager),
+                Objects.requireNonNull(profession, "profession"),
+                skill
+        ));
+    }
+
+    public static PotentialView resetProfession(
+            Villager villager,
+            ProfessionId profession
+    ) {
+        return PotentialViews.snapshot(VillagerPotentialAttachments.adminResetProfession(
+                requireVillager(villager),
+                Objects.requireNonNull(profession, "profession")
+        ));
+    }
+
+    public static PotentialView regenerateProfession(
+            Villager villager,
+            ProfessionId profession
+    ) {
+        return PotentialViews.snapshot(VillagerPotentialAttachments.adminRegenerateProfession(
+                requireVillager(villager),
+                Objects.requireNonNull(profession, "profession")
+        ));
+    }
+
+    public static PotentialView regenerateAll(Villager villager) {
+        return PotentialViews.snapshot(VillagerPotentialAttachments.adminRegenerateAll(
+                requireVillager(villager)
+        ));
+    }
+
     private static Villager requireVillager(Villager villager) {
         return Objects.requireNonNull(villager, "villager");
     }

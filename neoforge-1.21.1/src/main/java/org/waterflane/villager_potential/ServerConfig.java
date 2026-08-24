@@ -101,6 +101,8 @@ public final class ServerConfig {
     private static final ModConfigSpec.DoubleValue STOCK_INFLUENCE_STRENGTH;
     private static final ModConfigSpec.IntValue MAXIMUM_ADDITIONAL_USES;
     private static final ModConfigSpec.IntValue MAXIMUM_USES_PER_OFFER;
+    private static final ModConfigSpec.BooleanValue DIAGNOSTIC_LOGGING;
+    private static final ModConfigSpec.BooleanValue DETAILED_WEIGHT_LOGGING;
 
     static {
         AptitudeGenerationConfig aptitude = DEFAULT_GAMEPLAY.aptitude();
@@ -336,6 +338,17 @@ public final class ServerConfig {
                 )
                 .defineInRange("maximumUsesPerOffer", stock.maximumUsesPerOffer(), 1, 64);
         BUILDER.pop(2);
+
+        BUILDER.push("debug");
+        DIAGNOSTIC_LOGGING = BUILDER
+                .comment("Log concise semantic Villager Potential lifecycle, trade and demand diagnostics.")
+                .define("enabled", false);
+        DETAILED_WEIGHT_LOGGING = BUILDER
+                .comment(
+                        "Log each resolved trade candidate weight; requires debug.enabled and may be noisy during trade generation."
+                )
+                .define("detailedTradeWeights", false);
+        BUILDER.pop();
     }
 
     static final ModConfigSpec SPEC = BUILDER.build();
@@ -626,6 +639,14 @@ public final class ServerConfig {
 
     public static MarketDemandStockConfig marketDemandStockConfig() {
         return tradeConfig().economy().stock();
+    }
+
+    public static boolean diagnosticLoggingEnabled() {
+        return SPEC.isLoaded() && DIAGNOSTIC_LOGGING.get();
+    }
+
+    public static boolean detailedWeightLoggingEnabled() {
+        return diagnosticLoggingEnabled() && DETAILED_WEIGHT_LOGGING.get();
     }
 
     private static ModConfigSpec.DoubleValue threshold(String name, double defaultValue, String levelName) {

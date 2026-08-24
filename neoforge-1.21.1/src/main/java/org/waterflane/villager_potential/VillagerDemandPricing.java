@@ -36,22 +36,35 @@ public final class VillagerDemandPricing {
         MarketDemandPriceConfig priceConfig = Config.marketDemandPriceConfig();
 
         for (MerchantOffer offer : villager.getOffers()) {
-            OptionalDouble demandScore = state.marketDemandScoreFor(
+            MerchantOfferTradeKeys.Identity identity = MerchantOfferTradeKeys.identify(offer);
+            OptionalDouble demandScore = identity.stable()
+                    ? state.marketDemandScoreFor(
                     profession,
-                    MerchantOfferTradeKeys.from(offer),
+                    identity.key(),
                     gameTime,
                     demandConfig
-            );
-            apply(
+            )
+                    : OptionalDouble.empty();
+            double score = demandScore.orElse(demandConfig.baseline());
+            int vanillaPrice = offer.getCostA().getCount();
+            int adjustedPrice = apply(
                     offer,
-                    demandScore.orElse(demandConfig.baseline()),
+                    score,
                     demandConfig,
                     priceConfig
+            );
+            VillagerPotentialDiagnostics.price(
+                    villager.getUUID(),
+                    profession,
+                    identity.key(),
+                    score,
+                    vanillaPrice,
+                    adjustedPrice
             );
         }
     }
 
-    static void apply(
+    static int apply(
             MerchantOffer offer,
             double demandScore,
             MarketDemandConfig demandConfig,
@@ -70,5 +83,6 @@ public final class VillagerDemandPricing {
                 priceConfig
         );
         offer.addToSpecialPriceDiff(adjustedPrice - vanillaPrice);
+        return adjustedPrice;
     }
 }

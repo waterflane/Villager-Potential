@@ -17,6 +17,8 @@ import java.util.OptionalLong;
  * integration, but do not update when the persisted Potential changes.</p>
  */
 public interface PotentialView {
+    int schemaVersion();
+
     Map<ProfessionId, Double> aptitudes();
 
     OptionalDouble aptitude(ProfessionId profession);

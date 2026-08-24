@@ -191,6 +191,54 @@ public record VillagerPotentialState(
         );
     }
 
+    /** Sets learned skill on an existing career without changing tenure. */
+    public VillagerPotentialState withSkill(ProfessionId professionId, double skill) {
+        Objects.requireNonNull(professionId, "professionId");
+        if (!Double.isFinite(skill) || skill < 0.0) {
+            throw new IllegalArgumentException("skill must be finite and non-negative");
+        }
+        ProfessionCareerState career = careers.get(professionId);
+        if (career == null) {
+            throw new IllegalStateException("Skill requires a career record: " + professionId);
+        }
+        ProfessionCareerState updated = career.withLearnedSkill(skill);
+        return updated.equals(career) ? this : withCareer(professionId, updated);
+    }
+
+    /**
+     * Removes one profession's career, activity, palette and demand while
+     * preserving its aptitude and every unrelated profession.
+     */
+    public VillagerPotentialState resetProfessionDerivedState(ProfessionId professionId) {
+        Objects.requireNonNull(professionId, "professionId");
+        Map<ProfessionId, ProfessionCareerState> updatedCareers = new HashMap<>(careers);
+        Map<ProfessionId, ProfessionActivityState> updatedActivities =
+                new HashMap<>(professionActivities);
+        Map<ProfessionId, TradePaletteState> updatedPalettes = new HashMap<>(tradePalettes);
+        Map<ProfessionId, Map<TradeKey, MarketDemandState>> updatedDemand =
+                new HashMap<>(marketDemand);
+        boolean changed = updatedCareers.remove(professionId) != null;
+        changed |= updatedActivities.remove(professionId) != null;
+        changed |= updatedPalettes.remove(professionId) != null;
+        changed |= updatedDemand.remove(professionId) != null;
+        Optional<ProfessionId> updatedActive = activeProfession;
+        if (activeProfession.filter(professionId::equals).isPresent()) {
+            updatedActive = Optional.empty();
+            changed = true;
+        }
+        return changed
+                ? new VillagerPotentialState(
+                schemaVersion,
+                aptitudes,
+                updatedCareers,
+                updatedActive,
+                updatedActivities,
+                updatedPalettes,
+                updatedDemand
+        )
+                : this;
+    }
+
     /**
      * Makes a profession active without discarding any previously held career.
      */

@@ -88,8 +88,20 @@ public final class SpecializedTradeSelection {
             if (!restored) {
                 // Unknown or removed content stays under the originating trade
                 // system. The mixin's RETURN hook may still observe stable keys.
+                VillagerPotentialDiagnostics.tradeDecision(
+                        villager.getUUID(),
+                        professionId,
+                        strategy,
+                        "restoration-yielded-to-origin"
+                );
                 return false;
             }
+            VillagerPotentialDiagnostics.tradeDecision(
+                    villager.getUUID(),
+                    professionId,
+                    strategy,
+                    "restored=" + (offers.size() - firstGeneratedIndex)
+            );
             VillagerPotentialTradeEvents.emitTradeProcessing(
                     new VillagerPotentialTradeEvents.TradeProcessing(
                             villager,
@@ -147,6 +159,12 @@ public final class SpecializedTradeSelection {
                                 .map(MerchantOfferTradeKeys::from)
                                 .toList()
                 )
+        );
+        VillagerPotentialDiagnostics.tradeDecision(
+                villager.getUUID(),
+                professionId,
+                strategy,
+                processingKind + " generated=" + (offers.size() - firstGeneratedIndex)
         );
         return true;
     }
@@ -396,7 +414,8 @@ public final class SpecializedTradeSelection {
             TradeMemoryRecoveryConfig recoveryConfig,
             RandomSource random
     ) {
-        if (VillagerPotentialTradeEvents.hasCandidateWeightModifiers()) {
+        if (VillagerPotentialTradeEvents.hasCandidateWeightModifiers()
+                || ServerConfig.detailedWeightLoggingEnabled()) {
             addMaterializedBaselineOffers(
                     villager,
                     offers,
@@ -526,7 +545,10 @@ public final class SpecializedTradeSelection {
             TradePaletteRerollStrategy strategy,
             boolean stableIdentity
     ) {
-        if (!VillagerPotentialTradeEvents.hasCandidateWeightModifiers()) {
+        boolean hasIntegrationModifiers =
+                VillagerPotentialTradeEvents.hasCandidateWeightModifiers();
+        boolean logWeights = ServerConfig.detailedWeightLoggingEnabled();
+        if (!hasIntegrationModifiers && !logWeights) {
             return new TradeSelectionResolver.Candidate(
                     1.0,
                     specializationModifier(candidate, profession, level, specialization),
@@ -557,10 +579,22 @@ public final class SpecializedTradeSelection {
                 1.0,
                 key == null || !stableIdentity ? null : offerHistory.get(key),
                 key != null && stableIdentity && Config.isRareTradeProtected(key),
-                weight -> VillagerPotentialTradeEvents.modifyCandidateWeight(
-                        weightContext,
-                        weight
-                )
+                weight -> {
+                    double modified = hasIntegrationModifiers
+                            ? VillagerPotentialTradeEvents.modifyCandidateWeight(
+                            weightContext,
+                            weight
+                    )
+                            : weight;
+                    return logWeights
+                            ? VillagerPotentialDiagnostics.weight(
+                            villager.getUUID(),
+                            professionId,
+                            key,
+                            modified
+                    )
+                            : modified;
+                }
         );
     }
 

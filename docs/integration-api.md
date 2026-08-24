@@ -33,11 +33,15 @@ Calling the NeoForge facade can lazily initialize missing Potential and must be
 done on the logical server thread. A returned snapshot can safely be retained
 and read later. Query the facade again when current state is required.
 
-The only supported external mutation is
-`VillagerPotentialApi.assignSpecialization`. It requires an existing career,
-checks the active datapack definition, is idempotent for the current value, and
-cannot replace a career's specialization. This prevents integrations from
-installing an invalid state or bypassing persistence and schema handling.
+Supported explicit mutations are specialization assignment and the narrowly
+scoped administrative operations to set one aptitude, set one existing
+career's skill, reset one profession's derived state, regenerate one
+profession, or explicitly regenerate all Potential. These operations validate
+inputs and always pass through the persistence/event service; they never expose
+or accept attachment containers. Specialization assignment additionally checks
+the active datapack definition and cannot replace an existing different value.
+The administrative operations are intended for trusted server tooling, not
+ordinary gameplay integrations.
 
 ## Lifecycle hooks
 
@@ -108,3 +112,26 @@ by UUID, returns immutable views, and exposes only supported explicit mutations.
 A bridge running in a genuinely compatible plugin or hybrid environment may
 delegate to this service. Stock NeoForge is not claimed to be Paper-compatible;
 this project contains no Bukkit or Paper API or compatibility shim.
+
+## Administration and diagnostics
+
+All NeoForge commands use the `/villagerpotential` root. `inspect <villager>`
+and `reload` require permission level 2. Mutations require permission level 4:
+
+- `set aptitude <villager> <profession-id> <value>`;
+- `set skill <villager> <profession-id> <value>`;
+- `reset profession <villager> <profession-id>`;
+- `regenerate profession <villager> <profession-id>`;
+- `regenerate all <villager>`.
+
+`reset profession` preserves that profession's aptitude and every unrelated
+profession. Regeneration is never implicit: the destructive paths exist only
+under the explicit `regenerate profession` and `regenerate all` literals.
+Commands delegate to the public versioned service rather than accessing
+attachments.
+
+The server config's `[debug] enabled` option activates concise lifecycle,
+trade-processing, persistent restoration/learning, and demand/price messages.
+`detailedTradeWeights` additionally logs resolved candidate weights and only
+takes effect while debug logging is enabled. Both options default to false;
+per-tick progression and full-state dumps are never logged.

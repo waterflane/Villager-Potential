@@ -278,6 +278,89 @@ public final class VillagerPotentialAttachments {
         return updated;
     }
 
+    static VillagerPotentialState adminSetAptitude(
+            Villager villager,
+            ProfessionId profession,
+            double aptitude
+    ) {
+        Objects.requireNonNull(villager, "villager");
+        Objects.requireNonNull(profession, "profession");
+        if (!Double.isFinite(aptitude) || aptitude < 0.0) {
+            throw new IllegalArgumentException("aptitude must be finite and non-negative");
+        }
+        VillagerPotentialState state = get(villager);
+        VillagerPotentialState updated = state.withAptitude(profession, aptitude);
+        persistAndEmit(villager, state, updated);
+        return updated;
+    }
+
+    static VillagerPotentialState adminSetSkill(
+            Villager villager,
+            ProfessionId profession,
+            double skill
+    ) {
+        Objects.requireNonNull(villager, "villager");
+        VillagerPotentialState state = get(villager);
+        VillagerPotentialState updated = state.withSkill(
+                Objects.requireNonNull(profession, "profession"),
+                skill
+        );
+        persistAndEmit(villager, state, updated);
+        return updated;
+    }
+
+    static VillagerPotentialState adminResetProfession(
+            Villager villager,
+            ProfessionId profession
+    ) {
+        Objects.requireNonNull(villager, "villager");
+        VillagerPotentialState state = get(villager);
+        VillagerPotentialState updated = state.resetProfessionDerivedState(
+                Objects.requireNonNull(profession, "profession")
+        );
+        PROFESSION_PROGRESS_BATCHES.remove(villager);
+        persistAndEmit(villager, state, updated);
+        return updated;
+    }
+
+    static VillagerPotentialState adminRegenerateProfession(
+            Villager villager,
+            ProfessionId profession
+    ) {
+        Objects.requireNonNull(villager, "villager");
+        Objects.requireNonNull(profession, "profession");
+        VillagerPotentialState state = get(villager);
+        double aptitude = AptitudeGenerator.generate(
+                ServerConfig.gameplayConfig().aptitude(),
+                new Random(villager.getRandom().nextLong())
+        );
+        VillagerPotentialState updated = state.resetProfessionDerivedState(profession)
+                .withAptitude(profession, aptitude);
+        PROFESSION_PROGRESS_BATCHES.remove(villager);
+        persistAndEmit(villager, state, updated);
+        return updated;
+    }
+
+    static VillagerPotentialState adminRegenerateAll(Villager villager) {
+        Objects.requireNonNull(villager, "villager");
+        Random random = new Random(villager.getRandom().nextLong());
+        Map<ProfessionId, Double> aptitudes = new LinkedHashMap<>();
+        for (ProfessionId profession : VillagerProfessionIds.supportedVanillaProfessions()) {
+            aptitudes.put(
+                    profession,
+                    AptitudeGenerator.generate(ServerConfig.gameplayConfig().aptitude(), random)
+            );
+        }
+        VillagerPotentialState state = get(villager);
+        VillagerPotentialState updated = new VillagerPotentialState(
+                VillagerPotentialState.CURRENT_SCHEMA_VERSION,
+                aptitudes
+        );
+        PROFESSION_PROGRESS_BATCHES.remove(villager);
+        persistAndEmit(villager, state, updated);
+        return updated;
+    }
+
     static VillagerPotentialState get(ZombieVillager zombieVillager) {
         Objects.requireNonNull(zombieVillager, "zombieVillager");
         return getOrInitialize(zombieVillager);
@@ -450,6 +533,14 @@ public final class VillagerPotentialAttachments {
                 : Optional.empty();
         if (!updatedDemand.equals(previousDemand) && updatedDemand.isPresent()) {
             MarketDemandState demand = updatedDemand.orElseThrow();
+            VillagerPotentialDiagnostics.demand(
+                    villager.getUUID(),
+                    profession,
+                    trade,
+                    previousDemand.map(MarketDemandState::demandScore)
+                            .orElse(Config.marketDemandConfig().baseline()),
+                    demand.demandScore()
+            );
             VillagerPotentialTradeEvents.emitDemandChanged(
                     new VillagerPotentialTradeEvents.DemandChanged(
                             villager,
@@ -582,6 +673,11 @@ public final class VillagerPotentialAttachments {
                             kind
                     )
             );
+            VillagerPotentialDiagnostics.learned(
+                    villager.getUUID(),
+                    profession,
+                    newPaletteEntries.size()
+            );
         }
     }
 
@@ -706,6 +802,11 @@ public final class VillagerPotentialAttachments {
             );
         }
         entity.setData(POTENTIAL, initializedState);
+        VillagerPotentialDiagnostics.initialization(
+                entity.getUUID(),
+                initializedState.schemaVersion(),
+                initializedState.aptitudes().size()
+        );
         VillagerPotentialLifecycleEvents.emitInitialized(
                 new VillagerPotentialLifecycleEvents.Initialized(
                         entity,
@@ -771,6 +872,11 @@ public final class VillagerPotentialAttachments {
                 random
         );
         child.setData(POTENTIAL, inheritedState);
+        VillagerPotentialDiagnostics.inheritance(
+                child.getUUID(),
+                firstParent.getUUID(),
+                secondParent.getUUID()
+        );
         VillagerPotentialLifecycleEvents.emitInherited(
                 new VillagerPotentialLifecycleEvents.Inherited(
                         child,
@@ -793,6 +899,11 @@ public final class VillagerPotentialAttachments {
         villager.setData(POTENTIAL, updated);
         PotentialView view = PotentialViews.snapshot(updated);
         if (!previous.activeProfession().equals(updated.activeProfession())) {
+            VillagerPotentialDiagnostics.profession(
+                    villager.getUUID(),
+                    previous.activeProfession(),
+                    updated.activeProfession()
+            );
             VillagerPotentialLifecycleEvents.emitProfessionChanged(
                     new VillagerPotentialLifecycleEvents.ProfessionChanged(
                             villager,
@@ -820,6 +931,11 @@ public final class VillagerPotentialAttachments {
                     ? Optional.empty()
                     : prior.specialization();
             if (priorSpecialization.isEmpty() && career.specialization().isPresent()) {
+                VillagerPotentialDiagnostics.specialization(
+                        villager.getUUID(),
+                        profession,
+                        career.specialization().orElseThrow()
+                );
                 VillagerPotentialLifecycleEvents.emitSpecializationAssigned(
                         new VillagerPotentialLifecycleEvents.SpecializationAssigned(
                                 villager,
@@ -959,7 +1075,7 @@ public final class VillagerPotentialAttachments {
             Map<ProfessionId, Map<TradeKey, MarketDemandState>> marketDemand
     ) {
         try {
-            return DataResult.success(VillagerPotentialState.migrate(
+            VillagerPotentialState migrated = VillagerPotentialState.migrate(
                     schemaVersion,
                     aptitudes,
                     careers,
@@ -967,7 +1083,11 @@ public final class VillagerPotentialAttachments {
                     professionActivities,
                     tradePalettes,
                     marketDemand
-            ));
+            );
+            if (schemaVersion != migrated.schemaVersion()) {
+                VillagerPotentialDiagnostics.migration(schemaVersion, migrated.schemaVersion());
+            }
+            return DataResult.success(migrated);
         } catch (IllegalArgumentException exception) {
             return DataResult.error(exception::getMessage);
         }

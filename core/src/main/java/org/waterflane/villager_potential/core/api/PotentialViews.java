@@ -26,6 +26,7 @@ public final class PotentialViews {
 
     private static final class Snapshot implements PotentialView {
         private final Map<ProfessionId, Double> aptitudes;
+        private final int schemaVersion;
         private final Map<ProfessionId, CareerInfo> careers;
         private final Optional<ProfessionId> activeProfession;
         private final Map<ProfessionId, List<TradeKey>> palettes;
@@ -33,12 +34,18 @@ public final class PotentialViews {
         private final Map<ProfessionId, Map<TradeKey, DemandInfo>> demand;
 
         private Snapshot(VillagerPotentialState state) {
+            schemaVersion = state.schemaVersion();
             aptitudes = Map.copyOf(state.aptitudes());
             careers = mapCareers(state.careers());
             activeProfession = state.activeProfession();
             palettes = mapPalettes(state.tradePalettes());
             memory = mapMemory(state.tradePalettes());
             demand = mapDemand(state.marketDemand());
+        }
+
+        @Override
+        public int schemaVersion() {
+            return schemaVersion;
         }
 
         @Override

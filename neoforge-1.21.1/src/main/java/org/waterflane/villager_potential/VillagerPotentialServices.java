@@ -56,6 +56,57 @@ public final class VillagerPotentialServices {
             );
         }
 
+        @Override
+        public Optional<PotentialView> setAptitude(
+                UUID villagerId,
+                ProfessionId profession,
+                double aptitude
+        ) {
+            Objects.requireNonNull(profession, "profession");
+            return findVillager(villagerId).map(villager ->
+                    VillagerPotentialApi.setAptitude(villager, profession, aptitude)
+            );
+        }
+
+        @Override
+        public Optional<PotentialView> setSkill(
+                UUID villagerId,
+                ProfessionId profession,
+                double skill
+        ) {
+            Objects.requireNonNull(profession, "profession");
+            return findVillager(villagerId).map(villager ->
+                    VillagerPotentialApi.setSkill(villager, profession, skill)
+            );
+        }
+
+        @Override
+        public Optional<PotentialView> resetProfession(
+                UUID villagerId,
+                ProfessionId profession
+        ) {
+            Objects.requireNonNull(profession, "profession");
+            return findVillager(villagerId).map(villager ->
+                    VillagerPotentialApi.resetProfession(villager, profession)
+            );
+        }
+
+        @Override
+        public Optional<PotentialView> regenerateProfession(
+                UUID villagerId,
+                ProfessionId profession
+        ) {
+            Objects.requireNonNull(profession, "profession");
+            return findVillager(villagerId).map(villager ->
+                    VillagerPotentialApi.regenerateProfession(villager, profession)
+            );
+        }
+
+        @Override
+        public Optional<PotentialView> regenerateAll(UUID villagerId) {
+            return findVillager(villagerId).map(VillagerPotentialApi::regenerateAll);
+        }
+
         private Optional<Villager> findVillager(UUID villagerId) {
             Objects.requireNonNull(villagerId, "villagerId");
             for (var level : server.getAllLevels()) {

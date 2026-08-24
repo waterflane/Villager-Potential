@@ -38,7 +38,7 @@ class VillagerPotentialServicesTest {
 
         VillagerPotentialService service = VillagerPotentialServices.forServer(server);
 
-        assertEquals(1, service.apiVersion());
+        assertEquals(2, service.apiVersion());
         assertEquals(1.2, service.find(villagerId).orElseThrow()
                 .aptitude(profession).orElseThrow());
         assertTrue(service.find(UUID.randomUUID()).isEmpty());

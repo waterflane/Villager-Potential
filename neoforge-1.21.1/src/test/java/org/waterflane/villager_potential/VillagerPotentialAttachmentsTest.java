@@ -32,6 +32,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertNotSame;
 import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
@@ -375,6 +376,64 @@ class VillagerPotentialAttachmentsTest {
                 VillagerPotentialAttachments.initialize(WORLD_SEED, FIRST_VILLAGER_ID),
                 lazyState
         );
+    }
+
+    @Test
+    void publicAdminMutationsValidateValuesAndPersistThroughSupportedApi() {
+        ProfessionId librarian = ProfessionId.parse("minecraft:librarian");
+        VillagerPotentialState initial = VillagerPotentialState.createDefault()
+                .withAptitude(librarian, 1.0)
+                .assignProfession(librarian, 100L);
+        Villager villager = villagerWith(initial, FIRST_VILLAGER_ID, WORLD_SEED);
+
+        assertEquals(
+                1.75,
+                VillagerPotentialApi.setAptitude(villager, librarian, 1.75)
+                        .aptitude(librarian).orElseThrow()
+        );
+        assertEquals(
+                2.5,
+                VillagerPotentialApi.setSkill(villager, librarian, 2.5)
+                        .skill(librarian).orElseThrow()
+        );
+        assertEquals(2.5, VillagerPotentialApi.view(villager).skill(librarian).orElseThrow());
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> VillagerPotentialApi.setAptitude(villager, librarian, -0.01)
+        );
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> VillagerPotentialApi.setSkill(villager, librarian, Double.NaN)
+        );
+        assertThrows(
+                IllegalStateException.class,
+                () -> VillagerPotentialApi.setSkill(
+                        villager,
+                        ProfessionId.parse("example:missing"),
+                        1.0
+                )
+        );
+    }
+
+    @Test
+    void publicTargetedResetPreservesUnrelatedProfessionState() {
+        ProfessionId librarian = ProfessionId.parse("minecraft:librarian");
+        ProfessionId farmer = ProfessionId.parse("minecraft:farmer");
+        VillagerPotentialState initial = VillagerPotentialState.createDefault()
+                .withAptitude(librarian, 1.25)
+                .withAptitude(farmer, 0.75)
+                .assignProfession(farmer, 50L)
+                .assignProfession(librarian, 100L);
+        Villager villager = villagerWith(initial, FIRST_VILLAGER_ID, WORLD_SEED);
+
+        var reset = VillagerPotentialApi.resetProfession(villager, librarian);
+
+        assertEquals(1.25, reset.aptitude(librarian).orElseThrow());
+        assertTrue(reset.career(librarian).isEmpty());
+        assertTrue(reset.activeProfession().isEmpty());
+        assertTrue(reset.career(farmer).isPresent());
+        assertEquals(0.75, reset.aptitude(farmer).orElseThrow());
+        assertTrue(VillagerPotentialApi.view(villager).career(farmer).isPresent());
     }
 
     @Test

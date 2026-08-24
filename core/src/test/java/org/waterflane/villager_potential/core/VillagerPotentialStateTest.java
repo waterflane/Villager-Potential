@@ -46,6 +46,64 @@ class VillagerPotentialStateTest {
     }
 
     @Test
+    void supportedSkillMutationPreservesCareerTenureAndRejectsInvalidValues() {
+        ProfessionId librarian = ProfessionId.parse("minecraft:librarian");
+        ProfessionCareerState career = new ProfessionCareerState(4_000L, 0.75, 100L, 300L);
+        VillagerPotentialState state = VillagerPotentialState.createDefault()
+                .assignProfession(librarian, 100L)
+                .withCareer(librarian, career);
+
+        VillagerPotentialState updated = state.withSkill(librarian, 2.5);
+
+        ProfessionCareerState updatedCareer = updated.careerFor(librarian).orElseThrow();
+        assertEquals(2.5, updatedCareer.learnedSkill());
+        assertEquals(4_000L, updatedCareer.accumulatedProfessionTime());
+        assertEquals(100L, updatedCareer.firstAssignment());
+        assertEquals(300L, updatedCareer.latestAssignment());
+        assertThrows(IllegalArgumentException.class, () -> state.withSkill(librarian, -1.0));
+        assertThrows(IllegalArgumentException.class, () -> state.withSkill(librarian, Double.NaN));
+        assertThrows(
+                IllegalStateException.class,
+                () -> state.withSkill(ProfessionId.parse("example:missing"), 1.0)
+        );
+    }
+
+    @Test
+    void targetedDerivedResetPreservesAptitudesAndUnrelatedProfessions() {
+        ProfessionId librarian = ProfessionId.parse("minecraft:librarian");
+        ProfessionId farmer = ProfessionId.parse("minecraft:farmer");
+        TradeKey paper = trade("minecraft:paper", "minecraft:emerald");
+        TradeKey wheat = trade("minecraft:wheat", "minecraft:emerald");
+        VillagerPotentialState state = VillagerPotentialState.createDefault()
+                .withAptitude(librarian, 1.25)
+                .withAptitude(farmer, 0.75)
+                .assignProfession(farmer, 50L)
+                .recordPresentedTrades(farmer, List.of(wheat), List.of(wheat), 60L, 16)
+                .recordTradePurchase(farmer, wheat, 70L)
+                .assignProfession(librarian, 100L)
+                .recordProfessionTrade(
+                        librarian,
+                        110L,
+                        VillagerPotentialConfig.DEFAULT.activity()
+                )
+                .recordPresentedTrades(librarian, List.of(paper), List.of(paper), 120L, 16)
+                .recordTradePurchase(librarian, paper, 130L);
+
+        VillagerPotentialState reset = state.resetProfessionDerivedState(librarian);
+
+        assertEquals(1.25, reset.aptitudeFor(librarian).orElseThrow());
+        assertTrue(reset.careerFor(librarian).isEmpty());
+        assertFalse(reset.professionActivities().containsKey(librarian));
+        assertTrue(reset.tradePaletteFor(librarian).isEmpty());
+        assertFalse(reset.marketDemand().containsKey(librarian));
+        assertTrue(reset.activeProfession().isEmpty());
+        assertEquals(state.careerFor(farmer), reset.careerFor(farmer));
+        assertEquals(state.tradePaletteFor(farmer), reset.tradePaletteFor(farmer));
+        assertEquals(state.marketDemand().get(farmer), reset.marketDemand().get(farmer));
+        assertEquals(0.75, reset.aptitudeFor(farmer).orElseThrow());
+    }
+
+    @Test
     void multipleProfessionCareersCoexist() {
         ProfessionId librarian = ProfessionId.parse("minecraft:librarian");
         ProfessionId farmer = ProfessionId.parse("minecraft:farmer");
