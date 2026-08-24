@@ -1,6 +1,8 @@
 package org.waterflane.villager_potential;
 
 import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.InteractionHand;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.monster.ZombieVillager;
 import net.minecraft.world.entity.npc.Villager;
@@ -13,6 +15,7 @@ import net.neoforged.neoforge.event.entity.EntityJoinLevelEvent;
 import net.neoforged.neoforge.event.entity.EntityLeaveLevelEvent;
 import net.neoforged.neoforge.event.entity.living.LivingConversionEvent;
 import net.neoforged.neoforge.event.entity.player.TradeWithVillagerEvent;
+import net.neoforged.neoforge.event.entity.player.PlayerInteractEvent;
 import net.neoforged.neoforge.event.tick.EntityTickEvent;
 import net.neoforged.neoforge.event.village.VillagerTradesEvent;
 
@@ -100,6 +103,16 @@ public final class VillagerPotentialEvents {
                     serverLevel.getGameTime(),
                     Config.tradeHistoryMaximumEntries()
             );
+        }
+    }
+
+    /** Adds an optional action-bar hint without cancelling or replacing vanilla interaction. */
+    @SubscribeEvent(priority = EventPriority.LOWEST)
+    static void onVillagerInteract(PlayerInteractEvent.EntityInteract event) {
+        if (event.getHand() == InteractionHand.MAIN_HAND
+                && event.getEntity() instanceof ServerPlayer player
+                && event.getTarget() instanceof Villager villager) {
+            VillagerPotentialFeedback.showCurrentProfession(player, villager);
         }
     }
 

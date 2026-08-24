@@ -1,5 +1,12 @@
 {
   "itemGroup.villager_potential": "Example Mod Tab",
   "block.villager_potential.example_block": "Example Block",
-  "item.villager_potential.example_item": "Example Item"
+  "item.villager_potential.example_item": "Example Item",
+  "message.villager_potential.potential.qualitative": "Professional potential: %s",
+  "message.villager_potential.potential.exact": "Professional potential: %s (%s)",
+  "tier.villager_potential.aptitude.poor": "Poor",
+  "tier.villager_potential.aptitude.average": "Average",
+  "tier.villager_potential.aptitude.promising": "Promising",
+  "tier.villager_potential.aptitude.talented": "Talented",
+  "tier.villager_potential.aptitude.exceptional": "Exceptional"
 }

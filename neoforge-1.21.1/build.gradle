@@ -171,6 +171,37 @@ tasks.named('test') {
     useJUnitPlatform()
 }
 
+def forbiddenCommonClientReference = ~/\bnet\.minecraft\.client(?:\.|;)/
+def dedicatedServerSafeSources = sourceSets.main.allJava.matching {
+    exclude 'org/waterflane/villager_potential/client/**'
+}
+
+tasks.register('checkDedicatedServerImports') {
+    group = 'verification'
+    description = 'Rejects client-only Minecraft references outside the isolated client package.'
+    inputs.files(dedicatedServerSafeSources)
+
+    doLast {
+        def violations = dedicatedServerSafeSources.files.collectMany { sourceFile ->
+            sourceFile.readLines().withIndex().findResults { line, index ->
+                line =~ forbiddenCommonClientReference
+                        ? "${sourceFile}:${index + 1}: ${line.trim()}"
+                        : null
+            }
+        }
+        if (!violations.isEmpty()) {
+            throw new GradleException(
+                    "Client-only references are forbidden outside the client package:\n"
+                            + violations.join('\n')
+            )
+        }
+    }
+}
+
+tasks.named('check') {
+    dependsOn tasks.named('checkDedicatedServerImports')
+}
+
 tasks.named('jar', Jar) {
     from project(':core').sourceSets.main.output
 }

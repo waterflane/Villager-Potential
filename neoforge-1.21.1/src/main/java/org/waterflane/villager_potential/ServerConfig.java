@@ -4,6 +4,7 @@ import net.minecraft.resources.ResourceLocation;
 import net.neoforged.fml.event.config.ModConfigEvent;
 import net.neoforged.neoforge.common.ModConfigSpec;
 import org.waterflane.villager_potential.core.AptitudeGenerationConfig;
+import org.waterflane.villager_potential.core.AptitudeDisplayMode;
 import org.waterflane.villager_potential.core.AptitudeInheritanceConfig;
 import org.waterflane.villager_potential.core.CareerProgressionConfig;
 import org.waterflane.villager_potential.core.MarketDemandConfig;
@@ -101,6 +102,7 @@ public final class ServerConfig {
     private static final ModConfigSpec.DoubleValue STOCK_INFLUENCE_STRENGTH;
     private static final ModConfigSpec.IntValue MAXIMUM_ADDITIONAL_USES;
     private static final ModConfigSpec.IntValue MAXIMUM_USES_PER_OFFER;
+    private static final ModConfigSpec.EnumValue<AptitudeDisplayMode> PLAYER_APTITUDE_DISPLAY;
     private static final ModConfigSpec.BooleanValue DIAGNOSTIC_LOGGING;
     private static final ModConfigSpec.BooleanValue DETAILED_WEIGHT_LOGGING;
 
@@ -338,6 +340,15 @@ public final class ServerConfig {
                 )
                 .defineInRange("maximumUsesPerOffer", stock.maximumUsesPerOffer(), 1, 64);
         BUILDER.pop(2);
+
+        BUILDER.push("playerFeedback");
+        PLAYER_APTITUDE_DISPLAY = BUILDER
+                .comment(
+                        "Optional current-profession potential hint on villager interaction: DISABLED, QUALITATIVE, or EXACT.",
+                        "DISABLED preserves vanilla visuals. EXACT explicitly exposes stored aptitude numbers to players."
+                )
+                .defineEnum("aptitudeDisplay", AptitudeDisplayMode.DISABLED);
+        BUILDER.pop();
 
         BUILDER.push("debug");
         DIAGNOSTIC_LOGGING = BUILDER
@@ -647,6 +658,12 @@ public final class ServerConfig {
 
     public static boolean detailedWeightLoggingEnabled() {
         return diagnosticLoggingEnabled() && DETAILED_WEIGHT_LOGGING.get();
+    }
+
+    public static AptitudeDisplayMode playerAptitudeDisplayMode() {
+        return SPEC.isLoaded()
+                ? PLAYER_APTITUDE_DISPLAY.get()
+                : AptitudeDisplayMode.DISABLED;
     }
 
     private static ModConfigSpec.DoubleValue threshold(String name, double defaultValue, String levelName) {

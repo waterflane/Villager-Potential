@@ -2,6 +2,7 @@ package org.waterflane.villager_potential;
 
 import org.junit.jupiter.api.Test;
 import org.waterflane.villager_potential.core.VillagerPotentialConfig;
+import org.waterflane.villager_potential.core.AptitudeDisplayMode;
 import org.waterflane.villager_potential.core.ProfessionId;
 import org.waterflane.villager_potential.core.TradePaletteRerollStrategy;
 import org.waterflane.villager_potential.core.VillagerTradeConfig;
@@ -28,6 +29,7 @@ class ServerConfigTest {
         assertTrue(mapped.career().enabled());
         assertTrue(mapped.skill().enabled());
         assertTrue(mapped.activity().enabled());
+        assertEquals(AptitudeDisplayMode.DISABLED, ServerConfig.playerAptitudeDisplayMode());
     }
 
     @Test
