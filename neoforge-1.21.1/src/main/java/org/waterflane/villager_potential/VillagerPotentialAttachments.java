@@ -384,6 +384,7 @@ public final class VillagerPotentialAttachments {
                     updatedState,
                     currentProfession,
                     assignmentTime,
+                    villager.getVillagerData().getLevel(),
                     worldSeed(villager),
                     villager.getUUID()
             );
@@ -705,6 +706,7 @@ public final class VillagerPotentialAttachments {
             VillagerPotentialState state,
             ProfessionId profession,
             long assignmentTime,
+            int vanillaLevel,
             long worldSeed,
             UUID villagerId
     ) {
@@ -712,19 +714,27 @@ public final class VillagerPotentialAttachments {
             return state.clearActiveProfession();
         }
         VillagerPotentialConfig config = ServerConfig.gameplayConfig();
+        boolean firstObservedCareer = state.careers().isEmpty();
         VillagerPotentialState provisioned = AptitudeProvisioning.ensure(
                 state,
                 profession,
                 config.aptitude(),
                 new Random(lazyAptitudeSeed(worldSeed, villagerId, profession))
         );
-        return ProfessionSpecializationAssignment.enterProfession(
+        VillagerPotentialState assigned = ProfessionSpecializationAssignment.enterProfession(
                 provisioned,
                 profession,
                 assignmentTime,
                 SpecializationDefinitionManager.INSTANCE.definitionFor(profession),
                 new Random(specializationSeed(worldSeed, villagerId, profession))
         );
+        if (!firstObservedCareer || vanillaLevel <= 1) {
+            return assigned;
+        }
+
+        double bootstrapSkill = config.skill().professionLevelThresholds()
+                .thresholdForLevel(vanillaLevel);
+        return assigned.withSkill(profession, bootstrapSkill);
     }
 
     private static VillagerPotentialState progressMatchingProfession(

@@ -5,6 +5,12 @@ import net.minecraft.world.level.Level;
 import net.minecraft.world.entity.npc.Villager;
 import net.minecraft.world.entity.npc.VillagerData;
 import net.minecraft.world.entity.npc.VillagerProfession;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
+import net.minecraft.world.item.trading.ItemCost;
+import net.minecraft.world.item.trading.MerchantOffer;
+import net.minecraft.world.item.trading.MerchantOffers;
+import net.neoforged.neoforge.event.entity.EntityLeaveLevelEvent;
 import net.neoforged.neoforge.event.tick.EntityTickEvent;
 import org.junit.jupiter.api.Test;
 import org.waterflane.villager_potential.core.ProfessionCareerState;
@@ -13,12 +19,14 @@ import org.waterflane.villager_potential.core.SpecializationId;
 import org.waterflane.villager_potential.core.VillagerPotentialState;
 
 import java.util.Map;
+import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Supplier;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
@@ -75,6 +83,58 @@ class VillagerProfessionTrackingTest {
     }
 
     @Test
+    void existingLeveledVillagerBootstrapsCareerSkillWithoutDemotion() {
+        CareerCarrier carrier = carrier(
+                VillagerProfession.LIBRARIAN,
+                baseState(),
+                100L,
+                4
+        );
+
+        tick(carrier);
+
+        ProfessionCareerState career = carrier.state().get()
+                .careerFor(LIBRARIAN).orElseThrow();
+        assertEquals(
+                ServerConfig.gameplayConfig().skill()
+                        .professionLevelThresholds().thresholdForLevel(4),
+                career.learnedSkill()
+        );
+        assertEquals(4, carrier.villager().getVillagerData().getLevel());
+        verify(carrier.villager(), never()).setVillagerData(any());
+    }
+
+    @Test
+    void initialMigrationKeepsUsedVanillaOffersAndInventsNoTradeMemory() {
+        CareerCarrier carrier = carrier(
+                VillagerProfession.LIBRARIAN,
+                baseState(),
+                100L,
+                3
+        );
+        MerchantOffer usedOffer = new MerchantOffer(
+                new ItemCost(Items.PAPER, 24),
+                Optional.empty(),
+                new ItemStack(Items.EMERALD),
+                12,
+                2,
+                0.05F
+        );
+        usedOffer.increaseUses();
+        MerchantOffers existingOffers = new MerchantOffers();
+        existingOffers.add(usedOffer);
+        when(carrier.villager().getOffers()).thenReturn(existingOffers);
+
+        tick(carrier);
+
+        assertEquals(1, existingOffers.size());
+        assertSame(usedOffer, existingOffers.getFirst());
+        assertEquals(1, usedOffer.getUses());
+        assertTrue(carrier.state().get().tradePalettes().isEmpty());
+        verify(carrier.villager(), never()).setVillagerData(any());
+    }
+
+    @Test
     void librarianToUnemployedClearsOnlyTheActiveProfession() {
         ProfessionCareerState librarianCareer = new ProfessionCareerState(80L, 0.75, 20L, 20L)
                 .withSpecialization(SpecializationId.GENERAL);
@@ -117,6 +177,26 @@ class VillagerProfessionTrackingTest {
         );
         assertEquals(librarianCareer, changedState.careerFor(LIBRARIAN).orElseThrow());
         verify(carrier.villager(), times(1)).setData(any(Supplier.class), any());
+    }
+
+    @Test
+    void migrationBootstrapDoesNotGrantSkillToALaterSecondCareer() {
+        ProfessionCareerState librarianCareer = new ProfessionCareerState(80L, 0.75, 20L, 20L)
+                .withSpecialization(SpecializationId.GENERAL);
+        CareerCarrier carrier = carrier(
+                VillagerProfession.LIBRARIAN,
+                baseState().assignProfession(LIBRARIAN, 20L)
+                        .withCareer(LIBRARIAN, librarianCareer),
+                140L,
+                4
+        );
+
+        carrier.profession().set(VillagerProfession.FARMER);
+        tick(carrier);
+
+        assertEquals(0.0, carrier.state().get().careerFor(FARMER)
+                .orElseThrow().learnedSkill());
+        assertEquals(librarianCareer, carrier.state().get().careerFor(LIBRARIAN).orElseThrow());
     }
 
     @Test
@@ -167,6 +247,39 @@ class VillagerProfessionTrackingTest {
         assertEquals(0.025, progressed.learnedSkill(), 0.000_000_1);
         verify(carrier.villager(), times(1)).setData(any(Supplier.class), any());
         verify(carrier.villager(), never()).setVillagerData(any());
+    }
+
+    @Test
+    void chunkUnloadFlushesPartialProgressAndReloadResumesIt() {
+        CareerCarrier beforeUnload = carrier(
+                VillagerProfession.LIBRARIAN,
+                baseState().assignProfession(LIBRARIAN, 20L),
+                100L
+        );
+        tick(beforeUnload, 7);
+        assertEquals(0L, beforeUnload.state().get().careerFor(LIBRARIAN)
+                .orElseThrow().accumulatedProfessionTime());
+
+        VillagerPotentialEvents.onEntityLeaveLevel(new EntityLeaveLevelEvent(
+                beforeUnload.villager(),
+                beforeUnload.villager().level()
+        ));
+        VillagerPotentialState saved = beforeUnload.state().get();
+        assertEquals(7L, saved.careerFor(LIBRARIAN)
+                .orElseThrow().accumulatedProfessionTime());
+
+        CareerCarrier afterReload = carrier(
+                VillagerProfession.LIBRARIAN,
+                saved,
+                200L
+        );
+        tick(afterReload, 13);
+        VillagerPotentialAttachments.flushProfessionProgress(afterReload.villager());
+
+        ProfessionCareerState resumed = afterReload.state().get()
+                .careerFor(LIBRARIAN).orElseThrow();
+        assertEquals(20L, resumed.accumulatedProfessionTime());
+        assertEquals(0.025, resumed.learnedSkill(), 0.000_000_1);
     }
 
     @Test
@@ -341,6 +454,16 @@ class VillagerProfessionTrackingTest {
             VillagerPotentialState initialState,
             long gameTime
     ) {
+        return carrier(initialProfession, initialState, gameTime, 1);
+    }
+
+    @SuppressWarnings({"unchecked", "rawtypes"})
+    private static CareerCarrier carrier(
+            VillagerProfession initialProfession,
+            VillagerPotentialState initialState,
+            long gameTime,
+            int vanillaLevel
+    ) {
         Villager villager = mock(Villager.class);
         VillagerData villagerData = mock(VillagerData.class);
         ServerLevel level = mock(ServerLevel.class);
@@ -362,6 +485,7 @@ class VillagerProfessionTrackingTest {
         when(villager.getUUID()).thenReturn(UUID.fromString("00000000-0000-0000-0000-000000000010"));
         when(villager.getVillagerData()).thenReturn(villagerData);
         when(villagerData.getProfession()).thenAnswer(ignored -> profession.get());
+        when(villagerData.getLevel()).thenReturn(vanillaLevel);
         when(villager.getData(any(Supplier.class))).thenAnswer(ignored -> state.get());
         when(villager.setData(any(Supplier.class), any())).thenAnswer(invocation ->
                 state.getAndSet(invocation.getArgument(1))

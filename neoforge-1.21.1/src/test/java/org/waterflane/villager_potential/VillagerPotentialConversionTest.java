@@ -12,10 +12,20 @@ import net.neoforged.neoforge.event.entity.EntityJoinLevelEvent;
 import net.neoforged.neoforge.event.entity.living.LivingConversionEvent;
 import net.neoforged.neoforge.event.tick.EntityTickEvent;
 import org.junit.jupiter.api.Test;
+import org.waterflane.villager_potential.core.MarketDemandState;
+import org.waterflane.villager_potential.core.ProfessionActivityState;
+import org.waterflane.villager_potential.core.ProfessionCareerState;
 import org.waterflane.villager_potential.core.ProfessionId;
+import org.waterflane.villager_potential.core.SpecializationId;
+import org.waterflane.villager_potential.core.TradeHistory;
+import org.waterflane.villager_potential.core.TradeKey;
+import org.waterflane.villager_potential.core.TradePaletteState;
 import org.waterflane.villager_potential.core.VillagerPotentialState;
 
+import java.util.List;
 import java.util.Map;
+import java.util.Optional;
+import java.util.OptionalLong;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Supplier;
@@ -33,6 +43,10 @@ import static org.mockito.Mockito.when;
 class VillagerPotentialConversionTest {
     private static final long WORLD_SEED = 42L;
     private static final ProfessionId FARMER = ProfessionId.parse("minecraft:farmer");
+    private static final TradeKey WHEAT = new TradeKey.Offer(
+            new TradeKey.Item("minecraft:wheat", 20),
+            new TradeKey.Item("minecraft:emerald", 1)
+    );
 
     @Test
     void villagerZombieVillagerVillagerRetainsCompletePotential() {
@@ -57,6 +71,10 @@ class VillagerPotentialConversionTest {
         assertSame(originalState, zombieState);
         assertSame(originalState, restoredState);
         assertEquals(1.37, restoredState.aptitudeFor(FARMER).orElseThrow());
+        assertEquals(originalState.careers(), restoredState.careers());
+        assertEquals(originalState.professionActivities(), restoredState.professionActivities());
+        assertEquals(originalState.tradePalettes(), restoredState.tradePalettes());
+        assertEquals(originalState.marketDemand(), restoredState.marketDemand());
         verify(original, times(0)).setData(any(Supplier.class), any());
         verify(zombie, times(0)).setData(any(Supplier.class), any());
     }
@@ -149,7 +167,26 @@ class VillagerPotentialConversionTest {
     private static VillagerPotentialState state(double aptitude) {
         return new VillagerPotentialState(
                 VillagerPotentialState.CURRENT_SCHEMA_VERSION,
-                Map.of(FARMER, aptitude)
+                Map.of(FARMER, aptitude),
+                Map.of(FARMER, new ProfessionCareerState(
+                        240L,
+                        0.75,
+                        10L,
+                        100L,
+                        Optional.of(SpecializationId.GENERAL)
+                )),
+                Optional.of(FARMER),
+                Map.of(FARMER, new ProfessionActivityState(1.4, 250L)),
+                Map.of(FARMER, new TradePaletteState(
+                        List.of(WHEAT),
+                        Map.of(WHEAT, new TradeHistory(
+                                2L,
+                                OptionalLong.of(220L),
+                                1L,
+                                OptionalLong.of(230L)
+                        ))
+                )),
+                Map.of(FARMER, Map.of(WHEAT, new MarketDemandState(1.5, 1L, 230L)))
         );
     }
 
