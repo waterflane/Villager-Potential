@@ -15,6 +15,7 @@ import org.waterflane.villager_potential.core.VillagerPotentialState;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Supplier;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -29,6 +30,30 @@ import static org.mockito.Mockito.when;
 class VillagerProfessionTrackingTest {
     private static final ProfessionId LIBRARIAN = ProfessionId.parse("minecraft:librarian");
     private static final ProfessionId FARMER = ProfessionId.parse("minecraft:farmer");
+
+    @Test
+    void professionSpecializationAndBatchedSkillLifecycleEventsFire() {
+        CareerCarrier carrier = carrier(VillagerProfession.NONE, baseState(), 100L);
+        AtomicInteger professionEvents = new AtomicInteger();
+        AtomicInteger specializationEvents = new AtomicInteger();
+        AtomicInteger skillEvents = new AtomicInteger();
+
+        try (var profession = VillagerPotentialLifecycleEvents.onProfessionChanged(event ->
+                professionEvents.incrementAndGet()
+        ); var specialization = VillagerPotentialLifecycleEvents.onSpecializationAssigned(event ->
+                specializationEvents.incrementAndGet()
+        ); var skill = VillagerPotentialLifecycleEvents.onSkillChanged(event ->
+                skillEvents.incrementAndGet()
+        )) {
+            carrier.profession().set(VillagerProfession.LIBRARIAN);
+            tick(carrier);
+            tick(carrier, 20);
+        }
+
+        assertEquals(1, professionEvents.get());
+        assertEquals(1, specializationEvents.get());
+        assertEquals(1, skillEvents.get());
+    }
 
     @Test
     void unemployedToLibrarianCreatesCareerWithoutChangingAptitude() {

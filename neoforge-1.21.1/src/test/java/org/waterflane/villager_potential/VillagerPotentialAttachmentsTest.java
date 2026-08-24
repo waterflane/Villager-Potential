@@ -46,6 +46,22 @@ class VillagerPotentialAttachmentsTest {
     private static final UUID SECOND_VILLAGER_ID = UUID.fromString("00000000-0000-0000-0000-000000000002");
 
     @Test
+    void initializationFiresOneSupportedLifecycleEvent() {
+        Villager villager = villagerWith(null, FIRST_VILLAGER_ID, WORLD_SEED);
+        AtomicReference<VillagerPotentialLifecycleEvents.Initialized> observed =
+                new AtomicReference<>();
+
+        try (var registration = VillagerPotentialLifecycleEvents.onInitialized(observed::set)) {
+            VillagerPotentialState state = VillagerPotentialAttachments.get(villager);
+
+            assertSame(villager, observed.get().entity());
+            assertEquals(state.aptitudes(), observed.get().potential().aptitudes());
+            VillagerPotentialAttachments.get(villager);
+            assertSame(villager, observed.get().entity());
+        }
+    }
+
+    @Test
     void newVillagerGetsEverySupportedVanillaAptitude() {
         Villager villager = villagerWith(null, FIRST_VILLAGER_ID, WORLD_SEED);
 

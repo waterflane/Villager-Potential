@@ -19,8 +19,37 @@ public final class TradeSelectionResolver {
             double specializationModifier,
             double configuredOverride,
             TradeHistory history,
-            boolean rareProtected
+            boolean rareProtected,
+            WeightModifier integrationModifier
     ) {
+        public Candidate {
+            Objects.requireNonNull(integrationModifier, "integrationModifier");
+        }
+
+        public Candidate(
+                double vanillaWeight,
+                double specializationModifier,
+                double configuredOverride,
+                TradeHistory history,
+                boolean rareProtected
+        ) {
+            this(
+                    vanillaWeight,
+                    specializationModifier,
+                    configuredOverride,
+                    history,
+                    rareProtected,
+                    WeightModifier.IDENTITY
+            );
+        }
+    }
+
+    /** A platform-neutral final-weight hook supplied by a platform facade. */
+    @FunctionalInterface
+    public interface WeightModifier {
+        WeightModifier IDENTITY = weight -> weight;
+
+        double modify(double currentWeight);
     }
 
     public record Rules(
@@ -141,7 +170,14 @@ public final class TradeSelectionResolver {
                 rules.cycleFloor(),
                 rules.resetCycle()
         );
-        return safeMultiply(memoryWeight, configuredOverride);
+        double resolved = safeMultiply(memoryWeight, configuredOverride);
+        if (resolved == 0.0) {
+            return 0.0;
+        }
+        double modified = candidate.integrationModifier().modify(resolved);
+        // Listener output is untrusted. Falling back preserves the safe,
+        // deterministic weight produced by Villager Potential.
+        return Double.isFinite(modified) && modified >= 0.0 ? modified : resolved;
     }
 
     private static double validModifier(double value) {

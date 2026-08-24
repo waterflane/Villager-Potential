@@ -19,6 +19,7 @@ import org.waterflane.villager_potential.core.TradeMemoryRecovery;
 import org.waterflane.villager_potential.core.TradeMemoryRecoveryConfig;
 import org.waterflane.villager_potential.core.TradePaletteRerollStrategy;
 import org.waterflane.villager_potential.core.TradeSelectionResolver;
+import org.waterflane.villager_potential.core.TradeCategoryId;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -62,6 +63,7 @@ public final class SpecializedTradeSelection {
                 SpecializationDefinitionManager.INSTANCE.definitionFor(professionId);
         var potential = VillagerPotentialAttachments.get(villager);
         TradePaletteRerollStrategy strategy = Config.tradePaletteRerollStrategy();
+        int firstGeneratedIndex = offers.size();
         List<TradeKey> learnedTrades = potential
                 .tradePaletteFor(professionId)
                 .map(palette -> palette.activeTrades())
@@ -76,6 +78,17 @@ public final class SpecializedTradeSelection {
                     profession,
                     villager.getVillagerData().getLevel(),
                     villager.getRandom()
+            );
+            VillagerPotentialTradeEvents.emitTradeProcessing(
+                    new VillagerPotentialTradeEvents.TradeProcessing(
+                            villager,
+                            professionId,
+                            strategy,
+                            VillagerPotentialTradeEvents.ProcessingKind.PERSISTENT_RESTORATION,
+                            offers.subList(firstGeneratedIndex, offers.size()).stream()
+                                    .map(MerchantOfferTradeKeys::from)
+                                    .toList()
+                    )
             );
             return true;
         }
@@ -105,6 +118,24 @@ public final class SpecializedTradeSelection {
                 career.map(value -> value.accumulatedProfessionTime()).orElse(0L),
                 Config.tradeMemoryRecoveryConfig(),
                 villager.getRandom()
+        );
+        VillagerPotentialTradeEvents.ProcessingKind processingKind =
+                firstGeneratedIndex == 0
+                        && !offerHistory.isEmpty()
+                        && strategy != TradePaletteRerollStrategy.PERSISTENT
+                        && strategy != TradePaletteRerollStrategy.VANILLA
+                        ? VillagerPotentialTradeEvents.ProcessingKind.REROLL
+                        : VillagerPotentialTradeEvents.ProcessingKind.INITIAL_OR_NEW_LEVEL_GENERATION;
+        VillagerPotentialTradeEvents.emitTradeProcessing(
+                new VillagerPotentialTradeEvents.TradeProcessing(
+                        villager,
+                        professionId,
+                        strategy,
+                        processingKind,
+                        offers.subList(firstGeneratedIndex, offers.size()).stream()
+                                .map(MerchantOfferTradeKeys::from)
+                                .toList()
+                )
         );
         return true;
     }
@@ -313,12 +344,14 @@ public final class SpecializedTradeSelection {
             int selectedIndex = TradeSelectionResolver.selectIndex(
                     remaining.stream()
                             .map(candidate -> descriptor(
+                                    villager,
                                     candidate.listing(),
                                     candidate.key(),
                                     profession,
                                     level,
                                     specialization,
-                                    offerHistory
+                                    offerHistory,
+                                    strategy
                             ))
                             .toList(),
                     rules,
@@ -350,6 +383,25 @@ public final class SpecializedTradeSelection {
             TradeMemoryRecoveryConfig recoveryConfig,
             RandomSource random
     ) {
+        if (VillagerPotentialTradeEvents.hasCandidateWeightModifiers()) {
+            addMaterializedBaselineOffers(
+                    villager,
+                    offers,
+                    candidates,
+                    requestedOfferCount,
+                    profession,
+                    level,
+                    specialization,
+                    skill,
+                    biasConfig,
+                    strategy,
+                    professionTime,
+                    seenTradeWeightMultiplier,
+                    recoveryConfig,
+                    random
+            );
+            return;
+        }
         List<VillagerTrades.ItemListing> remaining = new ArrayList<>(Arrays.asList(candidates));
         TradeSelectionResolver.Rules rules = rules(
                 skill,
@@ -366,12 +418,14 @@ public final class SpecializedTradeSelection {
             int selectedIndex = TradeSelectionResolver.selectIndex(
                     remaining.stream()
                             .map(candidate -> descriptor(
+                                    villager,
                                     candidate,
                                     null,
                                     profession,
                                     level,
                                     specialization,
-                                    Map.of()
+                                    Map.of(),
+                                    strategy
                             ))
                             .toList(),
                     rules,
@@ -389,20 +443,108 @@ public final class SpecializedTradeSelection {
         }
     }
 
+    /** Materializes only when an integration needs a portable TradeKey. */
+    private static void addMaterializedBaselineOffers(
+            Villager villager,
+            MerchantOffers offers,
+            VillagerTrades.ItemListing[] candidates,
+            int requestedOfferCount,
+            VillagerProfession profession,
+            int level,
+            Optional<SpecializationDefinition> specialization,
+            double skill,
+            SpecializationBiasConfig biasConfig,
+            TradePaletteRerollStrategy strategy,
+            long professionTime,
+            double seenTradeWeightMultiplier,
+            TradeMemoryRecoveryConfig recoveryConfig,
+            RandomSource random
+    ) {
+        List<GeneratedCandidate> remaining = Arrays.stream(candidates)
+                .map(candidate -> generateCandidate(candidate, villager, random))
+                .flatMap(Optional::stream)
+                .collect(java.util.stream.Collectors.toCollection(ArrayList::new));
+        TradeSelectionResolver.Rules rules = rules(
+                skill,
+                biasConfig,
+                strategy,
+                professionTime,
+                seenTradeWeightMultiplier,
+                recoveryConfig,
+                0L,
+                false
+        );
+        int offersAdded = 0;
+        while (offersAdded < requestedOfferCount && !remaining.isEmpty()) {
+            int selectedIndex = TradeSelectionResolver.selectIndex(
+                    remaining.stream()
+                            .map(candidate -> descriptor(
+                                    villager,
+                                    candidate.listing(),
+                                    candidate.key(),
+                                    profession,
+                                    level,
+                                    specialization,
+                                    Map.of(),
+                                    strategy
+                            ))
+                            .toList(),
+                    rules,
+                    selectionRandom(random)
+            );
+            if (selectedIndex < 0) {
+                break;
+            }
+            offers.add(remaining.remove(selectedIndex).offer());
+            offersAdded++;
+        }
+    }
+
     private static TradeSelectionResolver.Candidate descriptor(
+            Villager villager,
             VillagerTrades.ItemListing candidate,
             TradeKey key,
             VillagerProfession profession,
             int level,
             Optional<SpecializationDefinition> specialization,
-            Map<TradeKey, TradeHistory> offerHistory
+            Map<TradeKey, TradeHistory> offerHistory,
+            TradePaletteRerollStrategy strategy
     ) {
+        if (!VillagerPotentialTradeEvents.hasCandidateWeightModifiers()) {
+            return new TradeSelectionResolver.Candidate(
+                    1.0,
+                    specializationModifier(candidate, profession, level, specialization),
+                    1.0,
+                    key == null ? null : offerHistory.get(key),
+                    key != null && Config.isRareTradeProtected(key)
+            );
+        }
+        ProfessionId professionId = VillagerProfessionIds.fromMinecraft(profession);
+        TradeCategoryId category = VanillaTradeClassifications.classify(
+                profession,
+                level,
+                candidate
+        );
+        var weightContext = new VillagerPotentialTradeEvents.CandidateWeight(
+                villager,
+                professionId,
+                level,
+                Objects.requireNonNull(key, "key"),
+                category,
+                strategy
+        );
         return new TradeSelectionResolver.Candidate(
                 1.0,
-                specializationModifier(candidate, profession, level, specialization),
+                specialization
+                        .map(definition -> definition.weightModifierFor(category))
+                        .orElse(1.0),
                 1.0,
                 key == null ? null : offerHistory.get(key),
-                key != null && Config.isRareTradeProtected(key)
+                key != null && Config.isRareTradeProtected(key),
+                weight -> VillagerPotentialTradeEvents.modifyCandidateWeight(
+                        weightContext,
+                        weight
+                )
         );
     }
 

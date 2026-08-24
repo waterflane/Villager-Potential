@@ -74,6 +74,45 @@ class TradeSelectionResolverTest {
         ));
     }
 
+    @Test
+    void integrationModifierChangesTheFinalCandidateWeight() {
+        var candidate = new TradeSelectionResolver.Candidate(
+                1.0,
+                2.0,
+                3.0,
+                null,
+                false,
+                weight -> weight * 4.0
+        );
+
+        assertEquals(24.0, TradeSelectionResolver.resolvedWeight(
+                candidate,
+                rules(FULL_STRENGTH, 1.0, TradePaletteRerollStrategy.VANILLA)
+        ));
+    }
+
+    @Test
+    void defaultAndUnsafeIntegrationModifiersPreserveResolvedWeight() {
+        var defaultCandidate = candidate(2.0, 3.0, null);
+        var unsafeCandidate = new TradeSelectionResolver.Candidate(
+                1.0,
+                2.0,
+                3.0,
+                null,
+                false,
+                ignored -> Double.NaN
+        );
+
+        assertEquals(6.0, TradeSelectionResolver.resolvedWeight(
+                defaultCandidate,
+                rules(FULL_STRENGTH, 1.0, TradePaletteRerollStrategy.VANILLA)
+        ));
+        assertEquals(6.0, TradeSelectionResolver.resolvedWeight(
+                unsafeCandidate,
+                rules(FULL_STRENGTH, 1.0, TradePaletteRerollStrategy.VANILLA)
+        ));
+    }
+
     private static TradeSelectionResolver.Candidate candidate(
             double specialization,
             double override,

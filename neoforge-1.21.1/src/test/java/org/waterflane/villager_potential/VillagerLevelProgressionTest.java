@@ -11,6 +11,7 @@ import org.waterflane.villager_potential.core.VillagerPotentialState;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Supplier;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -25,6 +26,25 @@ import static org.mockito.Mockito.withSettings;
 class VillagerLevelProgressionTest {
     private static final ProfessionId LIBRARIAN =
             ProfessionId.parse("minecraft:librarian");
+
+    @Test
+    void appliedVanillaLevelChangeFiresLifecycleEvent() {
+        ProgressionCarrier carrier = carrier();
+        AtomicReference<VillagerPotentialLifecycleEvents.VanillaLevelChanged> observed =
+                new AtomicReference<>();
+        VillagerPotentialAttachments.trackProfession(carrier.villager(), 100L);
+
+        try (var registration = VillagerPotentialLifecycleEvents.onVanillaLevelChanged(
+                observed::set
+        )) {
+            carrier.vanillaLevel().set(2);
+            VillagerPotentialAttachments.trackProfession(carrier.villager(), 101L);
+        }
+
+        assertEquals(1, observed.get().previousLevel());
+        assertEquals(2, observed.get().level());
+        assertEquals(LIBRARIAN, observed.get().profession());
+    }
 
     @Test
     void timeProgressionQueuesTheEarnedLevel() {
@@ -96,6 +116,7 @@ class VillagerLevelProgressionTest {
                 Map.of(LIBRARIAN, 1.0)
         ).assignProfession(LIBRARIAN, 0L);
         AtomicReference<VillagerPotentialState> state = new AtomicReference<>(initialState);
+        AtomicInteger vanillaLevel = new AtomicInteger(1);
 
         when(levelUpAccess.villagerPotential$queueLevelUp()).thenReturn(true);
         when(villager.level()).thenReturn(level);
@@ -104,18 +125,19 @@ class VillagerLevelProgressionTest {
         );
         when(villager.getVillagerData()).thenReturn(villagerData);
         when(villagerData.getProfession()).thenReturn(VillagerProfession.LIBRARIAN);
-        when(villagerData.getLevel()).thenReturn(1);
+        when(villagerData.getLevel()).thenAnswer(ignored -> vanillaLevel.get());
         when(villager.getData(any(Supplier.class))).thenAnswer(ignored -> state.get());
         when(villager.setData(any(Supplier.class), any())).thenAnswer(invocation ->
                 state.getAndSet(invocation.getArgument(1))
         );
-        return new ProgressionCarrier(villager, levelUpAccess, state);
+        return new ProgressionCarrier(villager, levelUpAccess, state, vanillaLevel);
     }
 
     private record ProgressionCarrier(
             Villager villager,
             VillagerLevelUpAccess levelUpAccess,
-            AtomicReference<VillagerPotentialState> state
+            AtomicReference<VillagerPotentialState> state,
+            AtomicInteger vanillaLevel
     ) {
     }
 }

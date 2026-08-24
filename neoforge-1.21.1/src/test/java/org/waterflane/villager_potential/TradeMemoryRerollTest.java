@@ -316,6 +316,23 @@ class TradeMemoryRerollTest {
                 restored.stream().map(MerchantOfferTradeKeys::from).toList()
         );
         assertEquals(0, unrelatedCandidateCalls.get());
+
+        AtomicInteger generatedEvents = new AtomicInteger();
+        try (var registration = VillagerPotentialTradeEvents.onPaletteEntriesGenerated(event ->
+                generatedEvents.incrementAndGet()
+        )) {
+            VillagerPotentialAttachments.recordGeneratedOffers(
+                    villager,
+                    restored,
+                    0,
+                    450L,
+                    16,
+                    TradePaletteRerollStrategy.PERSISTENT
+            );
+        }
+        assertEquals(0, generatedEvents.get());
+        assertEquals(List.of(mendingKey), state.get().tradePaletteFor(LIBRARIAN)
+                .orElseThrow().activeTrades());
     }
 
     @Test
