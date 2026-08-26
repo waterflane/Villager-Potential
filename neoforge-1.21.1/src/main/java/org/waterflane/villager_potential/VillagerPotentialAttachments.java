@@ -28,6 +28,8 @@ import org.waterflane.villager_potential.core.ProfessionActivityConfig;
 import org.waterflane.villager_potential.core.ProfessionActivityState;
 import org.waterflane.villager_potential.core.ProfessionCareerState;
 import org.waterflane.villager_potential.core.ProfessionId;
+import org.waterflane.villager_potential.core.ProfessionProgressBatch;
+import org.waterflane.villager_potential.core.PotentialSeeds;
 import org.waterflane.villager_potential.core.ProfessionSpecializationAssignment;
 import org.waterflane.villager_potential.core.SkillProgression;
 import org.waterflane.villager_potential.core.SkillProgressionConfig;
@@ -55,7 +57,6 @@ import java.util.WeakHashMap;
 import java.util.random.RandomGenerator;
 
 public final class VillagerPotentialAttachments {
-    static final long PROFESSION_PROGRESS_INTERVAL_TICKS = 20L;
     static final SkillProgressionConfig SKILL_PROGRESSION_CONFIG =
             VillagerPotentialConfig.DEFAULT.skill();
     static final ProfessionActivityConfig PROFESSION_ACTIVITY_CONFIG =
@@ -66,10 +67,6 @@ public final class VillagerPotentialAttachments {
             VillagerPotentialConfig.DEFAULT.aptitude();
     static final AptitudeInheritanceConfig INHERITANCE_CONFIG =
             VillagerPotentialConfig.DEFAULT.inheritance();
-    private static final long INITIALIZATION_SALT = 0x56494C4C41474552L;
-    private static final long INHERITANCE_SALT = 0x494E484552495453L;
-    private static final long SPECIALIZATION_SALT = 0x5350454349414C53L;
-    private static final long LAZY_APTITUDE_SALT = 0x4150544954554445L;
     private static final Codec<ProfessionId> PROFESSION_ID_CODEC = Codec.STRING.comapFlatMap(
             VillagerPotentialAttachments::parseProfessionId,
             ProfessionId::toString
@@ -404,7 +401,7 @@ public final class VillagerPotentialAttachments {
             batch.addElapsedTick();
         }
 
-        if (batch.elapsedProfessionTime() >= PROFESSION_PROGRESS_INTERVAL_TICKS) {
+        if (batch.elapsedProfessionTime() >= ProfessionProgressBatch.FLUSH_INTERVAL_TICKS) {
             if (state == null) {
                 state = get(villager);
                 updatedState = state;
@@ -492,7 +489,7 @@ public final class VillagerPotentialAttachments {
         VillagerPotentialState state = get(villager);
         VillagerPotentialConfig gameplayConfig = ServerConfig.gameplayConfig();
         TradePaletteRerollStrategy strategy = Config.tradePaletteRerollStrategy();
-        long observationTime = tradeMemoryTime(state, profession, gameTime, strategy);
+        long observationTime = state.observationTimeFor(profession, gameTime, strategy);
         MerchantOfferTradeKeys.Identity identity = MerchantOfferTradeKeys.identify(offer);
         TradeKey trade = identity.key();
         Optional<MarketDemandState> previousDemand = identity.stable()
@@ -615,7 +612,7 @@ public final class VillagerPotentialAttachments {
                 .filter(MerchantOfferTradeKeys.Identity::stable)
                 .map(MerchantOfferTradeKeys.Identity::key)
                 .toList();
-        long observationTime = tradeMemoryTime(state, profession, gameTime, strategy);
+        long observationTime = state.observationTimeFor(profession, gameTime, strategy);
         if (strategy == TradePaletteRerollStrategy.CYCLIC) {
             TradePaletteState palette = state.tradePaletteFor(profession)
                     .orElse(TradePaletteState.empty());
@@ -677,20 +674,6 @@ public final class VillagerPotentialAttachments {
         }
     }
 
-    private static long tradeMemoryTime(
-            VillagerPotentialState state,
-            ProfessionId profession,
-            long gameTime,
-            TradePaletteRerollStrategy strategy
-    ) {
-        return switch (strategy) {
-            case WEIGHTED_MEMORY, EXHAUST, CYCLIC -> state.careerFor(profession)
-                    .map(ProfessionCareerState::accumulatedProfessionTime)
-                    .orElse(0L);
-            case PERSISTENT, VANILLA -> gameTime;
-        };
-    }
-
     private static ProfessionId toCareerProfession(VillagerProfession profession) {
         return profession == VillagerProfession.NONE || profession == VillagerProfession.NITWIT
                 ? null
@@ -714,14 +697,14 @@ public final class VillagerPotentialAttachments {
                 state,
                 profession,
                 config.aptitude(),
-                new Random(lazyAptitudeSeed(worldSeed, villagerId, profession))
+                new Random(PotentialSeeds.lazyAptitudeSeed(worldSeed, villagerId, profession))
         );
         VillagerPotentialState assigned = ProfessionSpecializationAssignment.enterProfession(
                 provisioned,
                 profession,
                 assignmentTime,
                 SpecializationDefinitionManager.INSTANCE.definitionFor(profession),
-                new Random(specializationSeed(worldSeed, villagerId, profession))
+                new Random(PotentialSeeds.specializationSeed(worldSeed, villagerId, profession))
         );
         if (!firstObservedCareer || vanillaLevel <= 1) {
             return assigned;
@@ -847,7 +830,7 @@ public final class VillagerPotentialAttachments {
                 firstParent,
                 secondParent,
                 child,
-                new Random(inheritanceSeed(worldSeed(child), child.getUUID()))
+                new Random(PotentialSeeds.inheritanceSeed(worldSeed(child), child.getUUID()))
         );
     }
 
@@ -962,7 +945,7 @@ public final class VillagerPotentialAttachments {
     }
 
     static VillagerPotentialState initialize(long worldSeed, UUID villagerId) {
-        Random random = new Random(initializationSeed(worldSeed, villagerId));
+        Random random = new Random(PotentialSeeds.initializationSeed(worldSeed, villagerId));
         AptitudeGenerationConfig aptitudeConfig = ServerConfig.gameplayConfig().aptitude();
         Map<ProfessionId, Double> aptitudes = new LinkedHashMap<>();
         for (ProfessionId professionId : VillagerProfessionIds.supportedVanillaProfessions()) {
@@ -973,61 +956,6 @@ public final class VillagerPotentialAttachments {
 
     private static long worldSeed(Entity entity) {
         return entity.level() instanceof ServerLevel serverLevel ? serverLevel.getSeed() : 0L;
-    }
-
-    private static long initializationSeed(long worldSeed, UUID villagerId) {
-        return mixedSeed(worldSeed, villagerId, INITIALIZATION_SALT);
-    }
-
-    private static long inheritanceSeed(long worldSeed, UUID villagerId) {
-        return mixedSeed(worldSeed, villagerId, INHERITANCE_SALT);
-    }
-
-    private static long specializationSeed(
-            long worldSeed,
-            UUID villagerId,
-            ProfessionId professionId
-    ) {
-        long professionSalt = SPECIALIZATION_SALT;
-        String profession = professionId.toString();
-        for (int index = 0; index < profession.length(); index++) {
-            professionSalt ^= profession.charAt(index);
-            professionSalt *= 0x100000001B3L;
-        }
-        return mixedSeed(worldSeed, villagerId, professionSalt);
-    }
-
-    private static long lazyAptitudeSeed(
-            long worldSeed,
-            UUID villagerId,
-            ProfessionId professionId
-    ) {
-        return mixedSeed(
-                worldSeed,
-                villagerId,
-                professionSalt(LAZY_APTITUDE_SALT, professionId)
-        );
-    }
-
-    private static long professionSalt(long baseSalt, ProfessionId professionId) {
-        long professionSalt = baseSalt;
-        String profession = professionId.toString();
-        for (int index = 0; index < profession.length(); index++) {
-            professionSalt ^= profession.charAt(index);
-            professionSalt *= 0x100000001B3L;
-        }
-        return professionSalt;
-    }
-
-    private static long mixedSeed(long worldSeed, UUID villagerId, long salt) {
-        Objects.requireNonNull(villagerId, "villagerId");
-        long seed = worldSeed
-                ^ villagerId.getMostSignificantBits()
-                ^ Long.rotateLeft(villagerId.getLeastSignificantBits(), 32)
-                ^ salt;
-        seed = (seed ^ (seed >>> 30)) * 0xBF58476D1CE4E5B9L;
-        seed = (seed ^ (seed >>> 27)) * 0x94D049BB133111EBL;
-        return seed ^ (seed >>> 31);
     }
 
     private static DataResult<ProfessionId> parseProfessionId(String value) {
@@ -1136,57 +1064,6 @@ public final class VillagerPotentialAttachments {
                     .map(entry -> new PersistedTradeHistory(entry.getKey(), entry.getValue()))
                     .toList();
             return new PersistedTradePalette(state.activeTrades(), List.of(), histories);
-        }
-    }
-
-    private static final class ProfessionProgressBatch {
-        private final ProfessionId profession;
-        private long elapsedProfessionTime;
-        private long lastObservedGameTime;
-        private int vanillaLevel;
-
-        private ProfessionProgressBatch(
-                ProfessionId profession,
-                long elapsedProfessionTime,
-                long lastObservedGameTime,
-                int vanillaLevel
-        ) {
-            this.profession = profession;
-            this.elapsedProfessionTime = elapsedProfessionTime;
-            this.lastObservedGameTime = lastObservedGameTime;
-            this.vanillaLevel = vanillaLevel;
-        }
-
-        private ProfessionId profession() {
-            return profession;
-        }
-
-        private long elapsedProfessionTime() {
-            return elapsedProfessionTime;
-        }
-
-        private long lastObservedGameTime() {
-            return lastObservedGameTime;
-        }
-
-        private int vanillaLevel() {
-            return vanillaLevel;
-        }
-
-        private void observeVanillaLevel(int level) {
-            vanillaLevel = level;
-        }
-
-        private void observeGameTime(long gameTime) {
-            lastObservedGameTime = Math.max(lastObservedGameTime, gameTime);
-        }
-
-        private void addElapsedTick() {
-            elapsedProfessionTime++;
-        }
-
-        private void clearElapsedTime() {
-            elapsedProfessionTime = 0L;
         }
     }
 }

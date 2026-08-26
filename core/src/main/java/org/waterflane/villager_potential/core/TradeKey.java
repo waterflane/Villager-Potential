@@ -9,8 +9,54 @@ import java.util.Optional;
  * <p>An offer key describes the durable inputs and output of a trade. Platform
  * adapters are responsible for excluding runtime state such as demand, uses,
  * and temporary discounts when constructing one.</p>
+ *
+ * <p>Adapters share one canonical fallback convention so persisted keys stay
+ * portable: an item or component type that is not registered is identified as
+ * {@code unregistered:<className>}, and a component value that cannot be
+ * canonically encoded is represented as {@code fallback:<className>}. Keys
+ * containing either marker are unstable and must never back durable memory.</p>
  */
 public sealed interface TradeKey permits TradeKey.Offer, TradeKey.Fallback {
+    /**
+     * Reports whether the key is safe for durable memory, demand, and learned
+     * palettes. Only structured offers whose items avoid every fallback marker
+     * are stable; foreign or unreadable offers keep their {@link Fallback} key
+     * so they can pass through hooks without being rejected.
+     */
+    static boolean isStable(TradeKey key) {
+        Objects.requireNonNull(key, "key");
+        if (!(key instanceof Offer offer)) {
+            return false;
+        }
+        return hasStableItem(offer.costA())
+                && offer.costB().map(TradeKey::hasStableItem).orElse(true)
+                && hasStableItem(offer.result());
+    }
+
+    private static boolean hasStableItem(Item item) {
+        return !item.itemId().startsWith("unregistered:")
+                && !item.components().contains("unregistered:")
+                && !item.components().contains("fallback:");
+    }
+
+    /**
+     * Reports whether two keys describe the same trade shape by item identity,
+     * ignoring counts and component details. Persistent restoration uses this
+     * to stop re-rolling candidates that can never match a learned trade.
+     */
+    static boolean sameShape(TradeKey generated, TradeKey learned) {
+        Objects.requireNonNull(generated, "generated");
+        Objects.requireNonNull(learned, "learned");
+        if (!(generated instanceof Offer generatedOffer)
+                || !(learned instanceof Offer learnedOffer)) {
+            return generated.getClass().equals(learned.getClass());
+        }
+        return generatedOffer.costA().itemId().equals(learnedOffer.costA().itemId())
+                && generatedOffer.result().itemId().equals(learnedOffer.result().itemId())
+                && generatedOffer.costB().map(Item::itemId)
+                .equals(learnedOffer.costB().map(Item::itemId));
+    }
+
     /**
      * A structured trade identity.
      */

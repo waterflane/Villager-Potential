@@ -1,5 +1,7 @@
 package org.waterflane.villager_potential.core;
 
+import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 
@@ -56,6 +58,58 @@ public record SpecializationConfig(
                 maximumBiasStrength * strength,
                 curveExponent
         );
+    }
+
+    /**
+     * Parses the shared {@code namespaced_profession_id=value} override
+     * format used by every loader's config integration. Entries must carry a
+     * single {@code '='}, a parseable profession id, and a finite strength in
+     * [0, 1]; duplicates are rejected. Error messages are part of the format
+     * contract because they surface verbatim in config reload failures.
+     */
+    public static Map<ProfessionId, Double> parseStrengthOverrides(List<String> entries) {
+        Objects.requireNonNull(entries, "entries");
+        Map<ProfessionId, Double> overrides = new LinkedHashMap<>();
+        for (int index = 0; index < entries.size(); index++) {
+            String entry = entries.get(index);
+            if (entry == null) {
+                throw new IllegalArgumentException(
+                        "specializations.professionStrengthOverrides[" + index + "] must be a string"
+                );
+            }
+            int separator = entry.lastIndexOf('=');
+            if (separator <= 0 || separator != entry.indexOf('=')
+                    || separator == entry.length() - 1) {
+                throw new IllegalArgumentException(
+                        "specializations.professionStrengthOverrides[" + index
+                                + "] must use namespaced_profession_id=value"
+                );
+            }
+            ProfessionId profession;
+            double strength;
+            try {
+                profession = ProfessionId.parse(entry.substring(0, separator));
+                strength = Double.parseDouble(entry.substring(separator + 1));
+            } catch (IllegalArgumentException exception) {
+                throw new IllegalArgumentException(
+                        "Invalid specialization profession override '" + entry + "': "
+                                + exception.getMessage(),
+                        exception
+                );
+            }
+            if (!Double.isFinite(strength) || strength < 0.0 || strength > 1.0) {
+                throw new IllegalArgumentException(
+                        "Specialization strength for " + profession
+                                + " must be finite and between zero and one"
+                );
+            }
+            if (overrides.putIfAbsent(profession, strength) != null) {
+                throw new IllegalArgumentException(
+                        "Duplicate specialization profession override for " + profession
+                );
+            }
+        }
+        return overrides;
     }
 
     private static void requireUnit(String name, double value) {

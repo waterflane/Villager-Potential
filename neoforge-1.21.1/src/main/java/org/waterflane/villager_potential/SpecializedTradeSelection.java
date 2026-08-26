@@ -18,8 +18,10 @@ import org.waterflane.villager_potential.core.TradeKey;
 import org.waterflane.villager_potential.core.TradeMemoryRecovery;
 import org.waterflane.villager_potential.core.TradeMemoryRecoveryConfig;
 import org.waterflane.villager_potential.core.TradePaletteRerollStrategy;
+import org.waterflane.villager_potential.core.TradePaletteState;
 import org.waterflane.villager_potential.core.TradeSelectionResolver;
 import org.waterflane.villager_potential.core.TradeCategoryId;
+import org.waterflane.villager_potential.core.VillagerTradeConfig;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -44,7 +46,7 @@ import java.util.Set;
 public final class SpecializedTradeSelection {
     private static final int PERSISTENT_MATCH_ATTEMPTS = 4096;
     private static final TradeMemoryRecoveryConfig DEFAULT_MEMORY_RECOVERY =
-            new TradeMemoryRecoveryConfig(24_000L, 0.01, 24_000L, 24_000L, 0L);
+            VillagerTradeConfig.DEFAULT.palette().recovery();
 
     private SpecializedTradeSelection() {
     }
@@ -175,15 +177,8 @@ public final class SpecializedTradeSelection {
     ) {
         Objects.requireNonNull(professionDefinition, "professionDefinition");
         Objects.requireNonNull(specializationId, "specializationId");
-        if (professionDefinition.isEmpty() || specializationId.isEmpty()) {
-            return Optional.empty();
-        }
-
-        ProfessionSpecializationDefinition definition = professionDefinition.orElseThrow();
-        SpecializationId selected = specializationId.orElseThrow();
-        return definition.generalSpecialization().equals(selected)
-                ? Optional.empty()
-                : definition.specialization(selected);
+        return professionDefinition
+                .flatMap(definition -> definition.selectionModifiersFor(specializationId));
     }
 
     static void addWeightedOffers(
@@ -274,7 +269,7 @@ public final class SpecializedTradeSelection {
                 offerHistory,
                 seenTradeWeightMultiplier,
                 strategy,
-                latestSeenTime(offerHistory),
+                TradePaletteState.latestSeenTime(offerHistory),
                 DEFAULT_MEMORY_RECOVERY,
                 random
         );
@@ -650,14 +645,6 @@ public final class SpecializedTradeSelection {
         };
     }
 
-    private static long latestSeenTime(Map<TradeKey, TradeHistory> offerHistory) {
-        return offerHistory.values().stream()
-                .filter(history -> history.lastSeen().isPresent())
-                .mapToLong(history -> history.lastSeen().getAsLong())
-                .max()
-                .orElse(0L);
-    }
-
     private static boolean tryRestorePersistentOffers(
             Villager villager,
             MerchantOffers offers,
@@ -777,24 +764,13 @@ public final class SpecializedTradeSelection {
                     if (generated.equals(learnedTrade)) {
                         return Optional.of(new MatchedOffer(slot, offer));
                     }
-                    if (attempt == 0 && !hasSameShape(generated, learnedTrade)) {
+                    if (attempt == 0 && !TradeKey.sameShape(generated, learnedTrade)) {
                         break;
                     }
                 }
             }
         }
         return Optional.empty();
-    }
-
-    private static boolean hasSameShape(TradeKey generated, TradeKey learned) {
-        if (!(generated instanceof TradeKey.Offer generatedOffer)
-                || !(learned instanceof TradeKey.Offer learnedOffer)) {
-            return generated.getClass().equals(learned.getClass());
-        }
-        return generatedOffer.costA().itemId().equals(learnedOffer.costA().itemId())
-                && generatedOffer.result().itemId().equals(learnedOffer.result().itemId())
-                && generatedOffer.costB().map(TradeKey.Item::itemId)
-                .equals(learnedOffer.costB().map(TradeKey.Item::itemId));
     }
 
     private static Int2ObjectMap<VillagerTrades.ItemListing[]> tradePools(

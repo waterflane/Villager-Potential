@@ -129,6 +129,20 @@ public record TradePaletteState(
                 : new TradePaletteState(activeTrades, updatedHistory);
     }
 
+    /**
+     * Newest seen-observation in a whole offer history, or {@code 0L} when
+     * nothing was ever seen. Callers that only need one memory time base for
+     * an entire palette can use this instead of re-walking the map.
+     */
+    public static long latestSeenTime(Map<TradeKey, TradeHistory> offerHistory) {
+        Objects.requireNonNull(offerHistory, "offerHistory");
+        return offerHistory.values().stream()
+                .filter(history -> history.lastSeen().isPresent())
+                .mapToLong(history -> history.lastSeen().getAsLong())
+                .max()
+                .orElse(0L);
+    }
+
     private static Map<TradeKey, TradeHistory> aggregateLegacyHistory(
             List<TradeKey> selectionHistory
     ) {

@@ -88,4 +88,23 @@ public record ProfessionSpecializationDefinition(
                 .filter(definition -> definition.id().equals(specializationId))
                 .findFirst();
     }
+
+    /**
+     * Resolves the weight modifiers a trade selection should apply for the
+     * career's stored specialization. The general specialization means vanilla
+     * weights and yields {@link java.util.Optional#empty()}, as does an absent
+     * assignment or an id this definition no longer supports.
+     */
+    public java.util.Optional<SpecializationDefinition> selectionModifiersFor(
+            java.util.Optional<SpecializationId> selectedSpecialization
+    ) {
+        Objects.requireNonNull(selectedSpecialization, "selectedSpecialization");
+        if (selectedSpecialization.isEmpty()) {
+            return java.util.Optional.empty();
+        }
+        SpecializationId selected = selectedSpecialization.orElseThrow();
+        return generalSpecialization().equals(selected)
+                ? java.util.Optional.empty()
+                : specialization(selected);
+    }
 }

@@ -317,6 +317,28 @@ public record VillagerPotentialState(
         );
     }
 
+    /**
+     * Resolves the stable time base that trade-memory observations use for one
+     * reroll strategy: accumulated profession time for memory-based modes and
+     * server game time otherwise. Platforms must record presented trades,
+     * uses, and purchases at exactly this time so histories survive mode
+     * changes and loader ports.
+     */
+    public long observationTimeFor(
+            ProfessionId professionId,
+            long gameTime,
+            TradePaletteRerollStrategy strategy
+    ) {
+        Objects.requireNonNull(professionId, "professionId");
+        Objects.requireNonNull(strategy, "strategy");
+        return switch (strategy) {
+            case WEIGHTED_MEMORY, EXHAUST, CYCLIC -> careerFor(professionId)
+                    .map(ProfessionCareerState::accumulatedProfessionTime)
+                    .orElse(0L);
+            case PERSISTENT, VANILLA -> gameTime;
+        };
+    }
+
     /** Returns demand recorded for one logical trade in exactly one profession. */
     public Optional<MarketDemandState> marketDemandFor(
             ProfessionId professionId,

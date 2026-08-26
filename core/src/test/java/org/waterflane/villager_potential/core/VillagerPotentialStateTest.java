@@ -629,6 +629,31 @@ class VillagerPotentialStateTest {
         );
     }
 
+    @Test
+    void memoryStrategiesObserveProfessionTimeAndOthersGameTime() {
+        ProfessionId librarian = ProfessionId.parse("minecraft:librarian");
+        VillagerPotentialState state = VillagerPotentialState.createDefault()
+                .assignProfession(librarian, 100L)
+                .withCareer(librarian, new ProfessionCareerState(4_000L, 0.5, 100L, 300L));
+
+        assertEquals(4_000L, state.observationTimeFor(
+                librarian, 900_000L, TradePaletteRerollStrategy.WEIGHTED_MEMORY));
+        assertEquals(4_000L, state.observationTimeFor(
+                librarian, 900_000L, TradePaletteRerollStrategy.EXHAUST));
+        assertEquals(4_000L, state.observationTimeFor(
+                librarian, 900_000L, TradePaletteRerollStrategy.CYCLIC));
+        assertEquals(900_000L, state.observationTimeFor(
+                librarian, 900_000L, TradePaletteRerollStrategy.PERSISTENT));
+        assertEquals(900_000L, state.observationTimeFor(
+                librarian, 900_000L, TradePaletteRerollStrategy.VANILLA));
+        // A profession without a career has no accumulated tenure yet.
+        assertEquals(0L, state.observationTimeFor(
+                ProfessionId.parse("minecraft:farmer"),
+                900_000L,
+                TradePaletteRerollStrategy.EXHAUST
+        ));
+    }
+
     private static TradeKey trade(String cost, String result) {
         return new TradeKey.Offer(
                 new TradeKey.Item(cost, 1),

@@ -58,4 +58,48 @@ class SpecializationConfigTest {
                 () -> new SpecializationConfig(true, 1.0, 0.8, 0.4, 2.0, Map.of())
         );
     }
+
+    @Test
+    void parsesSharedProfessionOverrideFormat() {
+        Map<ProfessionId, Double> overrides = SpecializationConfig.parseStrengthOverrides(
+                java.util.List.of("minecraft:librarian=0.75", "minecraft:farmer=0")
+        );
+
+        assertEquals(2, overrides.size());
+        assertEquals(0.75, overrides.get(LIBRARIAN));
+        assertEquals(0.0, overrides.get(FARMER));
+    }
+
+    @Test
+    void rejectsMalformedDuplicateAndOutOfRangeOverrides() {
+        java.util.List<String> invalid = java.util.List.of(
+                "not_namespaced=0.5",
+                "minecraft:librarian",
+                "minecraft:librarian=",
+                "=0.5",
+                "minecraft:librarian=0.5=0.6",
+                "minecraft:librarian=Infinity",
+                "minecraft:librarian=-0.5",
+                "minecraft:librarian=1.01"
+        );
+        for (String entry : invalid) {
+            assertThrows(
+                    IllegalArgumentException.class,
+                    () -> SpecializationConfig.parseStrengthOverrides(java.util.List.of(entry)),
+                    "expected rejection of " + entry
+            );
+        }
+        // A missing override list itself is a caller bug, not a config error.
+        assertThrows(NullPointerException.class,
+                () -> SpecializationConfig.parseStrengthOverrides(null));
+        assertThrows(IllegalArgumentException.class,
+                () -> SpecializationConfig.parseStrengthOverrides(java.util.Arrays.asList((String) null)));
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> SpecializationConfig.parseStrengthOverrides(java.util.List.of(
+                        "minecraft:librarian=0.5",
+                        "minecraft:librarian=0.7"
+                ))
+        );
+    }
 }

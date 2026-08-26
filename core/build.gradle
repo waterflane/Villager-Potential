@@ -13,6 +13,10 @@ repositories {
 }
 
 dependencies {
+    // The specialization definition data format is parsed identically by every
+    // loader; Gson ships with Minecraft itself, so the runtime version is
+    // provided by the game while this pinned version covers standalone tests.
+    api 'com.google.code.gson:gson:2.10.1'
     testImplementation platform('org.junit:junit-bom:5.11.4')
     testImplementation 'org.junit.jupiter:junit-jupiter'
 }

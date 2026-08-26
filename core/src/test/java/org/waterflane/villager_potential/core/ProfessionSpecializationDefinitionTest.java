@@ -96,6 +96,24 @@ class ProfessionSpecializationDefinitionTest {
         );
     }
 
+    @Test
+    void selectionModifiersAreNeutralForGeneralAndAbsentAssignments() {
+        java.util.Optional<SpecializationDefinition> modifiers = definition()
+                .selectionModifiersFor(java.util.Optional.of(ENCHANTER));
+        assertTrue(modifiers.isPresent());
+        assertEquals(ENCHANTER, modifiers.orElseThrow().id());
+
+        assertTrue(definition()
+                .selectionModifiersFor(java.util.Optional.of(GENERAL)).isEmpty());
+        assertTrue(definition()
+                .selectionModifiersFor(java.util.Optional.empty()).isEmpty());
+        // Unsupported ids resolve to nothing instead of throwing.
+        assertTrue(definition()
+                .selectionModifiersFor(
+                        java.util.Optional.of(SpecializationId.parse("example:missing")))
+                .isEmpty());
+    }
+
     private static ProfessionSpecializationDefinition definition() {
         return new ProfessionSpecializationDefinition(
                 LIBRARIAN,

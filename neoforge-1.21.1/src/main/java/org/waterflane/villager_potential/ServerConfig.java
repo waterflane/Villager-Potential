@@ -24,7 +24,6 @@ import org.waterflane.villager_potential.core.VillagerPotentialConfig;
 import org.waterflane.villager_potential.core.VillagerPotentialConfiguration;
 import org.waterflane.villager_potential.core.VillagerTradeConfig;
 
-import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
@@ -677,47 +676,7 @@ public final class ServerConfig {
     }
 
     private static Map<ProfessionId, Double> parseProfessionOverrides(List<String> entries) {
-        Map<ProfessionId, Double> overrides = new LinkedHashMap<>();
-        for (int index = 0; index < entries.size(); index++) {
-            String entry = entries.get(index);
-            if (entry == null) {
-                throw new IllegalArgumentException(
-                        "specializations.professionStrengthOverrides[" + index + "] must be a string"
-                );
-            }
-            int separator = entry.lastIndexOf('=');
-            if (separator <= 0 || separator != entry.indexOf('=')
-                    || separator == entry.length() - 1) {
-                throw new IllegalArgumentException(
-                        "specializations.professionStrengthOverrides[" + index
-                                + "] must use namespaced_profession_id=value"
-                );
-            }
-            ProfessionId profession;
-            double strength;
-            try {
-                profession = ProfessionId.parse(entry.substring(0, separator));
-                strength = Double.parseDouble(entry.substring(separator + 1));
-            } catch (IllegalArgumentException exception) {
-                throw new IllegalArgumentException(
-                        "Invalid specialization profession override '" + entry + "': "
-                                + exception.getMessage(),
-                        exception
-                );
-            }
-            if (!Double.isFinite(strength) || strength < 0.0 || strength > 1.0) {
-                throw new IllegalArgumentException(
-                        "Specialization strength for " + profession
-                                + " must be finite and between zero and one"
-                );
-            }
-            if (overrides.putIfAbsent(profession, strength) != null) {
-                throw new IllegalArgumentException(
-                        "Duplicate specialization profession override for " + profession
-                );
-            }
-        }
-        return overrides;
+        return SpecializationConfig.parseStrengthOverrides(entries);
     }
 
     private static Set<String> parseNamespacedIds(List<String> entries) {

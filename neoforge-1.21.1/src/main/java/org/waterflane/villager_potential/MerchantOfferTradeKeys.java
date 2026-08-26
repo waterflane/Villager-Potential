@@ -67,13 +67,7 @@ public final class MerchantOfferTradeKeys {
     }
 
     public static boolean isStable(TradeKey key) {
-        Objects.requireNonNull(key, "key");
-        if (!(key instanceof TradeKey.Offer offer)) {
-            return false;
-        }
-        return stableItem(offer.costA())
-                && offer.costB().map(MerchantOfferTradeKeys::stableItem).orElse(true)
-                && stableItem(offer.result());
+        return TradeKey.isStable(key);
     }
 
     /**
@@ -99,12 +93,6 @@ public final class MerchantOfferTradeKeys {
                 stack.getCount(),
                 components(stack.getComponentsPatch())
         );
-    }
-
-    private static boolean stableItem(TradeKey.Item item) {
-        return !item.itemId().startsWith("unregistered:")
-                && !item.components().contains("unregistered:")
-                && !item.components().contains("fallback:");
     }
 
     private static String itemId(Item item) {

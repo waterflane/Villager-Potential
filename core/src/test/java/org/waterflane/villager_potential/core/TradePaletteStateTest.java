@@ -151,6 +151,33 @@ class TradePaletteStateTest {
         assertTrue(persistentAgain.offerHistory().containsKey(BOOK));
     }
 
+    @Test
+    void latestSeenTimeReportsTheNewestObservationOrZero() {
+        assertEquals(0L, TradePaletteState.latestSeenTime(java.util.Map.of()));
+
+        TradePaletteState palette = TradePaletteState.empty().recordPresented(
+                List.of(),
+                List.of(PAPER, BOOK),
+                500L,
+                16
+        );
+        assertEquals(
+                500L,
+                TradePaletteState.latestSeenTime(palette.offerHistory())
+        );
+
+        TradePaletteState updated = palette.recordPresented(
+                List.of(),
+                List.of(COMPASS),
+                900L,
+                16
+        );
+        assertEquals(
+                900L,
+                TradePaletteState.latestSeenTime(updated.offerHistory())
+        );
+    }
+
     private static TradeKey trade(String result) {
         return new TradeKey.Offer(
                 new TradeKey.Item("minecraft:emerald", 1),
