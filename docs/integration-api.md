@@ -5,6 +5,11 @@ NeoForge 1.21.1 facade. Integrations should not use
 `VillagerPotentialAttachments`; attachment types, codecs, and persistence
 containers are implementation details.
 
+Consume the API by declaring a normal mod dependency on `villager_potential`
+and calling the public classes below. There is no service-loader registration;
+the facade and the `VillagerPotentialService` SPI (currently
+`API_VERSION = 2`) are obtained directly, as shown in this document.
+
 ## Reading Potential
 
 Use `org.waterflane.villager_potential.VillagerPotentialApi`:
@@ -28,6 +33,14 @@ potential.demand(librarian);
 they do not retain registry holders or Minecraft offer objects. `PotentialView`
 is a point-in-time immutable snapshot. Its lists and maps are unmodifiable and
 are not persistence containers.
+
+A snapshot exposes: `schemaVersion()`, aptitudes per profession, careers as
+`CareerInfo(accumulatedProfessionTime, skill, firstAssignment,
+latestAssignment, specialization)`, `activeProfession()`, per-profession
+`skill` and `specialization`, learned palettes as portable `TradeKey` lists,
+aggregate `TradeMemoryEntry(timesSeen, lastSeen, timesUsed, lastUsed)` history,
+and stored `DemandInfo(score, timesPurchased, lastPurchaseGameTime)` per trade.
+Reading `DemandInfo` never applies time decay.
 
 Calling the NeoForge facade can lazily initialize missing Potential and must be
 done on the logical server thread. A returned snapshot can safely be retained
@@ -72,7 +85,9 @@ weight and returns a replacement. Negative, NaN, and infinite listener values
 are ignored. With no modifier installed, the resolver takes the same selection
 and RNG paths as before. When a modifier is installed, candidates are
 materialized once so the hook receives the portable `TradeKey` that will be
-returned if selected.
+returned if selected. Candidate-weight modification is the only mutating hook;
+every other trade event is a read-only notification carrying immutable
+collections and snapshots.
 
 `TradeProcessing.kind()` distinguishes:
 

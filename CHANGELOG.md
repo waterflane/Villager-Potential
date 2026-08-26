@@ -1,0 +1,95 @@
+# Changelog
+
+All notable changes to Villager Potential are documented here.
+The format loosely follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
+
+## 1.0 — first public release
+
+Initial feature set for Minecraft 1.21.1 with NeoForge.
+
+### Villager identity
+
+- Individual profession aptitudes: every villager receives one immutable
+  progression-speed multiplier per known profession, generated from a bounded
+  normal distribution around neutral 1.0 (default spread ±0.3, clamped to
+  0.5–2.0).
+- Rare talents: with a small chance (default 2%) one aptitude is drawn from an
+  exceptional upper tail at least 3 standard deviations above the mean.
+- Genetic inheritance: bred children blend both parents' aptitudes (default
+  70% parent average, 20% fresh generation) with zero-mean mutations;
+  children never inherit careers, skill, trades, or demand.
+- Optional qualitative tiers (`Poor` … `Exceptional`) derived from the
+  configured distribution.
+
+### Progression
+
+- Time-based professional skill: eligible loaded employment ticks accumulate
+  persistent skill at base rate × aptitude × activity (default gates:
+  adults only; job-site and working checks available).
+- Vanilla profession levels follow inclusive skill thresholds
+  (Novice … Master, defaults 0 / 0.2 / 0.5 / 0.8 / 1.0); level-ups unlock
+  offers and keep the vanilla regeneration effect.
+- Trade experience points no longer schedule profession levels.
+- Existing villagers bootstrap their learned skill to their current vanilla
+  level and are never demoted.
+- Trading accelerates rather than teaches: successful trades raise a
+  per-profession activity multiplier (default +0.1 up to ×2.0) that decays
+  back toward baseline over loaded server time.
+- Professional specialization: villagers store one named specialization per
+  profession on first employment; specialization bias toward configured trade
+  categories strengthens with professional skill (curve exponent and bounds
+  configurable, per-profession strength overrides supported).
+
+### Trades and economy
+
+- Learned evolving trades with a default `PERSISTENT` palette: generated
+  stable trades stay learned per profession and are restored verbatim,
+  including across workstation loss, profession changes, and config reloads.
+- Optional palette policies `VANILLA`, `WEIGHTED_MEMORY`, `EXHAUST`, and
+  `CYCLIC`, tuned by trade-memory recovery times measured in eligible
+  profession ticks; mode changes never delete stored knowledge.
+- Rare-trade protection: configurable result items can use a shortened
+  recovery window so signature trades stay special (off by default).
+- Demand-based pricing: per-villager, per-trade demand scores rise with use
+  and decay over time; prices interpolate between configurable multipliers
+  (defaults ×1.0–×2.0) and layer on top of vanilla's own adjustments.
+- Optional demand-driven stock effects (off by default): high demand can
+  extend an offer's uses after a genuine vanilla restock within hard caps,
+  never creating extra restocks.
+- Specialization definitions load from data packs
+  (`data/<namespace>/villager_potential/specializations/*.json`, version 1)
+  for any profession, with built-in category coverage for all thirteen
+  vanilla professions and a safe `villager_potential:general` fallback.
+
+### Server administration
+
+- Single world-owned SERVER configuration with validated defaults and ranges;
+  invalid values reject the reload and keep the previous configuration.
+- `/villagerpotential inspect <villager>` and `reload` (permission level 2);
+  `set aptitude|skill`, `reset profession`, and explicitly destructive
+  `regenerate profession|all` (permission level 4).
+- Opt-in concise diagnostics under `[debug]`, plus detailed resolved trade
+  weight logging; per-tick progression is never logged.
+- Optional player feedback: action-bar potential hint on villager interaction,
+  qualitative by tier (`QUALITATIVE`) or with exact values (`EXACT`),
+  disabled by default.
+
+### Integration
+
+- Public read model: `VillagerPotentialApi.view(villager)` returns immutable
+  `PotentialView` snapshots covering aptitudes, careers, skill,
+  specializations, learned palettes, trade memory, and demand.
+- Versioned service SPI `core.api.VillagerPotentialService` (API version 2)
+  via `VillagerPotentialServices.forServer(server)` with UUID lookup and a
+  deliberately narrow set of explicit mutations.
+- Lifecycle hooks: initialization, inheritance, profession changes, batched
+  skill changes, applied vanilla level changes, first specialization
+  assignment.
+- Trade hooks: final candidate-weight modification, new learned-palette
+  entries, processing-kind notifications, completed trades, and demand
+  changes; all synchronous on the server thread.
+- External content compatibility: registered modded professions gain
+  deterministic aptitudes, full career state, and persistence; unknown or
+  unreadable trade listings degrade to neutral categories and preserve-only
+  keys instead of breaking generation.
+- Localization: complete `en_us` and matching `ru_ru` message sets.

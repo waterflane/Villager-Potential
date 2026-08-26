@@ -12,7 +12,7 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
 
-/** Creates the supported version-one service for a logical NeoForge server. */
+/** Creates the supported versioned service for a logical NeoForge server. */
 public final class VillagerPotentialServices {
     private VillagerPotentialServices() {
     }
