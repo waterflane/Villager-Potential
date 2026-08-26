@@ -132,14 +132,14 @@ def generateGameTestStructure = tasks.register('generateGameTestStructure') {
     }
 }
 
-sourceSets.main.resources {
-    srcDir 'src/generated/resources'
-    srcDir generateGameTestStructure
-}
+sourceSets.main.resources.srcDir generateGameTestStructure
 
 
 dependencies {
-    implementation project(':core')
+    // Core is compiled into this mod's JAR below. Keep it off published runtime
+    // metadata so players never need a second core artifact.
+    compileOnly project(':core')
+    testImplementation project(':core')
 
     testImplementation platform('org.junit:junit-bom:5.11.4')
     testImplementation 'org.junit.jupiter:junit-jupiter'
@@ -204,6 +204,122 @@ tasks.named('check') {
 
 tasks.named('jar', Jar) {
     from project(':core').sourceSets.main.output
+    // GameTests remain available to development runs but are not release assets.
+    exclude 'org/waterflane/villager_potential/VillagerProgressionGameTests*.class'
+    exclude "data/${gameTestNamespace}/structure/empty.nbt"
+
+    manifest {
+        attributes(
+                'Implementation-Title': mod_name,
+                'Implementation-Version': project.version,
+                'Implementation-Vendor': mod_authors
+        )
+    }
+}
+
+def releaseJar = tasks.named('jar', Jar).flatMap { it.archiveFile }
+def requiredReleaseEntries = [
+        'META-INF/MANIFEST.MF',
+        'META-INF/neoforge.mods.toml',
+        'villager_potential.mixins.json',
+        'assets/villager_potential/lang/en_us.json',
+        'assets/villager_potential/lang/ru_ru.json',
+        'org/waterflane/villager_potential/Villager_potential.class',
+        'org/waterflane/villager_potential/ServerConfig.class',
+        'org/waterflane/villager_potential/SpecializationDefinitionManager.class',
+        'org/waterflane/villager_potential/VanillaTradeClassifications.class',
+        'org/waterflane/villager_potential/VillagerPotentialFeedback.class',
+        'org/waterflane/villager_potential/core/VillagerPotential.class',
+        'org/waterflane/villager_potential/core/VillagerPotentialState.class',
+        'org/waterflane/villager_potential/core/SpecializationDefinitionParser.class'
+]
+def expectedMetadata = [
+        "modId = \"${mod_id}\"",
+        "version = \"${mod_version}\"",
+        "displayName = \"${mod_name}\"",
+        "license = \"${mod_license}\"",
+        "authors = \"${mod_authors}\"",
+        "versionRange = \"${neo_version_range}\"",
+        "versionRange = \"${minecraft_version_range}\"",
+        "javaVersion = \"${java_version_range}\""
+]
+def expectedManifestVersion = mod_version
+
+tasks.register('verifyReleaseJar') {
+    group = 'verification'
+    description = 'Verifies the self-contained NeoForge release artifact.'
+    dependsOn tasks.named('jar')
+    inputs.file(releaseJar)
+
+    doLast {
+        def archive = releaseJar.get().asFile
+        def zip = new java.util.zip.ZipFile(archive)
+        try {
+            def names = zip.entries().collect { it.name }
+            def duplicates = names.countBy { it }.findAll { name, count -> count > 1 }.keySet()
+            if (!duplicates.isEmpty()) {
+                throw new GradleException("Duplicate release JAR entries: ${duplicates.sort()}")
+            }
+
+            def missing = requiredReleaseEntries.findAll { !names.contains(it) }
+            if (!missing.isEmpty()) {
+                throw new GradleException("Missing required release JAR entries: ${missing}")
+            }
+
+            def developmentEntries = names.findAll { name ->
+                name.contains('/src/test/')
+                        || name.contains('/test/')
+                        || name.contains('VillagerProgressionGameTests')
+                        || name.endsWith('/structure/empty.nbt')
+            }
+            if (!developmentEntries.isEmpty()) {
+                throw new GradleException("Development-only entries in release JAR: ${developmentEntries}")
+            }
+
+            def metadataEntry = zip.getEntry('META-INF/neoforge.mods.toml')
+            def metadata = zip.getInputStream(metadataEntry).getText('UTF-8')
+            def missingMetadata = expectedMetadata.findAll { !metadata.contains(it) }
+            if (!missingMetadata.isEmpty()) {
+                throw new GradleException("Release metadata is incomplete: ${missingMetadata}")
+            }
+            if (metadata.contains('1.20.1')
+                    || metadata.contains('net.minecraftforge')
+                    || metadata.contains('currently 47')
+                    || metadata.contains('.invalid')) {
+                throw new GradleException('Forge 1.20.1 placeholder found in release metadata.')
+            }
+
+            def manifest = zip.getInputStream(zip.getEntry('META-INF/MANIFEST.MF')).getText('UTF-8')
+            if (!manifest.contains("Implementation-Version: ${expectedManifestVersion}")) {
+                throw new GradleException('Manifest version does not match mod_version.')
+            }
+
+            def json = new groovy.json.JsonSlurper()
+            def english = json.parse(zip.getInputStream(zip.getEntry(
+                    'assets/villager_potential/lang/en_us.json'
+            ))) as Map
+            def russian = json.parse(zip.getInputStream(zip.getEntry(
+                    'assets/villager_potential/lang/ru_ru.json'
+            ))) as Map
+            if (english.keySet() != russian.keySet()) {
+                throw new GradleException('en_us and ru_ru localization keys do not match.')
+            }
+        } finally {
+            zip.close()
+        }
+    }
+}
+
+tasks.register('release', Sync) {
+    group = 'build'
+    description = 'Creates the single distributable NeoForge mod artifact.'
+    dependsOn tasks.named('verifyReleaseJar')
+    from releaseJar
+    into rootProject.layout.buildDirectory.dir('release')
+}
+
+tasks.named('check') {
+    dependsOn tasks.named('verifyReleaseJar')
 }
 
 // This block of code expands all declared replace properties in the specified resource targets.
@@ -214,6 +330,7 @@ var generateModMetadata = tasks.register("generateModMetadata", ProcessResources
                              neo_version            : neo_version,
                              neo_version_range      : neo_version_range,
                              loader_version_range   : loader_version_range,
+                             java_version_range     : java_version_range,
                              mod_id                 : mod_id,
                              mod_name               : mod_name,
                              mod_license            : mod_license,
@@ -237,6 +354,7 @@ publishing {
     publications {
         register('mavenJava', MavenPublication) {
             from components.java
+            artifactId = mod_id
         }
     }
     repositories {
