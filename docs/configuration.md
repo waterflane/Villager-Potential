@@ -93,7 +93,7 @@ zombie conversion.
 | Option | Type | Default | Range | Effect |
 | --- | --- | --- | --- | --- |
 | `enabled` | bool | `true` | — | Converts eligible tenure into persistent skill. `false` stops gains and preserves skill already earned. |
-| `baseProgressionRate` | double | `0.001` | 0.0 – 1.0 | Skill gained per eligible server tick at neutral aptitude and activity. With defaults, one skill point takes 1000 working seconds of game time (20 000 ticks). |
+| `baseProgressionRate` | double | `0.001` | 0.0 – 1.0 | Skill gained per eligible server tick at neutral aptitude and activity. With defaults, one skill point takes 1000 eligible ticks (50 seconds of game time). |
 | `aptitudeInfluence` | double | `1.0` | 0.0 – 1.0 | Fraction of the aptitude multiplier applied to skill gain; `0.0` makes everyone progress at the base rate, `1.0` applies aptitude fully. |
 | `minimum` | double | `0.0` | 0.0 – 1 000 000.0 | Lower skill bound. Existing stored history is never reset or lowered on reload. |
 | `maximum` | double | `1.0` | 0.0 – 1 000 000.0 | Cap on gained skill; lowering it never reduces already-earned skill. |
