@@ -8,7 +8,9 @@ parents, earns professional skill through real work time, specializes as it
 matures, learns a durable palette of trades, and runs a local market where demand
 moves prices.
 
-Supported platform: **Minecraft 1.21.1** with **NeoForge**.
+Supported platform: **Minecraft 1.21.1** with **NeoForge 21.1.233–21.1.x**.
+A compatibility build matrix checks both `21.1.233` and the current pinned
+`21.1.248` toolchain; one release JAR works across that range.
 A Forge 1.20.1 port is planned; it is not supported yet.
 
 ## How it works

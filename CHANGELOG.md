@@ -76,6 +76,8 @@ Initial feature set for Minecraft 1.21.1 with NeoForge.
 
 ### Integration
 
+- NeoForge 1.21.1 metadata and build verification cover the supported
+  `21.1.233` through `21.1.x` loader range.
 - Public read model: `VillagerPotentialApi.view(villager)` returns immutable
   `PotentialView` snapshots covering aptitudes, careers, skill,
   specializations, learned palettes, trade memory, and demand.
