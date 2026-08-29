@@ -44,6 +44,8 @@ Initial feature set for Minecraft 1.21.1 with NeoForge.
 - Progress tooltips use restrained semantic colors: blue/aqua for professional
   coefficients and experience, green for trade multipliers, and yellow for
   remaining values.
+- The blue tooltip exposes each villager's effective aptitude for the current
+  profession separately from the shared level-rate bonus.
 - Trade experience points no longer schedule profession levels.
 - Existing villagers bootstrap their learned skill to their current vanilla
   level and are never demoted.

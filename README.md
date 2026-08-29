@@ -54,6 +54,9 @@ ticks never add tenure or professional experience.
 Progress tooltips use restrained semantic highlights: blue/aqua for professional
 rates and experience, green for trade multipliers, and yellow for remaining
 amounts or time. Labels stay neutral so the values remain easy to scan.
+The blue tooltip reports the villager's effective aptitude for the current
+profession separately from the shared level-rate bonus, so two novices can show
+different learning multipliers.
 
 A villager must still own the correct, loaded workstation. Losing it immediately
 stops professional-skill gain, closes an open merchant menu, blocks new trading,

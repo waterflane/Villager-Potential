@@ -43,6 +43,7 @@ class VillagerTradeProgressOverlayTest {
                 10.5,
                 10.5,
                 0.0,
+                1.4,
                 1.0,
                 1.0,
                 2.0,
@@ -66,7 +67,7 @@ class VillagerTradeProgressOverlayTest {
     @Test
     void stoppedProgressHasNoFiniteCompletionEstimate() {
         VillagerTradeProgressPayload payload = new VillagerTradeProgressPayload(
-                7, 3, 0.75, 0.5, 1.0, 0.0, 1.0, 1.0, 2.0, 0.1
+                7, 3, 0.75, 0.5, 1.0, 0.0, 1.4, 1.0, 1.0, 2.0, 0.1
         );
 
         assertEquals(
@@ -84,8 +85,23 @@ class VillagerTradeProgressOverlayTest {
         assertColor(tooltip.get(0), ChatFormatting.BLUE);
         assertArgumentColor(tooltip.get(1), 0, ChatFormatting.AQUA);
         assertArgumentColor(tooltip.get(2), 0, ChatFormatting.AQUA);
-        assertArgumentColor(tooltip.get(3), 0, ChatFormatting.BLUE);
-        assertArgumentColor(tooltip.get(4), 0, ChatFormatting.YELLOW);
+        assertArgumentColor(tooltip.get(3), 0, ChatFormatting.AQUA);
+        assertArgumentColor(tooltip.get(4), 0, ChatFormatting.BLUE);
+        assertArgumentColor(tooltip.get(5), 0, ChatFormatting.YELLOW);
+    }
+
+    @Test
+    void individualAptitudeIsDisplayedSeparatelyFromTheLevelBonus() {
+        VillagerTradeProgressPayload payload = new VillagerTradeProgressPayload(
+                7, 1, 0.75, 0.0, 1.5, 0.075, 1.37, 1.0, 1.0, 2.0, 0.1
+        );
+
+        List<Component> tooltip = VillagerTradeProgressOverlay.skillTooltip(payload);
+
+        assertTranslationAndArgument(tooltip.get(1),
+                "tooltip.villager_potential.skill.aptitude_multiplier", "1.37");
+        assertTranslationAndArgument(tooltip.get(2),
+                "tooltip.villager_potential.skill.level_multiplier", "1.00");
     }
 
     @Test
@@ -117,6 +133,20 @@ class VillagerTradeProgressOverlayTest {
         assertColor(argument, expected);
     }
 
+    private static void assertTranslationAndArgument(
+            Component line,
+            String expectedKey,
+            String expectedArgument
+    ) {
+        TranslatableContents contents = assertInstanceOf(
+                TranslatableContents.class,
+                line.getContents()
+        );
+        assertEquals(expectedKey, contents.getKey());
+        Component argument = assertInstanceOf(Component.class, contents.getArgs()[0]);
+        assertEquals(expectedArgument, argument.getString());
+    }
+
     private static void assertColor(Component component, ChatFormatting expected) {
         assertEquals(expected.getColor(), component.getStyle().getColor().getValue());
     }
@@ -134,6 +164,7 @@ class VillagerTradeProgressOverlayTest {
                 levelStart,
                 nextLevel,
                 0.075,
+                1.37,
                 activity,
                 1.0,
                 2.0,

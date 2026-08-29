@@ -143,7 +143,11 @@ public final class VillagerTradeProgressOverlay {
         lines.add(Component.translatable("tooltip.villager_potential.skill.title")
                 .withStyle(ChatFormatting.BLUE));
         lines.add(Component.translatable(
-                "tooltip.villager_potential.skill.rate_multiplier",
+                "tooltip.villager_potential.skill.aptitude_multiplier",
+                colored(multiplier(progress.aptitudeMultiplier()), ChatFormatting.AQUA)
+        ));
+        lines.add(Component.translatable(
+                "tooltip.villager_potential.skill.level_multiplier",
                 colored(
                         multiplier(SkillProgression.professionLevelRateMultiplier(
                                 progress.professionLevel()

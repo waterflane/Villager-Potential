@@ -20,7 +20,7 @@ import java.util.Optional;
 
 /** Synchronizes the current profession progression while a player is trading. */
 public final class VillagerTradeProgressNetworking {
-    private static final String NETWORK_VERSION = "1";
+    private static final String NETWORK_VERSION = "2";
     private VillagerTradeProgressNetworking() {
     }
 
@@ -76,8 +76,10 @@ public final class VillagerTradeProgressNetworking {
         double activity = state.professionActivityFor(profession, gameTime, activityConfig);
         boolean eligible = VillagerJobSiteAccess.hasUsableJobSite(villager, gameTime)
                 && ProfessionTenureEligibility.canAccumulate(villager, config.career());
-        double effectiveAptitude = 1.0
-                + (aptitude - 1.0) * skillConfig.aptitudeInfluence();
+        double effectiveAptitude = SkillProgression.effectiveAptitudeMultiplier(
+                aptitude,
+                skillConfig.aptitudeInfluence()
+        );
         double skillPerMinute = skillConfig.enabled()
                 && eligible
                 && career.learnedSkill() < skillConfig.maximumSkill()
@@ -95,6 +97,7 @@ public final class VillagerTradeProgressNetworking {
                 levelStart,
                 nextLevel,
                 skillPerMinute,
+                effectiveAptitude,
                 activity,
                 activityConfig.baseline(),
                 activityConfig.maximum(),

@@ -56,8 +56,10 @@ public final class SkillProgression {
         }
 
         double progressionStart = Math.max(learnedSkill, config.minimumSkill());
-        double effectiveAptitude = 1.0
-                + (aptitude - 1.0) * config.aptitudeInfluence();
+        double effectiveAptitude = effectiveAptitudeMultiplier(
+                aptitude,
+                config.aptitudeInfluence()
+        );
         int professionLevel = config.professionLevelThresholds()
                 .levelForSkill(progressionStart);
         double gainedSkill = elapsedProfessionTime
@@ -88,6 +90,22 @@ public final class SkillProgression {
                     "professionLevel must be between 1 and 5"
             );
         };
+    }
+
+    /** Multiplier that the configured influence makes one stored aptitude apply. */
+    public static double effectiveAptitudeMultiplier(
+            double aptitude,
+            double aptitudeInfluence
+    ) {
+        requireFiniteNonNegative("aptitude", aptitude);
+        if (!Double.isFinite(aptitudeInfluence)
+                || aptitudeInfluence < 0.0
+                || aptitudeInfluence > 1.0) {
+            throw new IllegalArgumentException(
+                    "aptitudeInfluence must be finite and between zero and one"
+            );
+        }
+        return 1.0 + (aptitude - 1.0) * aptitudeInfluence;
     }
 
     /**

@@ -68,6 +68,13 @@ class SkillProgressionTest {
     }
 
     @Test
+    void effectiveAptitudeMultiplierMatchesTheActualLearningFormula() {
+        assertEquals(1.5, SkillProgression.effectiveAptitudeMultiplier(1.5, 1.0));
+        assertEquals(1.25, SkillProgression.effectiveAptitudeMultiplier(1.5, 0.5));
+        assertEquals(1.0, SkillProgression.effectiveAptitudeMultiplier(0.5, 0.0));
+    }
+
+    @Test
     void activityFactorMultipliesTimeBasedProgress() {
         double inactiveSkill = SkillProgression.advance(0.0, 100L, 1.0, 1.0, CONFIG);
         double activeSkill = SkillProgression.advance(0.0, 100L, 1.0, 1.5, CONFIG);

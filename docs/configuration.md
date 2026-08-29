@@ -50,6 +50,10 @@ required.
 | `levels.expert` | `6.5` | Inclusive threshold for level 4. |
 | `levels.master` | `10.5` | Inclusive threshold for level 5; thresholds must be strictly increasing. |
 
+The trade screen's individual learning multiplier is the current profession's
+aptitude after `skill.aptitudeInfluence` is applied. The level bonus is displayed
+separately because it is shared by all villagers at the same profession level.
+
 ## Purchase activity
 
 | Key | Default | Meaning |
