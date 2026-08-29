@@ -418,6 +418,28 @@ class VillagerProfessionTrackingTest {
     }
 
     @Test
+    void nightTicksDoNotAccumulateTenureOrSkill() {
+        CareerCarrier villager = carrier(
+                VillagerProfession.LIBRARIAN,
+                baseState().assignProfession(LIBRARIAN, 20L),
+                13_000L
+        );
+        when(villager.villager().level().getDayTime()).thenReturn(13_000L);
+
+        tick(villager, 40);
+
+        assertEquals(
+                0L,
+                villager.state().get().careerFor(LIBRARIAN).orElseThrow()
+                        .accumulatedProfessionTime()
+        );
+        assertEquals(
+                0.0,
+                villager.state().get().careerFor(LIBRARIAN).orElseThrow().learnedSkill()
+        );
+    }
+
+    @Test
     void clientTicksNeverAccessProfessionState() {
         Villager villager = mock(Villager.class);
         when(villager.level()).thenReturn(mock(Level.class));
@@ -496,6 +518,7 @@ class VillagerProfessionTrackingTest {
         AtomicReference<VillagerPotentialState> state = new AtomicReference<>(persistedState);
 
         when(level.getGameTime()).thenReturn(gameTime);
+        when(level.getDayTime()).thenReturn(gameTime);
         when(villager.level()).thenReturn(level);
         when(villager.getUUID()).thenReturn(UUID.fromString("00000000-0000-0000-0000-000000000010"));
         when(villager.getVillagerData()).thenReturn(villagerData);

@@ -27,6 +27,9 @@ Initial feature set for Minecraft 1.21.1 with NeoForge.
   persistent skill at base rate × aptitude × activity (default gates:
   adults only; a valid owned workstation is mandatory, with optional working
   activity checks).
+- Progression uses the shared Minecraft server clock (20 ticks per second) and
+  counts only daytime ticks 0–11,999; villagers gain no professional experience
+  at night.
 - Losing the workstation immediately suspends skill gain and trading (including
   an already open menu) and releases the profession so a new workstation and
   profession can be claimed.

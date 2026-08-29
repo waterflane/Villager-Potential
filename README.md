@@ -48,6 +48,9 @@ still unlocks offer slots, regenerates offers, and shows the vanilla level-up
 effect. Trade XP can no longer schedule levels; existing villagers never lose a
 level they already had. The base threshold gaps are 1.5, 2, 3, and 4 Minecraft
 workdays before aptitude, purchase activity, and level-rate acceleration.
+All timing uses the server's normal tick clock (`20 ticks = 1 second`, `1,200
+ticks = 1 minute`). Only daytime ticks from `0` through `11,999` count; night
+ticks never add tenure or professional experience.
 
 A villager must still own the correct, loaded workstation. Losing it immediately
 stops professional-skill gain, closes an open merchant menu, blocks new trading,

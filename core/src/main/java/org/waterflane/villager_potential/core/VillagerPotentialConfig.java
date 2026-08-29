@@ -23,7 +23,7 @@ public record VillagerPotentialConfig(
             new CareerProgressionConfig(true, true, true, false),
             new SkillProgressionConfig(
                     true,
-                    1.0 / 24_000.0,
+                    1.0 / MinecraftTime.TICKS_PER_DAY,
                     1.0,
                     0.0,
                     10.5,

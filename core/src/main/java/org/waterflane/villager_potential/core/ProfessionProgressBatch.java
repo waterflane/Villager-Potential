@@ -14,7 +14,7 @@ package org.waterflane.villager_potential.core;
  */
 public final class ProfessionProgressBatch {
     /** Eligible ticks accumulated before progression is flushed to state. */
-    public static final long FLUSH_INTERVAL_TICKS = 20L;
+    public static final long FLUSH_INTERVAL_TICKS = MinecraftTime.TICKS_PER_SECOND;
 
     private final ProfessionId profession;
     private long elapsedProfessionTime;

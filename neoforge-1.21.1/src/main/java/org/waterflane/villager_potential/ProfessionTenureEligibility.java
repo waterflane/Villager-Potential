@@ -4,6 +4,7 @@ import net.minecraft.world.entity.npc.Villager;
 import net.minecraft.world.entity.ai.memory.MemoryModuleType;
 import net.minecraft.world.entity.schedule.Activity;
 import org.waterflane.villager_potential.core.CareerProgressionConfig;
+import org.waterflane.villager_potential.core.MinecraftTime;
 
 import java.util.Objects;
 
@@ -24,6 +25,7 @@ interface ProfessionTenureEligibility {
         Objects.requireNonNull(villager, "villager");
         Objects.requireNonNull(config, "config");
         return config.enabled()
+                && MinecraftTime.isDaytime(villager.level().getDayTime())
                 && (!config.adultsOnly() || !villager.isBaby())
                 && (!config.requireJobSite()
                 || villager.getBrain() == null

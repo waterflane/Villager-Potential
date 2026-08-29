@@ -10,6 +10,7 @@ import org.waterflane.villager_potential.core.ProfessionActivityConfig;
 import org.waterflane.villager_potential.core.ProfessionCareerState;
 import org.waterflane.villager_potential.core.ProfessionId;
 import org.waterflane.villager_potential.core.ProfessionLevelThresholds;
+import org.waterflane.villager_potential.core.MinecraftTime;
 import org.waterflane.villager_potential.core.SkillProgression;
 import org.waterflane.villager_potential.core.SkillProgressionConfig;
 import org.waterflane.villager_potential.core.VillagerPotentialConfig;
@@ -20,8 +21,6 @@ import java.util.Optional;
 /** Synchronizes the current profession progression while a player is trading. */
 public final class VillagerTradeProgressNetworking {
     private static final String NETWORK_VERSION = "1";
-    private static final double SERVER_TICKS_PER_MINUTE = 20.0 * 60.0;
-
     private VillagerTradeProgressNetworking() {
     }
 
@@ -82,7 +81,7 @@ public final class VillagerTradeProgressNetworking {
         double skillPerMinute = skillConfig.enabled()
                 && eligible
                 && career.learnedSkill() < skillConfig.maximumSkill()
-                ? SERVER_TICKS_PER_MINUTE
+                ? MinecraftTime.TICKS_PER_MINUTE
                 * skillConfig.progressionRate()
                 * effectiveAptitude
                 * activity
