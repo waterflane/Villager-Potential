@@ -16,7 +16,13 @@ public record VillagerTradeConfig(
                     TradePaletteRerollStrategy.PERSISTENT,
                     128,
                     0.75,
-                    new TradeMemoryRecoveryConfig(24_000L, 0.01, 24_000L, 24_000L, 0L),
+                    new TradeMemoryRecoveryConfig(
+                            MinecraftTime.TICKS_PER_DAY,
+                            0.01,
+                            MinecraftTime.TICKS_PER_DAY,
+                            MinecraftTime.TICKS_PER_DAY,
+                            0L
+                    ),
                     false,
                     Set.of()
             ),

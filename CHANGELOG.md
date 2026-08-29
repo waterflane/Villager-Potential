@@ -89,9 +89,8 @@ Initial feature set for Minecraft 1.21.1 with NeoForge.
   `regenerate profession|all` (permission level 4).
 - Opt-in concise diagnostics under `[debug]`, plus detailed resolved trade
   weight logging; per-tick progression is never logged.
-- Optional player feedback: action-bar potential hint on villager interaction,
-  qualitative by tier (`QUALITATIVE`) or with exact values (`EXACT`),
-  disabled by default.
+- Obsolete interaction-feedback config was removed after action-bar messages
+  were retired; individual aptitude is presented in the trading progress UI.
 
 ### Integration
 

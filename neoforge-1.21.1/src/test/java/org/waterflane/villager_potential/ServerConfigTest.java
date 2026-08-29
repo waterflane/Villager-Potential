@@ -2,7 +2,6 @@ package org.waterflane.villager_potential;
 
 import org.junit.jupiter.api.Test;
 import org.waterflane.villager_potential.core.VillagerPotentialConfig;
-import org.waterflane.villager_potential.core.AptitudeDisplayMode;
 import org.waterflane.villager_potential.core.ProfessionId;
 import org.waterflane.villager_potential.core.TradePaletteRerollStrategy;
 import org.waterflane.villager_potential.core.VillagerTradeConfig;
@@ -29,7 +28,6 @@ class ServerConfigTest {
         assertTrue(mapped.career().enabled());
         assertTrue(mapped.skill().enabled());
         assertTrue(mapped.activity().enabled());
-        assertEquals(AptitudeDisplayMode.DISABLED, ServerConfig.playerAptitudeDisplayMode());
     }
 
     @Test
@@ -87,6 +85,26 @@ class ServerConfigTest {
         assertEquals(VillagerPotentialConfig.DEFAULT.skill().professionLevelThresholds(),
                 mapped.skill().professionLevelThresholds());
         assertEquals(0.0, mapped.activity().decayPerTick());
+    }
+
+    @Test
+    void intermediateDefaultCurveMigratesToCurrentTickBasedDefaults() {
+        ServerConfig.Values defaults = ServerConfig.defaultValues();
+        ServerConfig.Values legacy = new ServerConfig.Values(
+                defaults.aptitude(), defaults.rareTalents(), defaults.inheritance(),
+                new ServerConfig.CareerValues(true, true, false, false),
+                new ServerConfig.SkillValues(true, 0.001, 1.0, 0.0, 1.0),
+                new ServerConfig.ActivityValues(true, 0.1, 0.0001, 1.0, 2.0),
+                new ServerConfig.LevelValues(0.0, 0.2, 0.5, 0.8, 1.0)
+        );
+
+        VillagerPotentialConfig mapped = ServerConfig.map(
+                ServerConfig.migrateLegacyDefaults(legacy)
+        );
+
+        assertEquals(VillagerPotentialConfig.DEFAULT.skill(), mapped.skill());
+        assertEquals(0.0, mapped.activity().decayPerTick());
+        assertTrue(mapped.career().requireJobSite());
     }
 
     @Test

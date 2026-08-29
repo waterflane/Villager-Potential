@@ -4,7 +4,6 @@ import net.minecraft.resources.ResourceLocation;
 import net.neoforged.fml.event.config.ModConfigEvent;
 import net.neoforged.neoforge.common.ModConfigSpec;
 import org.waterflane.villager_potential.core.AptitudeGenerationConfig;
-import org.waterflane.villager_potential.core.AptitudeDisplayMode;
 import org.waterflane.villager_potential.core.AptitudeInheritanceConfig;
 import org.waterflane.villager_potential.core.CareerProgressionConfig;
 import org.waterflane.villager_potential.core.MarketDemandConfig;
@@ -55,7 +54,6 @@ public final class ServerConfig {
     private static final ModConfigSpec.DoubleValue MUTATION_VARIANCE;
     private static final ModConfigSpec.BooleanValue CAREER_ENABLED;
     private static final ModConfigSpec.BooleanValue CAREER_ADULTS_ONLY;
-    private static final ModConfigSpec.BooleanValue CAREER_REQUIRE_JOB_SITE;
     private static final ModConfigSpec.BooleanValue CAREER_REQUIRE_WORK_ACTIVITY;
     private static final ModConfigSpec.BooleanValue SKILL_ENABLED;
     private static final ModConfigSpec.DoubleValue SKILL_BASE_RATE;
@@ -101,7 +99,6 @@ public final class ServerConfig {
     private static final ModConfigSpec.DoubleValue STOCK_INFLUENCE_STRENGTH;
     private static final ModConfigSpec.IntValue MAXIMUM_ADDITIONAL_USES;
     private static final ModConfigSpec.IntValue MAXIMUM_USES_PER_OFFER;
-    private static final ModConfigSpec.EnumValue<AptitudeDisplayMode> PLAYER_APTITUDE_DISPLAY;
     private static final ModConfigSpec.BooleanValue DIAGNOSTIC_LOGGING;
     private static final ModConfigSpec.BooleanValue DETAILED_WEIGHT_LOGGING;
 
@@ -165,9 +162,6 @@ public final class ServerConfig {
         CAREER_ADULTS_ONLY = BUILDER
                 .comment("Require adulthood for a loaded profession tick to count toward tenure.")
                 .define("adultsOnly", career.adultsOnly());
-        CAREER_REQUIRE_JOB_SITE = BUILDER
-                .comment("Keep the career eligibility job-site check enabled. Trading and skill gain always require a valid owned workstation.")
-                .define("requireJobSite", career.requireJobSite());
         CAREER_REQUIRE_WORK_ACTIVITY = BUILDER
                 .comment("Require the villager's current brain activity to be WORK for a tick to count.")
                 .define("requireWorkActivity", career.requireWorkActivity());
@@ -340,15 +334,6 @@ public final class ServerConfig {
                 .defineInRange("maximumUsesPerOffer", stock.maximumUsesPerOffer(), 1, 64);
         BUILDER.pop(2);
 
-        BUILDER.push("playerFeedback");
-        PLAYER_APTITUDE_DISPLAY = BUILDER
-                .comment(
-                        "Optional current-profession potential hint on villager interaction: DISABLED, QUALITATIVE, or EXACT.",
-                        "DISABLED preserves vanilla visuals. EXACT explicitly exposes stored aptitude numbers to players."
-                )
-                .defineEnum("aptitudeDisplay", AptitudeDisplayMode.DISABLED);
-        BUILDER.pop();
-
         BUILDER.push("debug");
         DIAGNOSTIC_LOGGING = BUILDER
                 .comment("Log concise semantic Villager Potential lifecycle, trade and demand diagnostics.")
@@ -377,7 +362,7 @@ public final class ServerConfig {
                 new AptitudeValues(APTITUDE_ENABLED.get(), APTITUDE_MEAN.get(), APTITUDE_VARIANCE.get(), APTITUDE_MINIMUM.get(), APTITUDE_MAXIMUM.get()),
                 new RareTalentValues(RARE_TALENTS_ENABLED.get(), RARE_TALENT_CHANCE.get(), RARE_TALENT_STRENGTH.get()),
                 new InheritanceValues(INHERITANCE_ENABLED.get(), INHERITANCE_STRENGTH.get(), RANDOM_CONTRIBUTION.get(), MUTATION_CHANCE.get(), MUTATION_VARIANCE.get()),
-                new CareerValues(CAREER_ENABLED.get(), CAREER_ADULTS_ONLY.get(), CAREER_REQUIRE_JOB_SITE.get(), CAREER_REQUIRE_WORK_ACTIVITY.get()),
+                new CareerValues(CAREER_ENABLED.get(), CAREER_ADULTS_ONLY.get(), true, CAREER_REQUIRE_WORK_ACTIVITY.get()),
                 new SkillValues(SKILL_ENABLED.get(), SKILL_BASE_RATE.get(), SKILL_APTITUDE_INFLUENCE.get(), SKILL_MINIMUM.get(), SKILL_MAXIMUM.get()),
                 new ActivityValues(ACTIVITY_ENABLED.get(), ACTIVITY_GAIN_PER_TRADE.get(), ACTIVITY_DECAY_RATE.get(), ACTIVITY_BASELINE.get(), ACTIVITY_MAXIMUM.get()),
                 new LevelValues(LEVEL_NOVICE.get(), LEVEL_APPRENTICE.get(), LEVEL_JOURNEYMAN.get(), LEVEL_EXPERT.get(), LEVEL_MASTER.get())
@@ -392,7 +377,7 @@ public final class ServerConfig {
         LevelValues levels = values.levels();
         VillagerPotentialConfig defaults = DEFAULT_GAMEPLAY;
 
-        boolean legacySkillCurve = Double.compare(skill.baseProgressionRate(), 0.00005) == 0
+        boolean originalSkillCurve = Double.compare(skill.baseProgressionRate(), 0.00005) == 0
                 && Double.compare(skill.minimum(), 0.0) == 0
                 && Double.compare(skill.maximum(), 5.0) == 0
                 && Double.compare(levels.novice(), 0.0) == 0
@@ -400,6 +385,15 @@ public final class ServerConfig {
                 && Double.compare(levels.journeyman(), 0.5) == 0
                 && Double.compare(levels.expert(), 1.0) == 0
                 && Double.compare(levels.master(), 5.0) == 0;
+        boolean intermediateSkillCurve = Double.compare(skill.baseProgressionRate(), 0.001) == 0
+                && Double.compare(skill.minimum(), 0.0) == 0
+                && Double.compare(skill.maximum(), 1.0) == 0
+                && Double.compare(levels.novice(), 0.0) == 0
+                && Double.compare(levels.apprentice(), 0.2) == 0
+                && Double.compare(levels.journeyman(), 0.5) == 0
+                && Double.compare(levels.expert(), 0.8) == 0
+                && Double.compare(levels.master(), 1.0) == 0;
+        boolean legacySkillCurve = originalSkillCurve || intermediateSkillCurve;
         boolean legacyActivityDecay = Double.compare(activity.gainPerSuccessfulTrade(), 0.1) == 0
                 && Double.compare(activity.decayRate(), 0.0001) == 0
                 && Double.compare(activity.baseline(), 1.0) == 0
@@ -482,7 +476,7 @@ public final class ServerConfig {
                 ),
                 validateSection("career", () -> new CareerProgressionConfig(
                                 career.enabled(), career.adultsOnly(),
-                                career.requireJobSite(), career.requireWorkActivity()
+                                true, career.requireWorkActivity()
                         )
                 ),
                 validateSection("skill", () -> new SkillProgressionConfig(
@@ -723,12 +717,6 @@ public final class ServerConfig {
 
     public static boolean detailedWeightLoggingEnabled() {
         return diagnosticLoggingEnabled() && DETAILED_WEIGHT_LOGGING.get();
-    }
-
-    public static AptitudeDisplayMode playerAptitudeDisplayMode() {
-        return SPEC.isLoaded()
-                ? PLAYER_APTITUDE_DISPLAY.get()
-                : AptitudeDisplayMode.DISABLED;
     }
 
     private static ModConfigSpec.DoubleValue threshold(String name, double defaultValue, String levelName) {

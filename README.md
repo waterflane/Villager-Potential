@@ -129,7 +129,7 @@ All gameplay options live in one world-scoped SERVER config with validated
 defaults, documented ranges, and safe reload semantics — invalid values reject
 the reload and keep the previous configuration. See
 [docs/configuration.md](docs/configuration.md) for every option, its default,
-range, unit, and gameplay effect.
+time unit, and gameplay effect.
 
 Useful commands (all under `/villagerpotential`, output is diagnostic text):
 `inspect <villager>` and `reload` need permission level 2;
@@ -158,9 +158,6 @@ A small, versioned integration surface is available to other NeoForge mods:
 See [docs/integration-api.md](docs/integration-api.md) for the full contract.
 Specialization definitions for data pack authors are documented in
 [docs/specialization-definitions.md](docs/specialization-definitions.md).
-
-Optional player feedback (action-bar tier hint on interaction) is disabled by
-default; see [docs/player-feedback.md](docs/player-feedback.md).
 
 ## Compatibility philosophy
 

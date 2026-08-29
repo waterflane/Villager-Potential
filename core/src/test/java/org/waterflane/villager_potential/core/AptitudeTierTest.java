@@ -54,12 +54,4 @@ class AptitudeTierTest {
                 () -> AptitudeTier.classify(Double.NaN, config));
     }
 
-    @Test
-    void displayModesKeepExactValuesBehindExplicitOptIn() {
-        assertEquals(false, AptitudeDisplayMode.DISABLED.visible());
-        assertEquals(false, AptitudeDisplayMode.DISABLED.exactValueVisible());
-        assertEquals(true, AptitudeDisplayMode.QUALITATIVE.visible());
-        assertEquals(false, AptitudeDisplayMode.QUALITATIVE.exactValueVisible());
-        assertEquals(true, AptitudeDisplayMode.EXACT.exactValueVisible());
-    }
 }

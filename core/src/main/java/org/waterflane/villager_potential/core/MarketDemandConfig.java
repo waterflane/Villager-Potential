@@ -20,7 +20,7 @@ public record MarketDemandConfig(
             0.0,
             100.0,
             1.0,
-            1.0 / 1_200.0
+            1.0 / MinecraftTime.TICKS_PER_MINUTE
     );
 
     public MarketDemandConfig(

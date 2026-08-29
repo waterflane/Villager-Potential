@@ -1,11 +1,4 @@
 {
-  "message.villager_potential.potential.qualitative": "Professional potential: %s",
-  "message.villager_potential.potential.exact": "Professional potential: %s (%s)",
-  "tier.villager_potential.aptitude.poor": "Poor",
-  "tier.villager_potential.aptitude.average": "Average",
-  "tier.villager_potential.aptitude.promising": "Promising",
-  "tier.villager_potential.aptitude.talented": "Talented",
-  "tier.villager_potential.aptitude.exceptional": "Exceptional",
   "tooltip.villager_potential.skill.title": "Professional experience",
   "tooltip.villager_potential.skill.rate_multiplier": "Level rate multiplier: ×%s",
   "tooltip.villager_potential.skill.rate": "Rate: %s experience/min",

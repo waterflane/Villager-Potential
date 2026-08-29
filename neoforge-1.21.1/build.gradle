@@ -229,7 +229,6 @@ def requiredReleaseEntries = [
         'org/waterflane/villager_potential/ServerConfig.class',
         'org/waterflane/villager_potential/SpecializationDefinitionManager.class',
         'org/waterflane/villager_potential/VanillaTradeClassifications.class',
-        'org/waterflane/villager_potential/VillagerPotentialFeedback.class',
         'org/waterflane/villager_potential/core/VillagerPotential.class',
         'org/waterflane/villager_potential/core/VillagerPotentialState.class',
         'org/waterflane/villager_potential/core/SpecializationDefinitionParser.class'

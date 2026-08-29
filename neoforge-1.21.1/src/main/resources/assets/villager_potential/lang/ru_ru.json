@@ -1,11 +1,4 @@
 {
-  "message.villager_potential.potential.qualitative": "Профессиональный потенциал: %s",
-  "message.villager_potential.potential.exact": "Профессиональный потенциал: %s (%s)",
-  "tier.villager_potential.aptitude.poor": "Слабый",
-  "tier.villager_potential.aptitude.average": "Обычный",
-  "tier.villager_potential.aptitude.promising": "Подающий надежды",
-  "tier.villager_potential.aptitude.talented": "Одарённый",
-  "tier.villager_potential.aptitude.exceptional": "Выдающийся",
   "tooltip.villager_potential.skill.title": "Профессиональный опыт",
   "tooltip.villager_potential.skill.rate_multiplier": "Множитель уровня: ×%s",
   "tooltip.villager_potential.skill.rate": "Скорость: %s опыта/мин",
