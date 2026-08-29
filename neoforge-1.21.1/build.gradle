@@ -245,12 +245,20 @@ def expectedMetadata = [
         "javaVersion = \"${java_version_range}\""
 ]
 def expectedManifestVersion = mod_version
+def englishLocalizationSource = layout.projectDirectory.file(
+        'src/main/resources/assets/villager_potential/lang/en_us.json'
+)
+def russianLocalizationSource = layout.projectDirectory.file(
+        'src/main/resources/assets/villager_potential/lang/ru_ru.json'
+)
 
 tasks.register('verifyReleaseJar') {
     group = 'verification'
     description = 'Verifies the self-contained NeoForge release artifact.'
     dependsOn tasks.named('jar')
     inputs.file(releaseJar)
+    inputs.file(englishLocalizationSource)
+    inputs.file(russianLocalizationSource)
 
     doLast {
         def archive = releaseJar.get().asFile
@@ -304,6 +312,18 @@ tasks.register('verifyReleaseJar') {
             ))) as Map
             if (english.keySet() != russian.keySet()) {
                 throw new GradleException('en_us and ru_ru localization keys do not match.')
+            }
+            def sourceEnglish = json.parse(englishLocalizationSource.asFile) as Map
+            def sourceRussian = json.parse(russianLocalizationSource.asFile) as Map
+            if (english != sourceEnglish) {
+                throw new GradleException(
+                        'Release en_us.json differs from src/main/resources (missing, extra, or changed entries).'
+                )
+            }
+            if (russian != sourceRussian) {
+                throw new GradleException(
+                        'Release ru_ru.json differs from src/main/resources (missing, extra, or changed entries).'
+                )
             }
         } finally {
             zip.close()

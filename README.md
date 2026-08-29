@@ -98,6 +98,15 @@ plus a fixed regeneration budget), workstation checks are cached, and they
 never load an absent chunk; ordinary vanilla villagers only use a small fraction
 of those limits.
 
+### Localization formatting
+
+Language values remain ordinary Minecraft translation strings. Native legacy
+formatting is supported with the section-sign codes; in JSON, use the explicit
+Unicode escape form such as `\u00A79Blue text\u00A7r`. Structured text-component
+objects and ampersand aliases such as `&9` are not valid vanilla lang values.
+Release verification compares both packaged language maps with their source
+files exactly, so missing, extra, or changed translations fail the build.
+
 ### Demand-based pricing and optional stock effects
 
 Every stable logical trade carries a demand score that rises with successful
