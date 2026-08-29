@@ -26,9 +26,4 @@ public abstract class MerchantScreenMixin {
                 mouseY
         );
     }
-
-    @Inject(method = "removed", at = @At("TAIL"))
-    private void villagerPotential$clearProgress(CallbackInfo callback) {
-        VillagerTradeProgressOverlay.clear();
-    }
 }

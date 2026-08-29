@@ -12,6 +12,7 @@
     "VillagerLevelUpMixin"
   ],
   "client": [
+    "client.AbstractContainerScreenMixin",
     "client.MerchantScreenMixin"
   ],
   "injectors": {
