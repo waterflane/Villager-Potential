@@ -41,6 +41,9 @@ Initial feature set for Minecraft 1.21.1 with NeoForge.
   The first two promotions increase the previous rate by ×1.2 and the final two
   by ×1.5; the blue-bar tooltip shows both this multiplier and estimated minutes
   remaining at the effective current rate.
+- Progress tooltips use restrained semantic colors: blue/aqua for professional
+  coefficients and experience, green for trade multipliers, and yellow for
+  remaining values.
 - Trade experience points no longer schedule profession levels.
 - Existing villagers bootstrap their learned skill to their current vanilla
   level and are never demoted.

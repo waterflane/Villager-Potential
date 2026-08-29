@@ -3,6 +3,7 @@ package org.waterflane.villager_potential.client;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.screens.inventory.MerchantScreen;
+import net.minecraft.ChatFormatting;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.util.Mth;
@@ -119,11 +120,13 @@ public final class VillagerTradeProgressOverlay {
         }
     }
 
-    private static List<Component> skillTooltip(VillagerTradeProgressPayload progress) {
+    static List<Component> skillTooltip(VillagerTradeProgressPayload progress) {
         if (progress.professionLevel() >= 5) {
             return List.of(
-                    Component.translatable("tooltip.villager_potential.skill.title"),
+                    Component.translatable("tooltip.villager_potential.skill.title")
+                            .withStyle(ChatFormatting.BLUE),
                     Component.translatable("tooltip.villager_potential.skill.maximum")
+                            .withStyle(ChatFormatting.GRAY)
             );
         }
         double required = Math.max(
@@ -137,28 +140,33 @@ public final class VillagerTradeProgressOverlay {
         );
         double minutesRemaining = minutesRemaining(progress);
         List<Component> lines = new java.util.ArrayList<>();
-        lines.add(Component.translatable("tooltip.villager_potential.skill.title"));
+        lines.add(Component.translatable("tooltip.villager_potential.skill.title")
+                .withStyle(ChatFormatting.BLUE));
         lines.add(Component.translatable(
                 "tooltip.villager_potential.skill.rate_multiplier",
-                multiplier(SkillProgression.professionLevelRateMultiplier(
-                        progress.professionLevel()
-                ))
+                colored(
+                        multiplier(SkillProgression.professionLevelRateMultiplier(
+                                progress.professionLevel()
+                        )),
+                        ChatFormatting.AQUA
+                )
         ));
         lines.add(Component.translatable(
                 "tooltip.villager_potential.skill.rate",
-                number(progress.skillPerMinute())
+                colored(number(progress.skillPerMinute()), ChatFormatting.AQUA)
         ));
         lines.add(Component.translatable(
                 "tooltip.villager_potential.skill.current",
-                number(earned),
-                number(required)
+                colored(number(earned), ChatFormatting.BLUE),
+                colored(number(required), ChatFormatting.DARK_AQUA)
         ));
         lines.add(Double.isFinite(minutesRemaining)
                 ? Component.translatable(
                         "tooltip.villager_potential.skill.time_remaining",
-                        number(minutesRemaining)
+                        colored(number(minutesRemaining), ChatFormatting.YELLOW)
                 )
-                : Component.translatable("tooltip.villager_potential.skill.paused"));
+                : Component.translatable("tooltip.villager_potential.skill.paused")
+                        .withStyle(ChatFormatting.GRAY));
         return List.copyOf(lines);
     }
 
@@ -173,27 +181,41 @@ public final class VillagerTradeProgressOverlay {
         return remaining / progress.skillPerMinute();
     }
 
-    private static List<Component> activityTooltip(VillagerTradeProgressPayload progress) {
+    static List<Component> activityTooltip(VillagerTradeProgressPayload progress) {
         double remaining = Math.max(
                 0.0,
                 progress.activityMaximum() - progress.activityMultiplier()
         );
         return List.of(
-                Component.translatable("tooltip.villager_potential.activity.title"),
+                Component.translatable("tooltip.villager_potential.activity.title")
+                        .withStyle(ChatFormatting.GREEN),
                 Component.translatable(
                         "tooltip.villager_potential.activity.current",
-                        multiplier(progress.activityMultiplier()),
-                        multiplier(progress.activityMaximum())
+                        colored(
+                                multiplier(progress.activityMultiplier()),
+                                ChatFormatting.GREEN
+                        ),
+                        colored(
+                                multiplier(progress.activityMaximum()),
+                                ChatFormatting.DARK_GREEN
+                        )
                 ),
                 Component.translatable(
                         "tooltip.villager_potential.activity.remaining",
-                        multiplier(remaining)
+                        colored(multiplier(remaining), ChatFormatting.YELLOW)
                 ),
                 Component.translatable(
                         "tooltip.villager_potential.activity.trade_gain",
-                        multiplier(progress.activityGainPerTrade())
+                        colored(
+                                multiplier(progress.activityGainPerTrade()),
+                                ChatFormatting.AQUA
+                        )
                 )
         );
+    }
+
+    private static Component colored(String value, ChatFormatting color) {
+        return Component.literal(value).withStyle(color);
     }
 
     private static void renderTooltip(

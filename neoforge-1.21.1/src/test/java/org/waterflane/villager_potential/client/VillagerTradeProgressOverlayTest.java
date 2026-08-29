@@ -1,9 +1,15 @@
 package org.waterflane.villager_potential.client;
 
+import net.minecraft.ChatFormatting;
+import net.minecraft.network.chat.Component;
+import net.minecraft.network.chat.contents.TranslatableContents;
 import org.junit.jupiter.api.Test;
 import org.waterflane.villager_potential.VillagerTradeProgressPayload;
 
+import java.util.List;
+
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 
 class VillagerTradeProgressOverlayTest {
     @Test
@@ -67,6 +73,52 @@ class VillagerTradeProgressOverlayTest {
                 Double.POSITIVE_INFINITY,
                 VillagerTradeProgressOverlay.minutesRemaining(payload)
         );
+    }
+
+    @Test
+    void skillCoefficientsUseRestrainedBlueHighlights() {
+        List<Component> tooltip = VillagerTradeProgressOverlay.skillTooltip(
+                payload(0.75, 0.5, 1.0, 1.0)
+        );
+
+        assertColor(tooltip.get(0), ChatFormatting.BLUE);
+        assertArgumentColor(tooltip.get(1), 0, ChatFormatting.AQUA);
+        assertArgumentColor(tooltip.get(2), 0, ChatFormatting.AQUA);
+        assertArgumentColor(tooltip.get(3), 0, ChatFormatting.BLUE);
+        assertArgumentColor(tooltip.get(4), 0, ChatFormatting.YELLOW);
+    }
+
+    @Test
+    void tradeCoefficientsUseRestrainedGreenHighlights() {
+        List<Component> tooltip = VillagerTradeProgressOverlay.activityTooltip(
+                payload(0.75, 0.5, 1.0, 1.4)
+        );
+
+        assertColor(tooltip.get(0), ChatFormatting.GREEN);
+        assertArgumentColor(tooltip.get(1), 0, ChatFormatting.GREEN);
+        assertArgumentColor(tooltip.get(1), 1, ChatFormatting.DARK_GREEN);
+        assertArgumentColor(tooltip.get(2), 0, ChatFormatting.YELLOW);
+        assertArgumentColor(tooltip.get(3), 0, ChatFormatting.AQUA);
+    }
+
+    private static void assertArgumentColor(
+            Component line,
+            int argumentIndex,
+            ChatFormatting expected
+    ) {
+        TranslatableContents contents = assertInstanceOf(
+                TranslatableContents.class,
+                line.getContents()
+        );
+        Component argument = assertInstanceOf(
+                Component.class,
+                contents.getArgs()[argumentIndex]
+        );
+        assertColor(argument, expected);
+    }
+
+    private static void assertColor(Component component, ChatFormatting expected) {
+        assertEquals(expected.getColor(), component.getStyle().getColor().getValue());
     }
 
     private static VillagerTradeProgressPayload payload(
