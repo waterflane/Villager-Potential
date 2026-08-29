@@ -15,6 +15,7 @@ public class Villager_potential {
         VillagerPotentialAttachments.register(modEventBus);
 
         modEventBus.addListener(ServerConfig::onConfigEvent);
+        modEventBus.addListener(VillagerTradeProgressNetworking::registerPayloads);
 
         // Register our mod's ModConfigSpec so that FML can create and load the config file for us
         modContainer.registerConfig(ModConfig.Type.SERVER, ServerConfig.SPEC);

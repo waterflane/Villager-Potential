@@ -11,6 +11,9 @@
     "VillagerDemandStockMixin",
     "VillagerLevelUpMixin"
   ],
+  "client": [
+    "client.MerchantScreenMixin"
+  ],
   "injectors": {
     "defaultRequire": 1
   }

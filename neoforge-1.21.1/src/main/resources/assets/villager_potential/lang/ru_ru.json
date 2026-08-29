@@ -5,5 +5,13 @@
   "tier.villager_potential.aptitude.average": "Обычный",
   "tier.villager_potential.aptitude.promising": "Подающий надежды",
   "tier.villager_potential.aptitude.talented": "Одарённый",
-  "tier.villager_potential.aptitude.exceptional": "Выдающийся"
+  "tier.villager_potential.aptitude.exceptional": "Выдающийся",
+  "tooltip.villager_potential.skill.title": "Профессиональный опыт",
+  "tooltip.villager_potential.skill.rate": "Скорость: %s опыта/мин",
+  "tooltip.villager_potential.skill.current": "Опыт: %s / %s",
+  "tooltip.villager_potential.skill.remaining": "Осталось: %s",
+  "tooltip.villager_potential.activity.title": "Торговый множитель",
+  "tooltip.villager_potential.activity.current": "Текущий: ×%s / ×%s",
+  "tooltip.villager_potential.activity.remaining": "До максимума: %s",
+  "tooltip.villager_potential.activity.trade_gain": "За сделку: +%s"
 }

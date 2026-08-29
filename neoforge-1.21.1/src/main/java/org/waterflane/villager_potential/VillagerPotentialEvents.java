@@ -18,6 +18,7 @@ import net.neoforged.neoforge.event.entity.player.TradeWithVillagerEvent;
 import net.neoforged.neoforge.event.entity.player.PlayerInteractEvent;
 import net.neoforged.neoforge.event.tick.EntityTickEvent;
 import net.neoforged.neoforge.event.village.VillagerTradesEvent;
+import org.waterflane.villager_potential.core.VillagerPotentialState;
 
 import java.util.Collections;
 import java.util.Set;
@@ -112,6 +113,13 @@ public final class VillagerPotentialEvents {
         if (event.getHand() == InteractionHand.MAIN_HAND
                 && event.getEntity() instanceof ServerPlayer player
                 && event.getTarget() instanceof Villager villager) {
+            VillagerPotentialState state = VillagerPotentialAttachments.get(villager);
+            VillagerTradeProgressNetworking.syncPlayer(
+                    villager,
+                    player,
+                    state,
+                    villager.level().getGameTime()
+            );
             VillagerPotentialFeedback.showCurrentProfession(player, villager);
         }
     }

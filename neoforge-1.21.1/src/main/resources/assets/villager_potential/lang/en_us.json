@@ -5,5 +5,13 @@
   "tier.villager_potential.aptitude.average": "Average",
   "tier.villager_potential.aptitude.promising": "Promising",
   "tier.villager_potential.aptitude.talented": "Talented",
-  "tier.villager_potential.aptitude.exceptional": "Exceptional"
+  "tier.villager_potential.aptitude.exceptional": "Exceptional",
+  "tooltip.villager_potential.skill.title": "Professional experience",
+  "tooltip.villager_potential.skill.rate": "Rate: %s experience/min",
+  "tooltip.villager_potential.skill.current": "Experience: %s / %s",
+  "tooltip.villager_potential.skill.remaining": "Remaining: %s",
+  "tooltip.villager_potential.activity.title": "Trade multiplier",
+  "tooltip.villager_potential.activity.current": "Current: ×%s / ×%s",
+  "tooltip.villager_potential.activity.remaining": "To maximum: %s",
+  "tooltip.villager_potential.activity.trade_gain": "Per trade: +%s"
 }

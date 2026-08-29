@@ -415,6 +415,11 @@ public final class VillagerPotentialAttachments {
         }
         if (updatedState != null) {
             queueEarnedProfessionLevel(villager, updatedState, currentProfession);
+            VillagerTradeProgressNetworking.syncTradingPlayer(
+                    villager,
+                    updatedState,
+                    assignmentTime
+            );
         }
         int currentLevel = villager.getVillagerData().getLevel();
         if (currentProfession != null && currentLevel != batch.vanillaLevel()) {
@@ -469,6 +474,7 @@ public final class VillagerPotentialAttachments {
         if (updatedState != state) {
             persistAndEmit(villager, state, updatedState);
         }
+        VillagerTradeProgressNetworking.syncTradingPlayer(villager, updatedState, gameTime);
     }
 
     static void recordTrade(
@@ -517,6 +523,7 @@ public final class VillagerPotentialAttachments {
         if (updatedState != state) {
             persistAndEmit(villager, state, updatedState);
         }
+        VillagerTradeProgressNetworking.syncTradingPlayer(villager, updatedState, gameTime);
         PotentialView view = PotentialViews.snapshot(updatedState);
         VillagerPotentialTradeEvents.emitTradeCompleted(
                 new VillagerPotentialTradeEvents.TradeCompleted(
@@ -674,7 +681,7 @@ public final class VillagerPotentialAttachments {
         }
     }
 
-    private static ProfessionId toCareerProfession(VillagerProfession profession) {
+    static ProfessionId toCareerProfession(VillagerProfession profession) {
         return profession == VillagerProfession.NONE || profession == VillagerProfession.NITWIT
                 ? null
                 : VillagerProfessionIds.tryFromMinecraft(profession).orElse(null);
