@@ -50,15 +50,59 @@ class VillagerLevelProgressionTest {
     void timeProgressionQueuesTheEarnedLevel() {
         ProgressionCarrier carrier = carrier();
 
-        tick(carrier, 4_000);
+        tick(carrier, 36_000);
 
         assertEquals(
-                0.2,
+                1.5,
                 carrier.state().get().careerFor(LIBRARIAN)
                         .orElseThrow().learnedSkill(),
                 0.000_000_1
         );
         verify(carrier.levelUpAccess(), times(1)).villagerPotential$queueLevelUp();
+    }
+
+    @Test
+    void skillCannotOverflowWhileVanillaAppliesTheLevelUp() {
+        ProgressionCarrier carrier = carrier();
+
+        tick(carrier, 40_000);
+
+        assertEquals(
+                1.5,
+                carrier.state().get().careerFor(LIBRARIAN)
+                        .orElseThrow().learnedSkill(),
+                0.000_000_1
+        );
+    }
+
+    @Test
+    void appliedLevelUpResetsThePurchaseMultiplier() {
+        ProgressionCarrier carrier = carrier();
+        VillagerPotentialAttachments.trackProfession(carrier.villager(), 100L);
+        VillagerPotentialAttachments.recordTrade(carrier.villager(), 100L);
+        VillagerPotentialAttachments.recordTrade(carrier.villager(), 100L);
+
+        assertEquals(
+                1.2,
+                carrier.state().get().professionActivityFor(
+                        LIBRARIAN,
+                        100L,
+                        VillagerPotentialAttachments.PROFESSION_ACTIVITY_CONFIG
+                ),
+                0.000_000_1
+        );
+
+        carrier.vanillaLevel().set(2);
+        VillagerPotentialAttachments.trackProfession(carrier.villager(), 101L);
+
+        assertEquals(
+                1.0,
+                carrier.state().get().professionActivityFor(
+                        LIBRARIAN,
+                        101L,
+                        VillagerPotentialAttachments.PROFESSION_ACTIVITY_CONFIG
+                )
+        );
     }
 
     @Test

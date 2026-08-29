@@ -28,6 +28,7 @@ import org.waterflane.villager_potential.core.ProfessionActivityConfig;
 import org.waterflane.villager_potential.core.ProfessionActivityState;
 import org.waterflane.villager_potential.core.ProfessionCareerState;
 import org.waterflane.villager_potential.core.ProfessionId;
+import org.waterflane.villager_potential.core.ProfessionLevelThresholds;
 import org.waterflane.villager_potential.core.ProfessionProgressBatch;
 import org.waterflane.villager_potential.core.PotentialSeeds;
 import org.waterflane.villager_potential.core.ProfessionSpecializationAssignment;
@@ -395,6 +396,16 @@ public final class VillagerPotentialAttachments {
         }
 
         batch.observeGameTime(assignmentTime);
+        int currentLevel = villager.getVillagerData().getLevel();
+        int previousLevel = batch.vanillaLevel();
+
+        if (currentProfession != null && currentLevel > previousLevel) {
+            if (state == null) {
+                state = get(villager);
+                updatedState = state;
+            }
+            updatedState = updatedState.resetProfessionActivity(currentProfession);
+        }
 
         if (currentProfession != null
                 && ProfessionTenureEligibility.canAccumulate(villager, config.career())) {
@@ -421,14 +432,13 @@ public final class VillagerPotentialAttachments {
                     assignmentTime
             );
         }
-        int currentLevel = villager.getVillagerData().getLevel();
-        if (currentProfession != null && currentLevel != batch.vanillaLevel()) {
+        if (currentProfession != null && currentLevel != previousLevel) {
             VillagerPotentialState eventState = updatedState == null ? get(villager) : updatedState;
             VillagerPotentialLifecycleEvents.emitVanillaLevelChanged(
                     new VillagerPotentialLifecycleEvents.VanillaLevelChanged(
                             villager,
                             currentProfession,
-                            batch.vanillaLevel(),
+                            previousLevel,
                             currentLevel,
                             PotentialViews.snapshot(eventState)
                     )
@@ -700,6 +710,7 @@ public final class VillagerPotentialAttachments {
         }
         VillagerPotentialConfig config = ServerConfig.gameplayConfig();
         boolean firstObservedCareer = state.careers().isEmpty();
+        boolean resumingObservedCareer = state.careerFor(profession).isPresent();
         VillagerPotentialState provisioned = AptitudeProvisioning.ensure(
                 state,
                 profession,
@@ -713,12 +724,16 @@ public final class VillagerPotentialAttachments {
                 SpecializationDefinitionManager.INSTANCE.definitionFor(profession),
                 new Random(PotentialSeeds.specializationSeed(worldSeed, villagerId, profession))
         );
-        if (!firstObservedCareer || vanillaLevel <= 1) {
+        if ((!firstObservedCareer && !resumingObservedCareer) || vanillaLevel <= 1) {
             return assigned;
         }
 
         double bootstrapSkill = config.skill().professionLevelThresholds()
                 .thresholdForLevel(vanillaLevel);
+        double learnedSkill = assigned.careerFor(profession).orElseThrow().learnedSkill();
+        if (learnedSkill >= bootstrapSkill) {
+            return assigned;
+        }
         return assigned.withSkill(profession, bootstrapSkill);
     }
 
@@ -731,12 +746,28 @@ public final class VillagerPotentialAttachments {
                 || !state.activeProfession().equals(Optional.ofNullable(batch.profession()))) {
             return state;
         }
-        return state.progressActiveProfession(
+        VillagerPotentialState progressed = state.progressActiveProfession(
                 batch.elapsedProfessionTime(),
                 batch.lastObservedGameTime(),
                 config.skill(),
                 config.activity()
         );
+        int vanillaLevel = batch.vanillaLevel();
+        if (batch.profession() == null
+                || vanillaLevel < ProfessionLevelThresholds.NOVICE_LEVEL
+                || vanillaLevel >= ProfessionLevelThresholds.MASTER_LEVEL) {
+            return progressed;
+        }
+
+        double nextLevelSkill = config.skill().professionLevelThresholds()
+                .thresholdForLevel(vanillaLevel + 1);
+        ProfessionCareerState career = progressed.careerFor(batch.profession()).orElseThrow();
+        double remaining = nextLevelSkill - career.learnedSkill();
+        double roundingTolerance = Math.max(1.0, nextLevelSkill) * 1.0e-12;
+        if (remaining > roundingTolerance) {
+            return progressed;
+        }
+        return progressed.withSkill(batch.profession(), nextLevelSkill);
     }
 
     /**

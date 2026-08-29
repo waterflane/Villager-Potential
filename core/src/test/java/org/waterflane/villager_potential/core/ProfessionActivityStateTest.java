@@ -5,6 +5,7 @@ import org.junit.jupiter.api.Test;
 import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
@@ -62,6 +63,25 @@ class ProfessionActivityStateTest {
         }
 
         assertEquals(CONFIG.maximum(), state.professionActivityFor(LIBRARIAN, 100L, CONFIG));
+    }
+
+    @Test
+    void levelUpResetStartsThePurchaseBarAtBaseline() {
+        ProfessionActivityConfig noDecay = new ProfessionActivityConfig(
+                0.5,
+                1.0,
+                2.0,
+                0.1,
+                0.0
+        );
+        VillagerPotentialState traded = VillagerPotentialState.createDefault()
+                .recordProfessionTrade(LIBRARIAN, 100L, noDecay)
+                .recordProfessionTrade(LIBRARIAN, 200L, noDecay);
+
+        VillagerPotentialState reset = traded.resetProfessionActivity(LIBRARIAN);
+
+        assertEquals(1.0, reset.professionActivityFor(LIBRARIAN, 500L, noDecay));
+        assertFalse(reset.professionActivities().containsKey(LIBRARIAN));
     }
 
     @Test

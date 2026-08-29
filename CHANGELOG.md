@@ -27,14 +27,15 @@ Initial feature set for Minecraft 1.21.1 with NeoForge.
   persistent skill at base rate × aptitude × activity (default gates:
   adults only; job-site and working checks available).
 - Vanilla profession levels follow inclusive skill thresholds
-  (Novice … Master, defaults 0 / 0.2 / 0.5 / 1.0 / 5.0); level-ups unlock
-  offers and keep the vanilla regeneration effect.
+  (Novice … Master, defaults 0 / 1.5 / 3.5 / 6.5 / 10.5). At neutral aptitude
+  and activity, each interval takes 1.5 / 2 / 3 / 4 Minecraft workdays;
+  level-ups unlock offers and keep the vanilla regeneration effect.
 - Trade experience points no longer schedule profession levels.
 - Existing villagers bootstrap their learned skill to their current vanilla
   level and are never demoted.
 - Trading accelerates rather than teaches: successful trades raise a
-  per-profession activity multiplier (default +0.1 up to ×2.0) that decays
-  back toward baseline over loaded server time.
+  per-profession purchase multiplier (default +0.1 up to ×2.0) that persists
+  through the current level and resets to ×1.0 after promotion.
 - Professional specialization: villagers store one named specialization per
   profession on first employment; specialization bias toward configured trade
   categories strengthens with professional skill (curve exponent and bounds

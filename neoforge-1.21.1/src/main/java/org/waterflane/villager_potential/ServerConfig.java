@@ -373,7 +373,7 @@ public final class ServerConfig {
     }
 
     private static Values currentValues() {
-        return new Values(
+        return migrateLegacyDefaults(new Values(
                 new AptitudeValues(APTITUDE_ENABLED.get(), APTITUDE_MEAN.get(), APTITUDE_VARIANCE.get(), APTITUDE_MINIMUM.get(), APTITUDE_MAXIMUM.get()),
                 new RareTalentValues(RARE_TALENTS_ENABLED.get(), RARE_TALENT_CHANCE.get(), RARE_TALENT_STRENGTH.get()),
                 new InheritanceValues(INHERITANCE_ENABLED.get(), INHERITANCE_STRENGTH.get(), RANDOM_CONTRIBUTION.get(), MUTATION_CHANCE.get(), MUTATION_VARIANCE.get()),
@@ -381,6 +381,72 @@ public final class ServerConfig {
                 new SkillValues(SKILL_ENABLED.get(), SKILL_BASE_RATE.get(), SKILL_APTITUDE_INFLUENCE.get(), SKILL_MINIMUM.get(), SKILL_MAXIMUM.get()),
                 new ActivityValues(ACTIVITY_ENABLED.get(), ACTIVITY_GAIN_PER_TRADE.get(), ACTIVITY_DECAY_RATE.get(), ACTIVITY_BASELINE.get(), ACTIVITY_MAXIMUM.get()),
                 new LevelValues(LEVEL_NOVICE.get(), LEVEL_APPRENTICE.get(), LEVEL_JOURNEYMAN.get(), LEVEL_EXPERT.get(), LEVEL_MASTER.get())
+        ));
+    }
+
+    /** Keeps worlds generated with the previous default curve on the new timing model. */
+    static Values migrateLegacyDefaults(Values values) {
+        Objects.requireNonNull(values, "values");
+        SkillValues skill = values.skill();
+        ActivityValues activity = values.activity();
+        LevelValues levels = values.levels();
+        VillagerPotentialConfig defaults = DEFAULT_GAMEPLAY;
+
+        boolean legacySkillCurve = Double.compare(skill.baseProgressionRate(), 0.00005) == 0
+                && Double.compare(skill.minimum(), 0.0) == 0
+                && Double.compare(skill.maximum(), 5.0) == 0
+                && Double.compare(levels.novice(), 0.0) == 0
+                && Double.compare(levels.apprentice(), 0.2) == 0
+                && Double.compare(levels.journeyman(), 0.5) == 0
+                && Double.compare(levels.expert(), 1.0) == 0
+                && Double.compare(levels.master(), 5.0) == 0;
+        boolean legacyActivityDecay = Double.compare(activity.gainPerSuccessfulTrade(), 0.1) == 0
+                && Double.compare(activity.decayRate(), 0.0001) == 0
+                && Double.compare(activity.baseline(), 1.0) == 0
+                && Double.compare(activity.maximumMultiplier(), 2.0) == 0;
+
+        SkillProgressionConfig defaultSkill = defaults.skill();
+        ProfessionActivityConfig defaultActivity = defaults.activity();
+        SkillValues migratedSkill = legacySkillCurve
+                ? new SkillValues(
+                        skill.enabled(),
+                        defaultSkill.progressionRate(),
+                        skill.aptitudeInfluence(),
+                        defaultSkill.minimumSkill(),
+                        defaultSkill.maximumSkill()
+                )
+                : skill;
+        LevelValues migratedLevels = legacySkillCurve
+                ? new LevelValues(
+                        defaultSkill.professionLevelThresholds().noviceSkill(),
+                        defaultSkill.professionLevelThresholds().apprenticeSkill(),
+                        defaultSkill.professionLevelThresholds().journeymanSkill(),
+                        defaultSkill.professionLevelThresholds().expertSkill(),
+                        defaultSkill.professionLevelThresholds().masterSkill()
+                )
+                : levels;
+        ActivityValues migratedActivity = legacyActivityDecay
+                ? new ActivityValues(
+                        activity.enabled(),
+                        activity.gainPerSuccessfulTrade(),
+                        defaultActivity.decayPerTick(),
+                        activity.baseline(),
+                        activity.maximumMultiplier()
+                )
+                : activity;
+        if (migratedSkill == skill
+                && migratedLevels == levels
+                && migratedActivity == activity) {
+            return values;
+        }
+        return new Values(
+                values.aptitude(),
+                values.rareTalents(),
+                values.inheritance(),
+                values.career(),
+                migratedSkill,
+                migratedActivity,
+                migratedLevels
         );
     }
 

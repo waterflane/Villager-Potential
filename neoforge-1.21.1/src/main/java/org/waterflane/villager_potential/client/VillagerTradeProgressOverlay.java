@@ -63,7 +63,7 @@ public final class VillagerTradeProgressOverlay {
     static double skillFraction(VillagerTradeProgressPayload progress) {
         double span = progress.nextLevelSkill() - progress.levelStartSkill();
         if (progress.professionLevel() >= 5 || span <= 0.0) {
-            return 1.0;
+            return 0.0;
         }
         return Mth.clamp((progress.skill() - progress.levelStartSkill()) / span, 0.0, 1.0);
     }
@@ -111,16 +111,30 @@ public final class VillagerTradeProgressOverlay {
             double fraction
     ) {
         graphics.blitSprite(BACKGROUND, x, y, 0, BAR_WIDTH, BAR_HEIGHT);
-        int width = Mth.floor(BAR_WIDTH * fraction);
+        int width = Mth.floor((BAR_WIDTH - 2) * fraction);
         if (width > 0) {
-            graphics.fill(x, y, x + width, y + BAR_HEIGHT, BLUE_DARK);
-            graphics.fill(x, y, x + width, y + 2, BLUE_LIGHT);
+            graphics.fill(x + 1, y + 1, x + 1 + width, y + BAR_HEIGHT - 1, BLUE_DARK);
+            graphics.fill(x + 1, y + 1, x + 1 + width, y + 2, BLUE_LIGHT);
         }
     }
 
     private static List<Component> skillTooltip(VillagerTradeProgressPayload progress) {
-        double required = progress.nextLevelSkill();
-        double remaining = Math.max(0.0, required - progress.skill());
+        if (progress.professionLevel() >= 5) {
+            return List.of(
+                    Component.translatable("tooltip.villager_potential.skill.title"),
+                    Component.translatable("tooltip.villager_potential.skill.maximum")
+            );
+        }
+        double required = Math.max(
+                0.0,
+                progress.nextLevelSkill() - progress.levelStartSkill()
+        );
+        double earned = Mth.clamp(
+                progress.skill() - progress.levelStartSkill(),
+                0.0,
+                required
+        );
+        double remaining = Math.max(0.0, required - earned);
         return List.of(
                 Component.translatable("tooltip.villager_potential.skill.title"),
                 Component.translatable(
@@ -129,7 +143,7 @@ public final class VillagerTradeProgressOverlay {
                 ),
                 Component.translatable(
                         "tooltip.villager_potential.skill.current",
-                        number(progress.skill()),
+                        number(earned),
                         number(required)
                 ),
                 Component.translatable(

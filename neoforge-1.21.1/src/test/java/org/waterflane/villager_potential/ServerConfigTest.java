@@ -64,6 +64,32 @@ class ServerConfigTest {
     }
 
     @Test
+    void previousDefaultCurveMigratesWithoutOverwritingCustomAptitudeInfluence() {
+        ServerConfig.Values defaults = ServerConfig.defaultValues();
+        ServerConfig.Values legacy = new ServerConfig.Values(
+                defaults.aptitude(),
+                defaults.rareTalents(),
+                defaults.inheritance(),
+                defaults.career(),
+                new ServerConfig.SkillValues(true, 0.00005, 0.35, 0.0, 5.0),
+                new ServerConfig.ActivityValues(true, 0.1, 0.0001, 1.0, 2.0),
+                new ServerConfig.LevelValues(0.0, 0.2, 0.5, 1.0, 5.0)
+        );
+
+        ServerConfig.Values migrated = ServerConfig.migrateLegacyDefaults(legacy);
+        VillagerPotentialConfig mapped = ServerConfig.map(migrated);
+
+        assertEquals(VillagerPotentialConfig.DEFAULT.skill().progressionRate(),
+                mapped.skill().progressionRate());
+        assertEquals(0.35, mapped.skill().aptitudeInfluence());
+        assertEquals(VillagerPotentialConfig.DEFAULT.skill().maximumSkill(),
+                mapped.skill().maximumSkill());
+        assertEquals(VillagerPotentialConfig.DEFAULT.skill().professionLevelThresholds(),
+                mapped.skill().professionLevelThresholds());
+        assertEquals(0.0, mapped.activity().decayPerTick());
+    }
+
+    @Test
     void rejectsRepresentativeCrossOptionBoundaryErrors() {
         ServerConfig.Values values = customValues();
         assertThrows(

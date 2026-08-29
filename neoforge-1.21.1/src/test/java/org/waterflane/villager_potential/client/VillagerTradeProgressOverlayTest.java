@@ -28,6 +28,24 @@ class VillagerTradeProgressOverlayTest {
         assertEquals(1.0, VillagerTradeProgressOverlay.activityFraction(payload));
     }
 
+    @Test
+    void skillBarIsEmptyAfterReachingMaster() {
+        VillagerTradeProgressPayload payload = new VillagerTradeProgressPayload(
+                7,
+                5,
+                10.5,
+                10.5,
+                10.5,
+                0.0,
+                1.0,
+                1.0,
+                2.0,
+                0.1
+        );
+
+        assertEquals(0.0, VillagerTradeProgressOverlay.skillFraction(payload));
+    }
+
     private static VillagerTradeProgressPayload payload(
             double skill,
             double levelStart,

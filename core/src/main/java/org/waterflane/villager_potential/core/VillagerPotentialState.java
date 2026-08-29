@@ -536,6 +536,29 @@ public record VillagerPotentialState(
     }
 
     /**
+     * Starts a fresh purchase-multiplier bar for one profession after a level-up.
+     */
+    public VillagerPotentialState resetProfessionActivity(ProfessionId professionId) {
+        Objects.requireNonNull(professionId, "professionId");
+        if (!professionActivities.containsKey(professionId)) {
+            return this;
+        }
+
+        Map<ProfessionId, ProfessionActivityState> updatedActivities =
+                new HashMap<>(professionActivities);
+        updatedActivities.remove(professionId);
+        return new VillagerPotentialState(
+                schemaVersion,
+                aptitudes,
+                careers,
+                activeProfession,
+                updatedActivities,
+                tradePalettes,
+                marketDemand
+        );
+    }
+
+    /**
      * Adds loaded server ticks to the active career. Eligibility is deliberately
      * decided by the platform layer so future activity rules do not alter this
      * persisted representation.

@@ -7,21 +7,24 @@ import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class SkillProgressionConfigTest {
     @Test
-    void defaultCurveMakesMasteryASeparateLongTermGoal() {
+    void defaultCurveUsesRequestedWorkdayIntervals() {
         SkillProgressionConfig skill = VillagerPotentialConfig.DEFAULT.skill();
         ProfessionLevelThresholds levels = skill.professionLevelThresholds();
-        double journeymanToExpert = levels.expertSkill() - levels.journeymanSkill();
-        double expertToMaster = levels.masterSkill() - levels.expertSkill();
+        double ticksPerSkill = 1.0 / skill.progressionRate();
 
-        assertEquals(0.00005, skill.progressionRate());
-        assertEquals(5.0, skill.maximumSkill());
-        assertEquals(0.5, journeymanToExpert);
-        assertEquals(4.0, expertToMaster);
-        assertTrue(expertToMaster >= journeymanToExpert * 8.0);
+        assertEquals(1.0 / 24_000.0, skill.progressionRate());
+        assertEquals(10.5, skill.maximumSkill());
+        assertEquals(36_000.0, levels.apprenticeSkill() * ticksPerSkill);
+        assertEquals(48_000.0,
+                (levels.journeymanSkill() - levels.apprenticeSkill()) * ticksPerSkill);
+        assertEquals(72_000.0,
+                (levels.expertSkill() - levels.journeymanSkill()) * ticksPerSkill);
+        assertEquals(96_000.0,
+                (levels.masterSkill() - levels.expertSkill()) * ticksPerSkill);
+        assertEquals(0.0, VillagerPotentialConfig.DEFAULT.activity().decayPerTick());
     }
 
     @Test

@@ -44,13 +44,16 @@ Eligible loaded server ticks spent employed accumulate professional skill at
 profession levels (`Novice` … `Master`), so leveling still unlocks offer slots,
 regenerates offers, and shows the vanilla level-up effect. Trade XP can no
 longer schedule levels; existing villagers never lose a level they already had.
+At neutral aptitude and purchase activity, the four level intervals require
+1.5, 2, 3, and 4 Minecraft workdays respectively.
 
 ### Trading accelerates, it does not teach
 
-Successful trades raise a per-profession **activity** multiplier that decays
-back toward baseline over time. Activity multiplies the value of elapsed work
-time — it is never skill by itself, so trading speeds up professionals without
-letting AFK trade halls replace working villagers.
+Successful trades raise a per-profession **activity** multiplier from ×1 to ×2.
+The purchase bonus remains for the current level and resets to ×1 when the next
+level is applied. Activity multiplies the value of elapsed work time — it is
+never skill by itself, so trading speeds up professionals without letting AFK
+trade halls replace working villagers.
 
 ### Professional specialization
 

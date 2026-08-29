@@ -21,10 +21,19 @@ public final class VillagerProgressionGameTests {
     private VillagerProgressionGameTests() {
     }
 
-    @GameTest(template = "empty", timeoutTicks = 5_000)
-    public static void timeProgressionUnlocksTheNextLevelsOffers(GameTestHelper helper) {
+    @GameTest(template = "empty", timeoutTicks = 200)
+    public static void earnedSkillUnlocksTheNextLevelsOffers(GameTestHelper helper) {
         Villager villager = librarian(helper);
         int noviceOfferCount = villager.getOffers().size();
+        helper.runAfterDelay(5L, () -> {
+            double apprenticeSkill = ServerConfig.gameplayConfig().skill()
+                    .professionLevelThresholds().apprenticeSkill();
+            VillagerPotentialAttachments.adminSetSkill(
+                    villager,
+                    LIBRARIAN,
+                    apprenticeSkill
+            );
+        });
 
         helper.succeedWhen(() -> {
             helper.assertValueEqual(

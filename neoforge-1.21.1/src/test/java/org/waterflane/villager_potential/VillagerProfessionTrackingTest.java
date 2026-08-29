@@ -244,7 +244,7 @@ class VillagerProfessionTrackingTest {
         ProfessionCareerState progressed = carrier.state().get()
                 .careerFor(LIBRARIAN).orElseThrow();
         assertEquals(20L, progressed.accumulatedProfessionTime());
-        assertEquals(0.00125, progressed.learnedSkill(), 0.000_000_1);
+        assertEquals(expectedSkill(20, 1.25), progressed.learnedSkill(), 0.000_000_1);
         verify(carrier.villager(), times(1)).setData(any(Supplier.class), any());
         verify(carrier.villager(), never()).setVillagerData(any());
     }
@@ -279,7 +279,7 @@ class VillagerProfessionTrackingTest {
         ProfessionCareerState resumed = afterReload.state().get()
                 .careerFor(LIBRARIAN).orElseThrow();
         assertEquals(20L, resumed.accumulatedProfessionTime());
-        assertEquals(0.00125, resumed.learnedSkill(), 0.000_000_1);
+        assertEquals(expectedSkill(20, 1.25), resumed.learnedSkill(), 0.000_000_1);
     }
 
     @Test
@@ -303,8 +303,8 @@ class VillagerProfessionTrackingTest {
                 .orElseThrow().learnedSkill();
         double activeSkill = active.state().get().careerFor(LIBRARIAN)
                 .orElseThrow().learnedSkill();
-        assertEquals(0.00125, inactiveSkill, 0.000_000_1);
-        assertEquals(0.001375, activeSkill, 0.000_000_1);
+        assertEquals(expectedSkill(20, 1.25), inactiveSkill, 0.000_000_1);
+        assertEquals(expectedSkill(20, 1.25, 1.1), activeSkill, 0.000_000_1);
         assertTrue(activeSkill > inactiveSkill);
     }
 
@@ -326,7 +326,7 @@ class VillagerProfessionTrackingTest {
         tick(active, 20);
 
         assertEquals(
-                0.0025,
+                expectedSkill(20, 1.25, 2.0),
                 active.state().get().careerFor(LIBRARIAN).orElseThrow().learnedSkill(),
                 0.000_000_1
         );
@@ -361,8 +361,8 @@ class VillagerProfessionTrackingTest {
                 .orElseThrow().learnedSkill();
         double talentedSkill = talented.state().get().careerFor(LIBRARIAN)
                 .orElseThrow().learnedSkill();
-        assertEquals(0.00075, ordinarySkill, 0.000_000_1);
-        assertEquals(0.0015, talentedSkill, 0.000_000_1);
+        assertEquals(expectedSkill(20, 0.75), ordinarySkill, 0.000_000_1);
+        assertEquals(expectedSkill(20, 1.5), talentedSkill, 0.000_000_1);
         assertTrue(talentedSkill > ordinarySkill);
     }
 
@@ -383,11 +383,15 @@ class VillagerProfessionTrackingTest {
 
         VillagerPotentialState state = carrier.state().get();
         assertEquals(
-                0.000625,
+                expectedSkill(10, 1.25),
                 state.careerFor(LIBRARIAN).orElseThrow().learnedSkill(),
                 0.000_000_1
         );
-        assertEquals(0.0008, state.careerFor(FARMER).orElseThrow().learnedSkill(), 0.000_000_1);
+        assertEquals(
+                expectedSkill(20, 0.8),
+                state.careerFor(FARMER).orElseThrow().learnedSkill(),
+                0.000_000_1
+        );
     }
 
     @Test
@@ -426,6 +430,17 @@ class VillagerProfessionTrackingTest {
 
     private static VillagerPotentialState baseState() {
         return stateWithAptitudes(1.25, 0.8);
+    }
+
+    private static double expectedSkill(long ticks, double aptitude) {
+        return expectedSkill(ticks, aptitude, 1.0);
+    }
+
+    private static double expectedSkill(long ticks, double aptitude, double activity) {
+        return ticks
+                * VillagerPotentialAttachments.SKILL_PROGRESSION_CONFIG.progressionRate()
+                * aptitude
+                * activity;
     }
 
     private static VillagerPotentialState stateWithAptitudes(

@@ -10,6 +10,7 @@
   "tooltip.villager_potential.skill.rate": "Скорость: %s опыта/мин",
   "tooltip.villager_potential.skill.current": "Опыт: %s / %s",
   "tooltip.villager_potential.skill.remaining": "Осталось: %s",
+  "tooltip.villager_potential.skill.maximum": "Достигнут максимальный уровень профессии",
   "tooltip.villager_potential.activity.title": "Торговый множитель",
   "tooltip.villager_potential.activity.current": "Текущий: ×%s / ×%s",
   "tooltip.villager_potential.activity.remaining": "До максимума: %s",

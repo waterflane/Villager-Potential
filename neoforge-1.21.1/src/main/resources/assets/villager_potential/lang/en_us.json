@@ -10,6 +10,7 @@
   "tooltip.villager_potential.skill.rate": "Rate: %s experience/min",
   "tooltip.villager_potential.skill.current": "Experience: %s / %s",
   "tooltip.villager_potential.skill.remaining": "Remaining: %s",
+  "tooltip.villager_potential.skill.maximum": "Maximum profession level reached",
   "tooltip.villager_potential.activity.title": "Trade multiplier",
   "tooltip.villager_potential.activity.current": "Current: ×%s / ×%s",
   "tooltip.villager_potential.activity.remaining": "To maximum: %s",
