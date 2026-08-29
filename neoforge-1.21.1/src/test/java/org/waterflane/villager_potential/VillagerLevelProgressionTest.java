@@ -50,10 +50,10 @@ class VillagerLevelProgressionTest {
     void timeProgressionQueuesTheEarnedLevel() {
         ProgressionCarrier carrier = carrier();
 
-        tick(carrier, 220);
+        tick(carrier, 4_000);
 
         assertEquals(
-                0.22,
+                0.2,
                 carrier.state().get().careerFor(LIBRARIAN)
                         .orElseThrow().learnedSkill(),
                 0.000_000_1
@@ -82,7 +82,7 @@ class VillagerLevelProgressionTest {
         ProgressionCarrier carrier = carrier();
         VillagerPotentialState masterSkill = carrier.state().get()
                 .progressActiveProfession(
-                        1_000L,
+                        100_000L,
                         VillagerPotentialAttachments.SKILL_PROGRESSION_CONFIG
                 );
 

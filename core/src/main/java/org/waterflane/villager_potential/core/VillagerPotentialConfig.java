@@ -23,11 +23,11 @@ public record VillagerPotentialConfig(
             new CareerProgressionConfig(true, true, false, false),
             new SkillProgressionConfig(
                     true,
-                    0.001,
+                    0.00005,
                     1.0,
                     0.0,
-                    1.0,
-                    new ProfessionLevelThresholds(0.0, 0.2, 0.5, 0.8, 1.0)
+                    5.0,
+                    new ProfessionLevelThresholds(0.0, 0.2, 0.5, 1.0, 5.0)
             ),
             new ProfessionActivityConfig(true, 0.5, 1.0, 2.0, 0.1, 0.0001)
     );

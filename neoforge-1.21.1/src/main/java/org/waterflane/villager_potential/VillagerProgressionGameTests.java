@@ -21,7 +21,7 @@ public final class VillagerProgressionGameTests {
     private VillagerProgressionGameTests() {
     }
 
-    @GameTest(template = "empty", timeoutTicks = 1_200)
+    @GameTest(template = "empty", timeoutTicks = 5_000)
     public static void timeProgressionUnlocksTheNextLevelsOffers(GameTestHelper helper) {
         Villager villager = librarian(helper);
         int noviceOfferCount = villager.getOffers().size();

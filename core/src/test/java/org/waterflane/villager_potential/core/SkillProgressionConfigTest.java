@@ -7,8 +7,23 @@ import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class SkillProgressionConfigTest {
+    @Test
+    void defaultCurveMakesMasteryASeparateLongTermGoal() {
+        SkillProgressionConfig skill = VillagerPotentialConfig.DEFAULT.skill();
+        ProfessionLevelThresholds levels = skill.professionLevelThresholds();
+        double journeymanToExpert = levels.expertSkill() - levels.journeymanSkill();
+        double expertToMaster = levels.masterSkill() - levels.expertSkill();
+
+        assertEquals(0.00005, skill.progressionRate());
+        assertEquals(5.0, skill.maximumSkill());
+        assertEquals(0.5, journeymanToExpert);
+        assertEquals(4.0, expertToMaster);
+        assertTrue(expertToMaster >= journeymanToExpert * 8.0);
+    }
+
     @Test
     void rejectsInvalidRatesBoundsAndThresholds() {
         assertThrows(

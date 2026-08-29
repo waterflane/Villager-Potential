@@ -27,7 +27,7 @@ Initial feature set for Minecraft 1.21.1 with NeoForge.
   persistent skill at base rate × aptitude × activity (default gates:
   adults only; job-site and working checks available).
 - Vanilla profession levels follow inclusive skill thresholds
-  (Novice … Master, defaults 0 / 0.2 / 0.5 / 0.8 / 1.0); level-ups unlock
+  (Novice … Master, defaults 0 / 0.2 / 0.5 / 1.0 / 5.0); level-ups unlock
   offers and keep the vanilla regeneration effect.
 - Trade experience points no longer schedule profession levels.
 - Existing villagers bootstrap their learned skill to their current vanilla

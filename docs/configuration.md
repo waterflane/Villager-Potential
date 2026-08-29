@@ -93,10 +93,10 @@ zombie conversion.
 | Option | Type | Default | Range | Effect |
 | --- | --- | --- | --- | --- |
 | `enabled` | bool | `true` | — | Converts eligible tenure into persistent skill. `false` stops gains and preserves skill already earned. |
-| `baseProgressionRate` | double | `0.001` | 0.0 – 1.0 | Skill gained per eligible server tick at neutral aptitude and activity. With defaults, one skill point takes 1000 eligible ticks (50 seconds of game time). |
+| `baseProgressionRate` | double | `0.00005` | 0.0 – 1.0 | Skill gained per eligible server tick at neutral aptitude and activity. With defaults, one skill point takes 20000 eligible ticks (16 minutes 40 seconds of game time). |
 | `aptitudeInfluence` | double | `1.0` | 0.0 – 1.0 | Fraction of the aptitude multiplier applied to skill gain; `0.0` makes everyone progress at the base rate, `1.0` applies aptitude fully. |
 | `minimum` | double | `0.0` | 0.0 – 1 000 000.0 | Lower skill bound. Existing stored history is never reset or lowered on reload. |
-| `maximum` | double | `1.0` | 0.0 – 1 000 000.0 | Cap on gained skill; lowering it never reduces already-earned skill. |
+| `maximum` | double | `5.0` | 0.0 – 1 000 000.0 | Cap on gained skill; lowering it never reduces already-earned skill. |
 
 Gain formula per batch:
 `elapsed eligible ticks × baseProgressionRate × (1 + (aptitude − 1) × aptitudeInfluence) × activity multiplier`,
@@ -110,8 +110,8 @@ directly.
 | `novice` | `0.0` | 0.0 – 1 000 000.0 |
 | `apprentice` | `0.2` | 0.0 – 1 000 000.0 |
 | `journeyman` | `0.5` | 0.0 – 1 000 000.0 |
-| `expert` | `0.8` | 0.0 – 1 000 000.0 |
-| `master` | `1.0` | 0.0 – 1 000 000.0 |
+| `expert` | `1.0` | 0.0 – 1 000 000.0 |
+| `master` | `5.0` | 0.0 – 1 000 000.0 |
 
 All five are inclusive skill thresholds and must be strictly increasing, with
 `novice` at or above `skill.minimum` and `master` at or below `skill.maximum`.
@@ -119,8 +119,10 @@ Reaching a threshold grants the corresponding vanilla profession level
 (Novice = 1 … Master = 5); unlocking a level regenerates offers exactly like
 vanilla. Villagers that already had a higher vanilla level when the mod was
 installed bootstrap skill to that level's threshold instead of being demoted.
-With defaults, master requires 1.0 skill — about 16 minutes of eligible
-employment at neutral speed.
+With defaults, expert requires 1.0 skill — about 16 minutes 40 seconds of
+eligible employment at neutral speed. Master is deliberately a much longer
+goal at 5.0 skill: about 83 minutes at a neutral activity multiplier, or about
+42 minutes while the trade-activity multiplier remains at its `2.0` cap.
 
 ## `[activity]` — trading as accelerator
 
