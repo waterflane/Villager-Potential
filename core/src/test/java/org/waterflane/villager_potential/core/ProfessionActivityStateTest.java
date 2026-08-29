@@ -66,6 +66,26 @@ class ProfessionActivityStateTest {
     }
 
     @Test
+    void eachProfessionLevelNeedsTwentyPercentMoreTradesForTheSameIncrease() {
+        assertEquals(0.15, CONFIG.increasePerTradeForLevel(1), 0.000_000_1);
+        assertEquals(0.125, CONFIG.increasePerTradeForLevel(2), 0.000_000_1);
+        assertEquals(
+                0.15 / Math.pow(1.2, 4),
+                CONFIG.increasePerTradeForLevel(5),
+                0.000_000_1
+        );
+
+        VillagerPotentialState masterTrade = VillagerPotentialState.createDefault()
+                .recordProfessionTrade(LIBRARIAN, 100L, 5, CONFIG);
+
+        assertEquals(
+                CONFIG.baseline() + CONFIG.increasePerTradeForLevel(5),
+                masterTrade.professionActivityFor(LIBRARIAN, 100L, CONFIG),
+                0.000_000_1
+        );
+    }
+
+    @Test
     void levelUpResetStartsThePurchaseBarAtBaseline() {
         ProfessionActivityConfig noDecay = new ProfessionActivityConfig(
                 0.5,

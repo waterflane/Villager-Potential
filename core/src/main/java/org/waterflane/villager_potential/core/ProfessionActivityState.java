@@ -20,12 +20,14 @@ public record ProfessionActivityState(double score, long lastUpdateGameTime) {
 
     public static ProfessionActivityState recordFirstTrade(
             long gameTime,
-            ProfessionActivityConfig config
+            ProfessionActivityConfig config,
+            double increasePerTrade
     ) {
         Objects.requireNonNull(config, "config");
         validateGameTime(gameTime);
+        validateIncrease(increasePerTrade);
         return new ProfessionActivityState(
-                Math.min(config.maximum(), config.baseline() + config.increasePerTrade()),
+                Math.min(config.maximum(), config.baseline() + increasePerTrade),
                 gameTime
         );
     }
@@ -54,14 +56,16 @@ public record ProfessionActivityState(double score, long lastUpdateGameTime) {
      */
     public ProfessionActivityState recordTrade(
             long gameTime,
-            ProfessionActivityConfig config
+            ProfessionActivityConfig config,
+            double increasePerTrade
     ) {
         Objects.requireNonNull(config, "config");
         validateGameTime(gameTime);
+        validateIncrease(increasePerTrade);
         long effectiveGameTime = Math.max(gameTime, lastUpdateGameTime);
         double increasedScore = Math.min(
                 config.maximum(),
-                scoreAt(effectiveGameTime, config) + config.increasePerTrade()
+                scoreAt(effectiveGameTime, config) + increasePerTrade
         );
         if (increasedScore == score && effectiveGameTime == lastUpdateGameTime) {
             return this;
@@ -72,6 +76,14 @@ public record ProfessionActivityState(double score, long lastUpdateGameTime) {
     private static void validateGameTime(long gameTime) {
         if (gameTime < 0L) {
             throw new IllegalArgumentException("gameTime must not be negative");
+        }
+    }
+
+    private static void validateIncrease(double increasePerTrade) {
+        if (!Double.isFinite(increasePerTrade) || increasePerTrade < 0.0) {
+            throw new IllegalArgumentException(
+                    "increasePerTrade must be finite and non-negative"
+            );
         }
     }
 }

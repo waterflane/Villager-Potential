@@ -20,7 +20,7 @@ import java.util.Optional;
 
 /** Synchronizes the current profession progression while a player is trading. */
 public final class VillagerTradeProgressNetworking {
-    private static final String NETWORK_VERSION = "2";
+    private static final String NETWORK_VERSION = "3";
     private VillagerTradeProgressNetworking() {
     }
 
@@ -80,15 +80,18 @@ public final class VillagerTradeProgressNetworking {
                 aptitude,
                 skillConfig.aptitudeInfluence()
         );
-        double skillPerMinute = skillConfig.enabled()
+        double configuredBaseSkillPerMinute = MinecraftTime.TICKS_PER_MINUTE
+                * skillConfig.progressionRate();
+        boolean progressionActive = skillConfig.enabled()
                 && eligible
-                && career.learnedSkill() < skillConfig.maximumSkill()
-                ? MinecraftTime.TICKS_PER_MINUTE
-                * skillConfig.progressionRate()
+                && career.learnedSkill() < skillConfig.maximumSkill();
+        double baseSkillPerMinute = progressionActive
+                ? configuredBaseSkillPerMinute
+                : 0.0;
+        double skillPerMinute = baseSkillPerMinute
                 * effectiveAptitude
                 * activity
-                * SkillProgression.professionLevelRateMultiplier(level)
-                : 0.0;
+                * SkillProgression.professionLevelRateMultiplier(level);
 
         PacketDistributor.sendToPlayer(player, new VillagerTradeProgressPayload(
                 villager.getId(),
@@ -96,12 +99,13 @@ public final class VillagerTradeProgressNetworking {
                 career.learnedSkill(),
                 levelStart,
                 nextLevel,
+                baseSkillPerMinute,
                 skillPerMinute,
                 effectiveAptitude,
                 activity,
                 activityConfig.baseline(),
                 activityConfig.maximum(),
-                activityConfig.increasePerTrade()
+                activityConfig.increasePerTradeForLevel(level)
         ));
     }
 }

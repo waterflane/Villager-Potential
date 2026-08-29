@@ -508,15 +508,29 @@ public record VillagerPotentialState(
             long gameTime,
             ProfessionActivityConfig config
     ) {
+        return recordProfessionTrade(professionId, gameTime, 1, config);
+    }
+
+    public VillagerPotentialState recordProfessionTrade(
+            ProfessionId professionId,
+            long gameTime,
+            int professionLevel,
+            ProfessionActivityConfig config
+    ) {
         Objects.requireNonNull(professionId, "professionId");
         Objects.requireNonNull(config, "config");
         if (!config.enabled()) {
             return this;
         }
+        double increasePerTrade = config.increasePerTradeForLevel(professionLevel);
         ProfessionActivityState activity = professionActivities.get(professionId);
         ProfessionActivityState updatedActivity = activity == null
-                ? ProfessionActivityState.recordFirstTrade(gameTime, config)
-                : activity.recordTrade(gameTime, config);
+                ? ProfessionActivityState.recordFirstTrade(
+                        gameTime,
+                        config,
+                        increasePerTrade
+                )
+                : activity.recordTrade(gameTime, config, increasePerTrade);
         if (updatedActivity == activity) {
             return this;
         }

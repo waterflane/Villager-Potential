@@ -2,7 +2,7 @@
   "tooltip.villager_potential.skill.title": "Professional experience",
   "tooltip.villager_potential.skill.aptitude_multiplier": "Individual learning multiplier: ×%s",
   "tooltip.villager_potential.skill.level_multiplier": "Level bonus: ×%s",
-  "tooltip.villager_potential.skill.rate": "Rate: %s experience/min",
+  "tooltip.villager_potential.skill.rate": "Rate: %s × %s × %s × %s = %s exp/min",
   "tooltip.villager_potential.skill.current": "Experience: %s / %s",
   "tooltip.villager_potential.skill.time_remaining": "Time remaining: %s min",
   "tooltip.villager_potential.skill.paused": "Time remaining: paused",

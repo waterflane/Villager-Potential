@@ -12,6 +12,7 @@ public record VillagerTradeProgressPayload(
         double skill,
         double levelStartSkill,
         double nextLevelSkill,
+        double baseSkillPerMinute,
         double skillPerMinute,
         double aptitudeMultiplier,
         double activityMultiplier,
@@ -37,6 +38,7 @@ public record VillagerTradeProgressPayload(
         buffer.writeDouble(payload.skill);
         buffer.writeDouble(payload.levelStartSkill);
         buffer.writeDouble(payload.nextLevelSkill);
+        buffer.writeDouble(payload.baseSkillPerMinute);
         buffer.writeDouble(payload.skillPerMinute);
         buffer.writeDouble(payload.aptitudeMultiplier);
         buffer.writeDouble(payload.activityMultiplier);
@@ -49,6 +51,7 @@ public record VillagerTradeProgressPayload(
         return new VillagerTradeProgressPayload(
                 buffer.readVarInt(),
                 buffer.readVarInt(),
+                buffer.readDouble(),
                 buffer.readDouble(),
                 buffer.readDouble(),
                 buffer.readDouble(),

@@ -59,7 +59,7 @@ separately because it is shared by all villagers at the same profession level.
 | Key | Default | Meaning |
 | --- | ---: | --- |
 | `activity.enabled` | `true` | Successful purchases accelerate learning; disabling it uses neutral `1.0` and preserves history. |
-| `activity.gainPerSuccessfulTrade` | `0.1` | Added to the current profession's purchase multiplier per completed trade. |
+| `activity.gainPerSuccessfulTrade` | `0.1` | Novice gain per completed trade; each new level requires 20% more trades, so the effective gain is divided by `1.2^(level - 1)`. |
 | `activity.decayRate` | `0.0` | Removed per tick toward baseline; `0.0` keeps it until promotion. |
 | `activity.baseline` | `1.0` | Neutral multiplier and reset value after a level-up. |
 | `activity.maximumMultiplier` | `2.0` | Hard purchase-multiplier cap; it cannot be below baseline. |

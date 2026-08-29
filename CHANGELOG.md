@@ -46,12 +46,15 @@ Initial feature set for Minecraft 1.21.1 with NeoForge.
   remaining values.
 - The blue tooltip exposes each villager's effective aptitude for the current
   profession separately from the shared level-rate bonus.
+- The compact rate line now shows
+  `base × aptitude × purchases × level = current exp/min`.
 - Trade experience points no longer schedule profession levels.
 - Existing villagers bootstrap their learned skill to their current vanilla
   level and are never demoted.
 - Trading accelerates rather than teaches: successful trades raise a
   per-profession purchase multiplier (default +0.1 up to ×2.0) that persists
-  through the current level and resets to ×1.0 after promotion.
+  through the current level and resets to ×1.0 after promotion. Each level
+  requires 20% more successful trades for the same multiplier increase.
 - Professional specialization: villagers store one named specialization per
   profession on first employment; specialization bias toward configured trade
   categories strengthens with professional skill (curve exponent and bounds

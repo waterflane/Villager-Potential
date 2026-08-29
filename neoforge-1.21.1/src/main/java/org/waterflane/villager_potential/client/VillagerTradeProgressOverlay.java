@@ -157,7 +157,16 @@ public final class VillagerTradeProgressOverlay {
         ));
         lines.add(Component.translatable(
                 "tooltip.villager_potential.skill.rate",
-                colored(number(progress.skillPerMinute()), ChatFormatting.AQUA)
+                colored(number(progress.baseSkillPerMinute()), ChatFormatting.AQUA),
+                colored(multiplier(progress.aptitudeMultiplier()), ChatFormatting.AQUA),
+                colored(multiplier(progress.activityMultiplier()), ChatFormatting.GREEN),
+                colored(
+                        multiplier(SkillProgression.professionLevelRateMultiplier(
+                                progress.professionLevel()
+                        )),
+                        ChatFormatting.AQUA
+                ),
+                colored(number(progress.skillPerMinute()), ChatFormatting.BLUE)
         ));
         lines.add(Component.translatable(
                 "tooltip.villager_potential.skill.current",

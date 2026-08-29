@@ -2,7 +2,7 @@
   "tooltip.villager_potential.skill.title": "Профессиональный опыт",
   "tooltip.villager_potential.skill.aptitude_multiplier": "Индивидуальный множитель обучения: ×%s",
   "tooltip.villager_potential.skill.level_multiplier": "Бонус уровня: ×%s",
-  "tooltip.villager_potential.skill.rate": "Скорость: %s опыта/мин",
+  "tooltip.villager_potential.skill.rate": "Скорость: %s × %s × %s × %s = %s exp/min",
   "tooltip.villager_potential.skill.current": "Опыт: %s / %s",
   "tooltip.villager_potential.skill.time_remaining": "Осталось времени: %s мин",
   "tooltip.villager_potential.skill.paused": "Осталось времени: прогресс остановлен",

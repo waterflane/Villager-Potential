@@ -56,7 +56,8 @@ rates and experience, green for trade multipliers, and yellow for remaining
 amounts or time. Labels stay neutral so the values remain easy to scan.
 The blue tooltip reports the villager's effective aptitude for the current
 profession separately from the shared level-rate bonus, so two novices can show
-different learning multipliers.
+different learning multipliers. Its compact rate line shows
+`base × aptitude × purchases × level = current exp/min`.
 
 A villager must still own the correct, loaded workstation. Losing it immediately
 stops professional-skill gain, closes an open merchant menu, blocks new trading,
@@ -66,6 +67,9 @@ deleting the old career.
 ### Trading accelerates, it does not teach
 
 Successful trades raise a per-profession **activity** multiplier from ×1 to ×2.
+Each promotion makes the same increase require 20% more successful trades, so
+the configured per-trade gain is divided by ×1.00 / ×1.20 / ×1.44 / ×1.73 /
+×2.07 from Novice through Master.
 The purchase bonus remains for the current level and resets to ×1 when the next
 level is applied. Activity multiplies the value of elapsed work time — it is
 never skill by itself, so trading speeds up professionals without letting AFK

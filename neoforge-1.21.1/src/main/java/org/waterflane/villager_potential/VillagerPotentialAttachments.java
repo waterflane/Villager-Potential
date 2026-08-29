@@ -506,6 +506,10 @@ public final class VillagerPotentialAttachments {
         VillagerJobSiteAccess.forget(villager);
     }
 
+    private static int boundedProfessionLevel(Villager villager) {
+        return Math.max(1, Math.min(5, villager.getVillagerData().getLevel()));
+    }
+
     static void recordTrade(Villager villager, long gameTime) {
         Objects.requireNonNull(villager, "villager");
         ProfessionId profession = toCareerProfession(
@@ -520,6 +524,7 @@ public final class VillagerPotentialAttachments {
         VillagerPotentialState updatedState = state.recordProfessionTrade(
                 profession,
                 gameTime,
+                boundedProfessionLevel(villager),
                 activityConfig
         );
         if (updatedState != state) {
@@ -555,6 +560,7 @@ public final class VillagerPotentialAttachments {
         VillagerPotentialState updatedState = state.recordProfessionTrade(
                 profession,
                 gameTime,
+                boundedProfessionLevel(villager),
                 gameplayConfig.activity()
         );
         if (identity.stable()) {

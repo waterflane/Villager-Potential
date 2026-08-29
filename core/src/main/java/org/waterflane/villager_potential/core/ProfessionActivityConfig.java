@@ -11,6 +11,8 @@ public record ProfessionActivityConfig(
         double increasePerTrade,
         double decayPerTick
 ) {
+    private static final double TRADE_REQUIREMENT_GROWTH_PER_LEVEL = 1.2;
+
     public ProfessionActivityConfig(
             double minimum,
             double baseline,
@@ -39,5 +41,19 @@ public record ProfessionActivityConfig(
         if (!Double.isFinite(decayPerTick) || decayPerTick < 0.0) {
             throw new IllegalArgumentException("decayPerTick must be finite and non-negative");
         }
+    }
+
+    /**
+     * Reduces one trade's contribution so each new profession level needs
+     * 20% more successful trades to fill the purchase multiplier.
+     */
+    public double increasePerTradeForLevel(int professionLevel) {
+        if (professionLevel < 1 || professionLevel > 5) {
+            throw new IllegalArgumentException("professionLevel must be between 1 and 5");
+        }
+        return increasePerTrade / Math.pow(
+                TRADE_REQUIREMENT_GROWTH_PER_LEVEL,
+                professionLevel - 1
+        );
     }
 }
