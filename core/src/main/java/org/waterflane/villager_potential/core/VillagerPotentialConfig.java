@@ -20,7 +20,7 @@ public record VillagerPotentialConfig(
                     new RareTalentConfig(true, 0.02, 3.0)
             ),
             new AptitudeInheritanceConfig(true, 0.7, 0.2, 1.0, 0.01),
-            new CareerProgressionConfig(true, true, false, false),
+            new CareerProgressionConfig(true, true, true, false),
             new SkillProgressionConfig(
                     true,
                     1.0 / 24_000.0,

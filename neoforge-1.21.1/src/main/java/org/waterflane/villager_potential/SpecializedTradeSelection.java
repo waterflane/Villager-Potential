@@ -44,7 +44,8 @@ import java.util.Set;
  * returned under the same logical key.</p>
  */
 public final class SpecializedTradeSelection {
-    private static final int PERSISTENT_MATCH_ATTEMPTS = 4096;
+    private static final int PERSISTENT_MATCH_ATTEMPTS = 256;
+    private static final int PERSISTENT_RESTORE_GENERATION_BUDGET = 16_384;
     private static final TradeMemoryRecoveryConfig DEFAULT_MEMORY_RECOVERY =
             VillagerTradeConfig.DEFAULT.palette().recovery();
 
@@ -681,12 +682,14 @@ public final class SpecializedTradeSelection {
             }
         }
         int firstRestoredIndex = offers.size();
+        int[] remainingGenerationBudget = {PERSISTENT_RESTORE_GENERATION_BUDGET};
         int restored = restorePersistentOffersInternal(
                 villager,
                 offers,
                 learnedTrades,
                 unlockedPools,
-                random
+                random,
+                remainingGenerationBudget
         );
         if (restored == learnedTrades.size()) {
             return true;
@@ -707,7 +710,14 @@ public final class SpecializedTradeSelection {
         Objects.requireNonNull(learnedTrades, "learnedTrades");
         Objects.requireNonNull(unlockedPools, "unlockedPools");
         Objects.requireNonNull(random, "random");
-        restorePersistentOffersInternal(villager, offers, learnedTrades, unlockedPools, random);
+        restorePersistentOffersInternal(
+                villager,
+                offers,
+                learnedTrades,
+                unlockedPools,
+                random,
+                new int[]{PERSISTENT_RESTORE_GENERATION_BUDGET}
+        );
     }
 
     private static int restorePersistentOffersInternal(
@@ -715,7 +725,8 @@ public final class SpecializedTradeSelection {
             MerchantOffers offers,
             List<TradeKey> learnedTrades,
             List<VillagerTrades.ItemListing[]> unlockedPools,
-            RandomSource random
+            RandomSource random,
+            int[] remainingGenerationBudget
     ) {
         Set<ListingSlot> consumed = new HashSet<>();
         int restoredCount = 0;
@@ -725,7 +736,8 @@ public final class SpecializedTradeSelection {
                     learnedTrade,
                     unlockedPools,
                     consumed,
-                    random
+                    random,
+                    remainingGenerationBudget
             );
             if (match.isPresent()) {
                 MatchedOffer restored = match.orElseThrow();
@@ -742,7 +754,8 @@ public final class SpecializedTradeSelection {
             TradeKey learnedTrade,
             List<VillagerTrades.ItemListing[]> unlockedPools,
             Set<ListingSlot> consumed,
-            RandomSource random
+            RandomSource random,
+            int[] remainingGenerationBudget
     ) {
         for (int poolIndex = 0; poolIndex < unlockedPools.size(); poolIndex++) {
             VillagerTrades.ItemListing[] pool = unlockedPools.get(poolIndex);
@@ -752,6 +765,10 @@ public final class SpecializedTradeSelection {
                     continue;
                 }
                 for (int attempt = 0; attempt < PERSISTENT_MATCH_ATTEMPTS; attempt++) {
+                    if (remainingGenerationBudget[0] <= 0) {
+                        return Optional.empty();
+                    }
+                    remainingGenerationBudget[0]--;
                     MerchantOffer offer = pool[listingIndex].getOffer(villager, random);
                     if (offer == null) {
                         continue;

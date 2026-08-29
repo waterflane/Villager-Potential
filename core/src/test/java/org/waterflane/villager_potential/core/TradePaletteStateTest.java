@@ -74,6 +74,19 @@ class TradePaletteStateTest {
     }
 
     @Test
+    void persistentPaletteUsesTheSameBoundAsAggregateHistory() {
+        TradePaletteState state = TradePaletteState.empty().recordPresented(
+                List.of(PAPER, BOOK, COMPASS),
+                List.of(PAPER, BOOK, COMPASS),
+                100L,
+                2
+        );
+
+        assertEquals(List.of(PAPER, BOOK), state.activeTrades());
+        assertEquals(2, state.offerHistory().size());
+    }
+
+    @Test
     void observingNoNewOffersReusesTheUnchangedPalette() {
         TradePaletteState learned = TradePaletteState.empty().recordPresented(
                 List.of(PAPER),

@@ -78,6 +78,23 @@ class SkillProgressionTest {
     }
 
     @Test
+    void professionLevelRateMultiplierCompoundsAcrossPromotions() {
+        assertEquals(1.0, SkillProgression.professionLevelRateMultiplier(1));
+        assertEquals(1.2, SkillProgression.professionLevelRateMultiplier(2));
+        assertEquals(1.44, SkillProgression.professionLevelRateMultiplier(3));
+        assertEquals(2.16, SkillProgression.professionLevelRateMultiplier(4));
+        assertEquals(3.24, SkillProgression.professionLevelRateMultiplier(5));
+    }
+
+    @Test
+    void currentProfessionLevelMultiplierChangesActualSkillGain() {
+        assertEquals(0.1, SkillProgression.advance(0.0, 100L, 1.0, CONFIG), 0.000_000_1);
+        assertEquals(0.32, SkillProgression.advance(0.2, 100L, 1.0, CONFIG), 0.000_000_1);
+        assertEquals(0.644, SkillProgression.advance(0.5, 100L, 1.0, CONFIG), 0.000_000_1);
+        assertEquals(0.8216, SkillProgression.advance(0.8, 10L, 1.0, CONFIG), 0.000_000_1);
+    }
+
+    @Test
     void skillBoundsAreEnforced() {
         assertEquals(1.0, SkillProgression.advance(0.9, Long.MAX_VALUE, 2.0, CONFIG));
         assertEquals(0.0, SkillProgression.advance(0.0, 100L, 0.0, CONFIG));

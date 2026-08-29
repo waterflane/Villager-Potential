@@ -166,7 +166,7 @@ public final class ServerConfig {
                 .comment("Require adulthood for a loaded profession tick to count toward tenure.")
                 .define("adultsOnly", career.adultsOnly());
         CAREER_REQUIRE_JOB_SITE = BUILDER
-                .comment("Require a remembered valid job site for each loaded profession tick to count.")
+                .comment("Keep the career eligibility job-site check enabled. Trading and skill gain always require a valid owned workstation.")
                 .define("requireJobSite", career.requireJobSite());
         CAREER_REQUIRE_WORK_ACTIVITY = BUILDER
                 .comment("Require the villager's current brain activity to be WORK for a tick to count.")

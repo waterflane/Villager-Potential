@@ -25,11 +25,19 @@ Initial feature set for Minecraft 1.21.1 with NeoForge.
 
 - Time-based professional skill: eligible loaded employment ticks accumulate
   persistent skill at base rate × aptitude × activity (default gates:
-  adults only; job-site and working checks available).
+  adults only; a valid owned workstation is mandatory, with optional working
+  activity checks).
+- Losing the workstation immediately suspends skill gain and trading (including
+  an already open menu) and releases the profession so a new workstation and
+  profession can be claimed.
 - Vanilla profession levels follow inclusive skill thresholds
   (Novice … Master, defaults 0 / 1.5 / 3.5 / 6.5 / 10.5). At neutral aptitude
-  and activity, each interval takes 1.5 / 2 / 3 / 4 Minecraft workdays;
+  and activity, the base interval sizes are 1.5 / 2 / 3 / 4 Minecraft workdays;
   level-ups unlock offers and keep the vanilla regeneration effect.
+- Professional rate compounds by level: ×1.00 / ×1.20 / ×1.44 / ×2.16 / ×3.24.
+  The first two promotions increase the previous rate by ×1.2 and the final two
+  by ×1.5; the blue-bar tooltip shows both this multiplier and estimated minutes
+  remaining at the effective current rate.
 - Trade experience points no longer schedule profession levels.
 - Existing villagers bootstrap their learned skill to their current vanilla
   level and are never demoted.
@@ -46,6 +54,10 @@ Initial feature set for Minecraft 1.21.1 with NeoForge.
 - Learned evolving trades with a default `PERSISTENT` palette: generated
   stable trades stay learned per profession and are restored verbatim,
   including across workstation loss, profession changes, and config reloads.
+- Profession switches retain each profession's skill, earned vanilla level,
+  specialization, purchase multiplier, learned offers, and usage history. Data
+  and regeneration work are bounded per profession, and workstation validation
+  is cached and never loads missing chunks.
 - Optional palette policies `VANILLA`, `WEIGHTED_MEMORY`, `EXHAUST`, and
   `CYCLIC`, tuned by trade-memory recovery times measured in eligible
   profession ticks; mode changes never delete stored knowledge.

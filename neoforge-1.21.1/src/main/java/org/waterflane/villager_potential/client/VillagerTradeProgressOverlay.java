@@ -8,6 +8,7 @@ import net.minecraft.resources.ResourceLocation;
 import net.minecraft.util.Mth;
 import org.waterflane.villager_potential.VillagerTradeProgressClientState;
 import org.waterflane.villager_potential.VillagerTradeProgressPayload;
+import org.waterflane.villager_potential.core.SkillProgression;
 
 import java.util.List;
 import java.util.Locale;
@@ -134,23 +135,42 @@ public final class VillagerTradeProgressOverlay {
                 0.0,
                 required
         );
-        double remaining = Math.max(0.0, required - earned);
-        return List.of(
-                Component.translatable("tooltip.villager_potential.skill.title"),
-                Component.translatable(
-                        "tooltip.villager_potential.skill.rate",
-                        number(progress.skillPerMinute())
-                ),
-                Component.translatable(
-                        "tooltip.villager_potential.skill.current",
-                        number(earned),
-                        number(required)
-                ),
-                Component.translatable(
-                        "tooltip.villager_potential.skill.remaining",
-                        number(remaining)
+        double minutesRemaining = minutesRemaining(progress);
+        List<Component> lines = new java.util.ArrayList<>();
+        lines.add(Component.translatable("tooltip.villager_potential.skill.title"));
+        lines.add(Component.translatable(
+                "tooltip.villager_potential.skill.rate_multiplier",
+                multiplier(SkillProgression.professionLevelRateMultiplier(
+                        progress.professionLevel()
+                ))
+        ));
+        lines.add(Component.translatable(
+                "tooltip.villager_potential.skill.rate",
+                number(progress.skillPerMinute())
+        ));
+        lines.add(Component.translatable(
+                "tooltip.villager_potential.skill.current",
+                number(earned),
+                number(required)
+        ));
+        lines.add(Double.isFinite(minutesRemaining)
+                ? Component.translatable(
+                        "tooltip.villager_potential.skill.time_remaining",
+                        number(minutesRemaining)
                 )
-        );
+                : Component.translatable("tooltip.villager_potential.skill.paused"));
+        return List.copyOf(lines);
+    }
+
+    static double minutesRemaining(VillagerTradeProgressPayload progress) {
+        double remaining = Math.max(0.0, progress.nextLevelSkill() - progress.skill());
+        if (remaining == 0.0) {
+            return 0.0;
+        }
+        if (progress.skillPerMinute() <= 0.0) {
+            return Double.POSITIVE_INFINITY;
+        }
+        return remaining / progress.skillPerMinute();
     }
 
     private static List<Component> activityTooltip(VillagerTradeProgressPayload progress) {

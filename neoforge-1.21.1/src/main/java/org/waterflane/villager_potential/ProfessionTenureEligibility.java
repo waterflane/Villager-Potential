@@ -26,6 +26,7 @@ interface ProfessionTenureEligibility {
         return config.enabled()
                 && (!config.adultsOnly() || !villager.isBaby())
                 && (!config.requireJobSite()
+                || villager.getBrain() == null
                 || villager.getBrain().hasMemoryValue(MemoryModuleType.JOB_SITE))
                 && (!config.requireWorkActivity()
                 || villager.getBrain().getActiveNonCoreActivity().filter(Activity.WORK::equals).isPresent());

@@ -3,6 +3,7 @@ package org.waterflane.villager_potential;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.InteractionHand;
+import net.minecraft.world.InteractionResult;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.monster.ZombieVillager;
 import net.minecraft.world.entity.npc.Villager;
@@ -107,12 +108,26 @@ public final class VillagerPotentialEvents {
         }
     }
 
-    /** Adds an optional action-bar hint without cancelling or replacing vanilla interaction. */
-    @SubscribeEvent(priority = EventPriority.LOWEST)
+    /** Blocks workstation-less trading, otherwise adds the optional progression hints. */
+    @SubscribeEvent(priority = EventPriority.HIGHEST)
     static void onVillagerInteract(PlayerInteractEvent.EntityInteract event) {
         if (event.getHand() == InteractionHand.MAIN_HAND
                 && event.getEntity() instanceof ServerPlayer player
                 && event.getTarget() instanceof Villager villager) {
+            if (!VillagerJobSiteAccess.hasUsableJobSite(
+                    villager,
+                    villager.level().getGameTime(),
+                    true
+            )) {
+                if (VillagerPotentialAttachments.toCareerProfession(
+                        villager.getVillagerData().getProfession()
+                ) != null) {
+                    VillagerPotentialAttachments.releaseProfession(villager);
+                }
+                event.setCancellationResult(InteractionResult.CONSUME);
+                event.setCanceled(true);
+                return;
+            }
             VillagerPotentialState state = VillagerPotentialAttachments.get(villager);
             VillagerTradeProgressNetworking.syncPlayer(
                     villager,
@@ -120,7 +135,6 @@ public final class VillagerPotentialEvents {
                     state,
                     villager.level().getGameTime()
             );
-            VillagerPotentialFeedback.showCurrentProfession(player, villager);
         }
     }
 
@@ -129,6 +143,7 @@ public final class VillagerPotentialEvents {
         if (!event.getLevel().isClientSide()
                 && event.getEntity() instanceof Villager villager) {
             VillagerPotentialAttachments.flushProfessionProgress(villager);
+            VillagerJobSiteAccess.forget(villager);
         }
     }
 

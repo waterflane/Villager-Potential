@@ -87,9 +87,14 @@ public record TradePaletteState(
         List<TradeKey> learnedTrades = activeTrades;
         if (strategy == TradePaletteRerollStrategy.PERSISTENT) {
             List<TradeKey> appended = new ArrayList<>(activeTrades);
-            newlyGeneratedTrades.stream()
-                    .filter(trade -> !appended.contains(trade))
-                    .forEach(appended::add);
+            for (TradeKey trade : newlyGeneratedTrades) {
+                if (appended.size() >= maximumHistoryEntries) {
+                    break;
+                }
+                if (!appended.contains(trade)) {
+                    appended.add(trade);
+                }
+            }
             learnedTrades = List.copyOf(appended);
         }
         return new TradePaletteState(learnedTrades, updatedHistory);

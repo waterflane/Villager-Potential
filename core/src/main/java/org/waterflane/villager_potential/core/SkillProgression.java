@@ -24,7 +24,9 @@ public final class SkillProgression {
     }
 
     /**
-     * Advances skill according to time rate x aptitude x professional activity.
+     * Advances skill according to time rate x aptitude x professional activity
+     * x the current profession-level multiplier. The first two promotions
+     * multiply the preceding rate by 1.2; the final two multiply it by 1.5.
      * Activity changes the value of elapsed time; it is never skill by itself.
      */
     public static double advance(
@@ -56,15 +58,36 @@ public final class SkillProgression {
         double progressionStart = Math.max(learnedSkill, config.minimumSkill());
         double effectiveAptitude = 1.0
                 + (aptitude - 1.0) * config.aptitudeInfluence();
+        int professionLevel = config.professionLevelThresholds()
+                .levelForSkill(progressionStart);
         double gainedSkill = elapsedProfessionTime
                 * config.progressionRate()
                 * effectiveAptitude
-                * activityFactor;
+                * activityFactor
+                * professionLevelRateMultiplier(professionLevel);
         if (!Double.isFinite(gainedSkill)
                 || gainedSkill >= config.maximumSkill() - progressionStart) {
             return config.maximumSkill();
         }
         return progressionStart + gainedSkill;
+    }
+
+    /**
+     * Cumulative rate multiplier for the current vanilla profession level.
+     * Novice is the neutral baseline; Apprentice and Journeyman each add x1.2,
+     * while Expert and Master each add x1.5 relative to the preceding level.
+     */
+    public static double professionLevelRateMultiplier(int professionLevel) {
+        return switch (professionLevel) {
+            case 1 -> 1.0;
+            case 2 -> 1.2;
+            case 3 -> 1.2 * 1.2;
+            case 4 -> 1.2 * 1.2 * 1.5;
+            case 5 -> 1.2 * 1.2 * 1.5 * 1.5;
+            default -> throw new IllegalArgumentException(
+                    "professionLevel must be between 1 and 5"
+            );
+        };
     }
 
     /**

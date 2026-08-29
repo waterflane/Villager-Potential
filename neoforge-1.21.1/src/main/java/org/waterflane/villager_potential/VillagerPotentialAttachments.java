@@ -6,6 +6,7 @@ import com.mojang.serialization.DataResult;
 import com.mojang.serialization.codecs.RecordCodecBuilder;
 import net.minecraft.core.HolderLookup;
 import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.monster.ZombieVillager;
 import net.minecraft.world.entity.npc.Villager;
@@ -369,12 +370,29 @@ public final class VillagerPotentialAttachments {
         VillagerPotentialConfig config = ServerConfig.gameplayConfig();
         VillagerProfession profession = villager.getVillagerData().getProfession();
         ProfessionId currentProfession = toCareerProfession(profession);
+        boolean jobSiteAvailable = currentProfession != null
+                && VillagerJobSiteAccess.hasUsableJobSite(
+                        villager,
+                        assignmentTime,
+                        villager.getTradingPlayer() != null
+                );
+        if (!jobSiteAvailable && villager.getTradingPlayer() instanceof ServerPlayer player) {
+            player.closeContainer();
+            villager.setTradingPlayer(null);
+        }
+        if (currentProfession != null && !jobSiteAvailable) {
+            releaseProfession(villager);
+            profession = VillagerProfession.NONE;
+            currentProfession = null;
+        }
         ProfessionProgressBatch batch = PROFESSION_PROGRESS_BATCHES.get(villager);
         VillagerPotentialState state = null;
         VillagerPotentialState updatedState = null;
 
         if (batch == null || !Objects.equals(batch.profession(), currentProfession)) {
             state = get(villager);
+            boolean resumingCareer = currentProfession != null
+                    && state.careerFor(currentProfession).isPresent();
             updatedState = batch == null
                     ? state
                     : progressMatchingProfession(state, batch, config);
@@ -386,11 +404,18 @@ public final class VillagerPotentialAttachments {
                     worldSeed(villager),
                     villager.getUUID()
             );
+            int trackedLevel = restoreCareerLevel(
+                    villager,
+                    updatedState,
+                    currentProfession,
+                    resumingCareer,
+                    config.skill()
+            );
             batch = new ProfessionProgressBatch(
                     currentProfession,
                     0L,
                     assignmentTime,
-                    villager.getVillagerData().getLevel()
+                    trackedLevel
             );
             PROFESSION_PROGRESS_BATCHES.put(villager, batch);
         }
@@ -408,6 +433,7 @@ public final class VillagerPotentialAttachments {
         }
 
         if (currentProfession != null
+                && jobSiteAvailable
                 && ProfessionTenureEligibility.canAccumulate(villager, config.career())) {
             batch.addElapsedTick();
         }
@@ -463,6 +489,21 @@ public final class VillagerPotentialAttachments {
         if (updatedState != state) {
             persistAndEmit(villager, state, updatedState);
         }
+    }
+
+    static void releaseProfession(Villager villager) {
+        villager.setTradingPlayer(null);
+        villager.setVillagerXp(0);
+        villager.setVillagerData(
+                villager.getVillagerData()
+                        .setProfession(VillagerProfession.NONE)
+                        .setLevel(ProfessionLevelThresholds.NOVICE_LEVEL)
+        );
+        villager.setOffers(new MerchantOffers());
+        if (villager.level() instanceof ServerLevel serverLevel) {
+            villager.refreshBrain(serverLevel);
+        }
+        VillagerJobSiteAccess.forget(villager);
     }
 
     static void recordTrade(Villager villager, long gameTime) {
@@ -768,6 +809,27 @@ public final class VillagerPotentialAttachments {
             return progressed;
         }
         return progressed.withSkill(batch.profession(), nextLevelSkill);
+    }
+
+    private static int restoreCareerLevel(
+            Villager villager,
+            VillagerPotentialState state,
+            ProfessionId profession,
+            boolean resumingCareer,
+            SkillProgressionConfig config
+    ) {
+        int currentLevel = villager.getVillagerData().getLevel();
+        if (!resumingCareer || profession == null) {
+            return currentLevel;
+        }
+        double skill = state.careerFor(profession).orElseThrow().learnedSkill();
+        int restoredLevel = SkillProgression.vanillaProfessionLevel(skill, config);
+        if (restoredLevel <= currentLevel) {
+            return currentLevel;
+        }
+        villager.setVillagerData(villager.getVillagerData().setLevel(restoredLevel));
+        villager.setVillagerXp(0);
+        return restoredLevel;
     }
 
     /**

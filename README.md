@@ -40,12 +40,19 @@ earned, never inherited.
 ### Professional skill grows with work time
 
 Eligible loaded server ticks spent employed accumulate professional skill at
-`base rate × aptitude × activity`. Skill thresholds map onto vanilla's five
-profession levels (`Novice` … `Master`), so leveling still unlocks offer slots,
-regenerates offers, and shows the vanilla level-up effect. Trade XP can no
-longer schedule levels; existing villagers never lose a level they already had.
-At neutral aptitude and purchase activity, the four level intervals require
-1.5, 2, 3, and 4 Minecraft workdays respectively.
+`base rate × aptitude × activity × level rate`. The cumulative level-rate
+multipliers are ×1.00, ×1.20, ×1.44, ×2.16, and ×3.24: the first two promotions
+increase the preceding rate by ×1.2 and the final two by ×1.5. Skill thresholds
+map onto vanilla's five profession levels (`Novice` … `Master`), so leveling
+still unlocks offer slots, regenerates offers, and shows the vanilla level-up
+effect. Trade XP can no longer schedule levels; existing villagers never lose a
+level they already had. The base threshold gaps are 1.5, 2, 3, and 4 Minecraft
+workdays before aptitude, purchase activity, and level-rate acceleration.
+
+A villager must still own the correct, loaded workstation. Losing it immediately
+stops professional-skill gain, closes an open merchant menu, blocks new trading,
+and releases the profession so another workstation can be claimed without
+deleting the old career.
 
 ### Trading accelerates, it does not teach
 
@@ -82,6 +89,14 @@ alternative policies change how regenerations treat memory:
 
 Rare results such as mending books can be given shortened recovery so they stay
 special.
+
+Career skill, purchase activity, specialization, learned trade identities, and
+trade history are stored independently for every profession. Returning to an
+old profession therefore restores its earned level and offers. Storage and
+restoration are bounded (128 learned/history entries per profession by default,
+plus a fixed regeneration budget), workstation checks are cached, and they
+never load an absent chunk; ordinary vanilla villagers only use a small fraction
+of those limits.
 
 ### Demand-based pricing and optional stock effects
 

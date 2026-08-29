@@ -46,6 +46,29 @@ class VillagerTradeProgressOverlayTest {
         assertEquals(0.0, VillagerTradeProgressOverlay.skillFraction(payload));
     }
 
+    @Test
+    void remainingSkillIsConvertedToMinutesAtTheCurrentRate() {
+        VillagerTradeProgressPayload payload = payload(0.75, 0.5, 1.0, 1.0);
+
+        assertEquals(
+                (1.0 - 0.75) / 0.075,
+                VillagerTradeProgressOverlay.minutesRemaining(payload),
+                0.000_000_1
+        );
+    }
+
+    @Test
+    void stoppedProgressHasNoFiniteCompletionEstimate() {
+        VillagerTradeProgressPayload payload = new VillagerTradeProgressPayload(
+                7, 3, 0.75, 0.5, 1.0, 0.0, 1.0, 1.0, 2.0, 0.1
+        );
+
+        assertEquals(
+                Double.POSITIVE_INFINITY,
+                VillagerTradeProgressOverlay.minutesRemaining(payload)
+        );
+    }
+
     private static VillagerTradeProgressPayload payload(
             double skill,
             double levelStart,

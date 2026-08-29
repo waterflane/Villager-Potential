@@ -10,6 +10,7 @@ import org.waterflane.villager_potential.core.ProfessionActivityConfig;
 import org.waterflane.villager_potential.core.ProfessionCareerState;
 import org.waterflane.villager_potential.core.ProfessionId;
 import org.waterflane.villager_potential.core.ProfessionLevelThresholds;
+import org.waterflane.villager_potential.core.SkillProgression;
 import org.waterflane.villager_potential.core.SkillProgressionConfig;
 import org.waterflane.villager_potential.core.VillagerPotentialConfig;
 import org.waterflane.villager_potential.core.VillagerPotentialState;
@@ -74,7 +75,8 @@ public final class VillagerTradeProgressNetworking {
                 ? thresholds.masterSkill()
                 : thresholds.thresholdForLevel(level + 1);
         double activity = state.professionActivityFor(profession, gameTime, activityConfig);
-        boolean eligible = ProfessionTenureEligibility.canAccumulate(villager, config.career());
+        boolean eligible = VillagerJobSiteAccess.hasUsableJobSite(villager, gameTime)
+                && ProfessionTenureEligibility.canAccumulate(villager, config.career());
         double effectiveAptitude = 1.0
                 + (aptitude - 1.0) * skillConfig.aptitudeInfluence();
         double skillPerMinute = skillConfig.enabled()
@@ -84,6 +86,7 @@ public final class VillagerTradeProgressNetworking {
                 * skillConfig.progressionRate()
                 * effectiveAptitude
                 * activity
+                * SkillProgression.professionLevelRateMultiplier(level)
                 : 0.0;
 
         PacketDistributor.sendToPlayer(player, new VillagerTradeProgressPayload(
