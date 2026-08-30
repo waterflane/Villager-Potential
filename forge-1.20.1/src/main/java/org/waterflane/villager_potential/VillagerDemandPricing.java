@@ -2,6 +2,8 @@ package org.waterflane.villager_potential;
 
 import net.minecraft.world.entity.npc.Villager;
 import net.minecraft.world.entity.npc.VillagerProfession;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.item.Items;
 import net.minecraft.world.item.trading.MerchantOffer;
 import org.waterflane.villager_potential.core.MarketDemandConfig;
 import org.waterflane.villager_potential.core.MarketDemandPriceConfig;
@@ -36,6 +38,8 @@ public final class VillagerDemandPricing {
         MarketDemandPriceConfig priceConfig = Config.marketDemandPriceConfig();
 
         for (MerchantOffer offer : villager.getOffers()) {
+            DemandPriceOffer demandPriceOffer = (DemandPriceOffer) offer;
+            demandPriceOffer.villagerPotential$clearDemandPriceAdjustment();
             MerchantOfferTradeKeys.Identity identity = MerchantOfferTradeKeys.identify(offer);
             OptionalDouble demandScore = identity.stable()
                     ? state.marketDemandScoreFor(
@@ -64,6 +68,23 @@ public final class VillagerDemandPricing {
         }
     }
 
+    /** Applies the new price immediately and refreshes an already open trade menu. */
+    public static void applyAndSync(Villager villager) {
+        apply(villager);
+        Player player = villager.getTradingPlayer();
+        if (player == null || villager.getOffers().isEmpty()) {
+            return;
+        }
+        player.sendMerchantOffers(
+                player.containerMenu.containerId,
+                villager.getOffers(),
+                villager.getVillagerData().getLevel(),
+                villager.getVillagerXp(),
+                villager.showProgressBar(),
+                villager.canRestock()
+        );
+    }
+
     static int apply(
             MerchantOffer offer,
             double demandScore,
@@ -71,18 +92,49 @@ public final class VillagerDemandPricing {
             MarketDemandPriceConfig priceConfig
     ) {
         Objects.requireNonNull(offer, "offer");
+        DemandPriceOffer demandPriceOffer = (DemandPriceOffer) offer;
+        demandPriceOffer.villagerPotential$clearDemandPriceAdjustment();
         int vanillaPrice = offer.getCostA().getCount();
         int basePrice = offer.getBaseCostA().getCount();
         int maximumItemCount = offer.getBaseCostA().getMaxStackSize();
-        int adjustedPrice = MarketDemandPricing.adjustedPrice(
+        MarketDemandPricing.PaymentKind paymentKind = offer.getBaseCostA().is(Items.EMERALD)
+                ? MarketDemandPricing.PaymentKind.EMERALD
+                : MarketDemandPricing.PaymentKind.OTHER_ITEM;
+        MarketDemandPricing.OfferAdjustment adjustment = MarketDemandPricing.adjustedOffer(
                 vanillaPrice,
                 basePrice,
                 maximumItemCount,
+                demandPriceOffer.villagerPotential$baseResultCount(),
+                paymentKind,
                 demandScore,
                 demandConfig,
                 priceConfig
         );
-        offer.addToSpecialPriceDiff(adjustedPrice - vanillaPrice);
+        int adjustedPrice = adjustment.inputPrice();
+        if (paymentKind == MarketDemandPricing.PaymentKind.OTHER_ITEM
+                && demandConfig.enabled()
+                && priceConfig.enabled()) {
+            adjustedPrice = demandPriceOffer.villagerPotential$retainDemandInputPrice(
+                    adjustedPrice,
+                    demandScore > demandConfig.baseline()
+            );
+        } else {
+            demandPriceOffer.villagerPotential$clearDemandInputPriceFloor();
+        }
+        demandPriceOffer.villagerPotential$applyDemandInputDelta(
+                adjustedPrice - vanillaPrice
+        );
+        demandPriceOffer.villagerPotential$setEffectiveResultCount(
+                adjustment.resultCount()
+        );
         return adjustedPrice;
+    }
+
+    /** Restores demand-controlled offer values after completed sleep. */
+    public static void resetAfterSleep(Villager villager) {
+        Objects.requireNonNull(villager, "villager");
+        for (MerchantOffer offer : villager.getOffers()) {
+            ((DemandPriceOffer) offer).villagerPotential$resetDemandPrice();
+        }
     }
 }

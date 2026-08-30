@@ -32,6 +32,14 @@ class MarketDemandPricingTest {
         assertEquals(20, MarketDemandPricing.adjustedPrice(
                 20, 20, 64, 100.0, DEMAND, disabled
         ));
+        assertEquals(
+                new MarketDemandPricing.OfferAdjustment(1, 8),
+                MarketDemandPricing.adjustedOffer(
+                        1, 1, 64, 8,
+                        MarketDemandPricing.PaymentKind.EMERALD,
+                        100.0, DEMAND, disabled
+                )
+        );
     }
 
     @Test
@@ -54,6 +62,64 @@ class MarketDemandPricingTest {
         assertEquals(25, MarketDemandPricing.adjustedPrice(
                 15, 20, 64, 100.0, DEMAND, PRICE
         ));
+    }
+
+    @Test
+    void emeraldPaymentChangesOnlyProductWithinFifteenPercent() {
+        assertEquals(
+                new MarketDemandPricing.OfferAdjustment(1, 4),
+                MarketDemandPricing.adjustedOffer(
+                        1, 1, 64, 4,
+                        MarketDemandPricing.PaymentKind.EMERALD,
+                        DEMAND.maximum(), DEMAND, PRICE
+                )
+        );
+        assertEquals(
+                new MarketDemandPricing.OfferAdjustment(1, 7),
+                MarketDemandPricing.adjustedOffer(
+                        1, 1, 64, 8,
+                        MarketDemandPricing.PaymentKind.EMERALD,
+                        DEMAND.maximum(), DEMAND, PRICE
+                )
+        );
+        assertEquals(
+                new MarketDemandPricing.OfferAdjustment(1, 17),
+                MarketDemandPricing.adjustedOffer(
+                        1, 1, 64, 20,
+                        MarketDemandPricing.PaymentKind.EMERALD,
+                        DEMAND.baseline()
+                                + MarketDemandPriceConfig.DEFAULT.demandScoreForMaximumPrice(),
+                        DEMAND, MarketDemandPriceConfig.DEFAULT
+                )
+        );
+    }
+
+    @Test
+    void itemPaymentChangesOnlyProductWithinTwentyPercent() {
+        assertEquals(
+                new MarketDemandPricing.OfferAdjustment(24, 1),
+                MarketDemandPricing.adjustedOffer(
+                        20, 20, 64, 1,
+                        MarketDemandPricing.PaymentKind.OTHER_ITEM,
+                        DEMAND.maximum(), DEMAND, PRICE
+                )
+        );
+        assertEquals(
+                new MarketDemandPricing.OfferAdjustment(4, 1),
+                MarketDemandPricing.adjustedOffer(
+                        4, 4, 64, 1,
+                        MarketDemandPricing.PaymentKind.OTHER_ITEM,
+                        DEMAND.maximum(), DEMAND, PRICE
+                )
+        );
+        assertEquals(
+                new MarketDemandPricing.OfferAdjustment(25, 1),
+                MarketDemandPricing.adjustedOffer(
+                        25, 20, 64, 1,
+                        MarketDemandPricing.PaymentKind.OTHER_ITEM,
+                        DEMAND.maximum(), DEMAND, PRICE
+                )
+        );
     }
 
     @Test
@@ -89,6 +155,28 @@ class MarketDemandPricingTest {
                 IllegalArgumentException.class,
                 () -> MarketDemandPricing.adjustedPrice(
                         1, 1, 0, 20.0, DEMAND, PRICE
+                )
+        );
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> MarketDemandPricing.adjustedOffer(
+                        1, 1, 64, 0,
+                        MarketDemandPricing.PaymentKind.EMERALD,
+                        20.0, DEMAND, PRICE
+                )
+        );
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> new MarketDemandPriceConfig(true, 1.0, 2.0, 1.01, 0.20)
+        );
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> new MarketDemandPriceConfig(true, 1.0, 2.0, 0.15, -0.01)
+        );
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> new MarketDemandPriceConfig(
+                        true, 1.0, 2.0, 0.15, 0.20, 0.0, false
                 )
         );
     }

@@ -15,6 +15,10 @@ public final class Villager_potential {
         VanillaTradeClassifications.bootstrap();
         VillagerTradeProgressNetworking.register();
         FMLJavaModLoadingContext.get().getModEventBus().addListener(ServerConfig::onConfigEvent);
-        ModLoadingContext.get().registerConfig(ModConfig.Type.SERVER, ServerConfig.SPEC);
+        ModLoadingContext.get().registerConfig(
+                ModConfig.Type.SERVER,
+                ServerConfig.SPEC,
+                MODID + "-server.toml"
+        );
     }
 }

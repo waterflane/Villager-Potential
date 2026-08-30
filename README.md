@@ -126,12 +126,19 @@ files exactly, so missing, extra, or changed translations fail the build.
 ### Demand-based pricing and optional stock effects
 
 Every stable logical trade carries a demand score that rises with successful
-uses and decays toward a baseline over time. Popular trades become more
-expensive and unpopular trades cheaper, layered on top of — never replacing —
-vanilla's own hero-of-the-village and demand adjustments. Optionally, high
-demand can also extend how many uses an offer survives until its next genuine
-vanilla restock; this never creates extra restocks or bypasses workstation and
-daily timing checks.
+uses. Popular trades become more expensive until the villager sleeps. Offers
+never change their emerald stack: when the player pays emeralds, the received
+product stack may shrink by at most 15%; when the player pays another item, that
+payment stack may grow by at most 20%. Integer rounding respects those limits,
+so `1 emerald -> 4 books` remains unchanged while `1 emerald -> 8 apples` may
+become `1 emerald -> 7 apples`. By default the percentage cap is reached after
+eight demand points, and ordinary purchases update the visible offer
+immediately. Shift-click keeps one opening price for the whole batch by default;
+`economy.price.dynamicShiftPricing` can instead recalculate it after every bulk
+trade. A completed sleep resets demand pricing and restocks used offers;
+workstation activity no longer performs the vanilla twice-daily restock.
+Optionally, high demand can also extend how many uses an offer survives until
+that sleep restock.
 
 ## Server configuration
 
@@ -139,7 +146,7 @@ All gameplay options live in one world-scoped SERVER config with validated
 defaults, documented ranges, and safe reload semantics — invalid values reject
 the reload and keep the previous configuration. See
 [docs/configuration.md](docs/configuration.md) for every option, its default,
-time unit, and gameplay effect.
+time unit, gameplay effect, and exact per-world file location.
 
 Useful commands (all under `/villagerpotential`, output is diagnostic text):
 `inspect <villager>` and `reload` need permission level 2;

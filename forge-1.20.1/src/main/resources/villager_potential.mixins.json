@@ -8,6 +8,7 @@
     "AbstractVillagerTradeSelectionMixin",
     "EntityPortableDataMixin",
     "MerchantOfferDemandStockMixin",
+    "MerchantMenuBulkTradeMixin",
     "VillagerBreedingMixin",
     "VillagerDemandPricingMixin",
     "VillagerDemandStockMixin",

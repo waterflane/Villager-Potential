@@ -6,6 +6,11 @@ per second, 1,200 per minute, and 24,000 per full day. Reloaded values are
 validated together; invalid cross-field combinations are rejected instead of
 being partially activated.
 
+This is a world-owned `SERVER` config, so Forge does not put it in the global
+`config` directory. It is created after the world is opened at
+`saves/<world>/serverconfig/villager_potential-server.toml` in singleplayer, or
+`<world>/serverconfig/villager_potential-server.toml` on a dedicated server.
+
 `career.requireJobSite` and `playerFeedback.aptitudeDisplay` were removed from
 the active schema. A valid owned workstation is mandatory, and interaction
 messages no longer exist. Old files may retain these keys until the loader
@@ -96,19 +101,30 @@ bound save size and restoration work.
 
 | Key | Default | Meaning |
 | --- | ---: | --- |
-| `economy.demand.enabled` | `true` | Records and applies per-villager, per-trade demand; disabling preserves scores. |
+| `economy.demand.enabled` | `true` | Records and applies per-villager, per-trade demand until completed sleep resets it; disabling preserves scores. |
 | `economy.demand.gainPerSuccessfulUse` | `1.0` | Demand added per successful use. |
 | `economy.demand.decayPerTick` | `1 / 1200` | Score moved toward baseline per tick; default is one point per minute. |
 | `economy.demand.minimum` | `0.0` | Lower demand bound. |
 | `economy.demand.baseline` | `0.0` | Neutral score approached by decay. |
 | `economy.demand.maximum` | `100.0` | Upper demand bound. |
-| `economy.price.enabled` | `true` | Applies demand to price independently of stock influence. |
-| `economy.price.minimumMultiplier` | `1.0` | Price multiplier at minimum demand; baseline remains neutral `1.0`. |
-| `economy.price.maximumMultiplier` | `2.0` | Price multiplier at maximum demand, subject to stack limits. |
-| `economy.stock.enabled` | `false` | Lets demand add uses only after a real vanilla restock; never creates restocks. |
+| `economy.price.enabled` | `true` | Enables demand price changes. Set to `false` to leave both payment and result stacks unchanged by Villager Potential. |
+| `economy.price.minimumMultiplier` | `1.0` | Demand-curve value at minimum demand; values at or below `1.0` never make a product cheaper. |
+| `economy.price.maximumMultiplier` | `2.0` | Demand-curve value at maximum demand; the percentage limits below are the actual hard price caps. |
+| `economy.price.maximumEmeraldPaymentResultReduction` | `0.15` | When paying emeralds, the non-emerald result stack may shrink by at most 15%; the emerald count never changes. |
+| `economy.price.maximumItemPaymentIncrease` | `0.20` | When paying another item, that payment stack may grow by at most 20%; an emerald result never changes. |
+| `economy.price.demandScoreForMaximumPrice` | `8.0` | Demand points above baseline needed to reach the percentage cap; lower values make prices rise faster. |
+| `economy.price.dynamicShiftPricing` | `false` | When `false`, Shift-click buys the available batch at its opening price. When `true`, the price is recalculated after every trade in the batch. |
+| `economy.stock.enabled` | `false` | Lets demand add uses during the completed-sleep restock; never creates an additional restock. |
 | `economy.stock.influenceStrength` | `1.0` | Blend from no stock effect to the full additional-use cap. |
 | `economy.stock.maximumAdditionalUses` | `2` | Uses demand may add to one offer per restock. |
 | `economy.stock.maximumUsesPerOffer` | `16` | Total-use ceiling for increases; larger existing offers are not reduced. |
+
+Ordinary clicks recalculate and synchronize the offer immediately, without
+requiring the player to close and reopen the merchant screen. Positive demand
+cannot make a non-emerald payment cheaper than its base cost; vanilla prices
+that are already higher than Villager Potential's cap are left unchanged. Once
+demand has raised a non-emerald payment, its displayed item count cannot fall
+again before completed sleep, even if the underlying demand score decays.
 
 ## Diagnostics
 

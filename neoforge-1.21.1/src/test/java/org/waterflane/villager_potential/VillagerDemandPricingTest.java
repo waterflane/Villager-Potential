@@ -35,13 +35,13 @@ class VillagerDemandPricingTest {
     }
 
     @Test
-    void highDemandIncreasesWithinConfiguredCap() {
+    void emeraldPaymentCountNeverChanges() {
         MerchantOffer offer = offer(20);
 
         VillagerDemandPricing.apply(offer, DEMAND.maximum(), DEMAND, PRICE);
 
-        assertEquals(40, offer.getCostA().getCount());
-        assertTrue(offer.getCostA().getCount() <= 20 * PRICE.maximumMultiplier());
+        assertEquals(20, offer.getCostA().getCount());
+        assertEquals(1, offer.getResult().getCount());
     }
 
     @Test
@@ -52,14 +52,14 @@ class VillagerDemandPricingTest {
 
         VillagerDemandPricing.apply(offer, DEMAND.maximum(), DEMAND, PRICE);
 
-        assertEquals(45, offer.getCostA().getCount());
+        assertEquals(25, offer.getCostA().getCount());
     }
 
     @Test
     void decayLowersTheModAddedIncrease() {
-        MarketDemandState recentDemand = new MarketDemandState(100.0, 10L, 100L);
-        MerchantOffer recent = offer(20);
-        MerchantOffer decayed = offer(20);
+        MarketDemandState recentDemand = new MarketDemandState(8.0, 8L, 100L);
+        MerchantOffer recent = emeraldPurchase(8);
+        MerchantOffer decayed = emeraldPurchase(8);
 
         VillagerDemandPricing.apply(
                 recent,
@@ -69,22 +69,108 @@ class VillagerDemandPricingTest {
         );
         VillagerDemandPricing.apply(
                 decayed,
-                recentDemand.scoreAt(150L, DEMAND),
+                recentDemand.scoreAt(104L, DEMAND),
                 DEMAND,
                 PRICE
         );
 
-        assertEquals(40, recent.getCostA().getCount());
-        assertEquals(30, decayed.getCostA().getCount());
+        assertEquals(7, recent.getResult().getCount());
+        assertEquals(8, decayed.getResult().getCount());
     }
 
     @Test
     void itemCountNeverExceedsItsValidStackSize() {
-        MerchantOffer offer = offer(40);
+        MerchantOffer offer = itemPayment(60);
 
         VillagerDemandPricing.apply(offer, DEMAND.maximum(), DEMAND, PRICE);
 
         assertEquals(64, offer.getCostA().getCount());
+        assertTrue(offer.getCostA().getCount() <= offer.getBaseCostA().getMaxStackSize());
+    }
+
+    @Test
+    void fourProductsDoNotChangeWhenOneItemWouldExceedFifteenPercent() {
+        MerchantOffer offer = emeraldPurchase(4);
+
+        VillagerDemandPricing.apply(offer, DEMAND.maximum(), DEMAND, PRICE);
+
+        assertEquals(1, offer.getCostA().getCount());
+        assertEquals(4, offer.getResult().getCount());
+        assertEquals(4, offer.assemble().getCount());
+    }
+
+    @Test
+    void eightProductsCanReduceToSevenWithinFifteenPercent() {
+        MerchantOffer offer = emeraldPurchase(8);
+
+        VillagerDemandPricing.apply(offer, DEMAND.maximum(), DEMAND, PRICE);
+
+        assertEquals(1, offer.getCostA().getCount());
+        assertEquals(7, offer.getResult().getCount());
+    }
+
+    @Test
+    void nonEmeraldPaymentCanIncreaseByTwentyPercent() {
+        MerchantOffer offer = itemPayment(20);
+
+        VillagerDemandPricing.apply(
+                offer,
+                PRICE.demandScoreForMaximumPrice(),
+                DEMAND,
+                PRICE
+        );
+
+        assertEquals(24, offer.getCostA().getCount());
+        assertEquals(1, offer.getResult().getCount());
+    }
+
+    @Test
+    void repeatedLiveRecalculationDoesNotCompoundItsOwnDelta() {
+        MerchantOffer offer = itemPayment(20);
+
+        VillagerDemandPricing.apply(offer, 2.0, DEMAND, PRICE);
+        assertEquals(21, offer.getCostA().getCount());
+
+        VillagerDemandPricing.apply(offer, 2.0, DEMAND, PRICE);
+        assertEquals(21, offer.getCostA().getCount());
+    }
+
+    @Test
+    void nonEmeraldPaymentCannotFallBeforeSleep() {
+        MerchantOffer offer = itemPayment(20);
+
+        VillagerDemandPricing.apply(offer, 8.0, DEMAND, PRICE);
+        assertEquals(24, offer.getCostA().getCount());
+
+        VillagerDemandPricing.apply(offer, 4.0, DEMAND, PRICE);
+        assertEquals(24, offer.getCostA().getCount());
+
+        ((DemandPriceOffer) offer).villagerPotential$resetDemandPrice();
+        VillagerDemandPricing.apply(offer, 4.0, DEMAND, PRICE);
+        assertEquals(22, offer.getCostA().getCount());
+    }
+
+    @Test
+    void disablingPriceSystemClearsRetainedNonEmeraldPrice() {
+        MarketDemandPriceConfig disabled = new MarketDemandPriceConfig(false, 1.0, 2.0);
+        MerchantOffer offer = itemPayment(20);
+
+        VillagerDemandPricing.apply(offer, 8.0, DEMAND, PRICE);
+        assertEquals(24, offer.getCostA().getCount());
+
+        VillagerDemandPricing.apply(offer, 8.0, DEMAND, disabled);
+        assertEquals(20, offer.getCostA().getCount());
+    }
+
+    @Test
+    void disabledPriceSystemLeavesInputAndResultUnchanged() {
+        MarketDemandPriceConfig disabled = new MarketDemandPriceConfig(false, 1.0, 2.0);
+        MerchantOffer offer = emeraldPurchase(8);
+
+        VillagerDemandPricing.apply(offer, DEMAND.maximum(), DEMAND, disabled);
+
+        assertEquals(1, offer.getCostA().getCount());
+        assertEquals(8, offer.getResult().getCount());
     }
 
     private static MerchantOffer offer(int emeraldCost) {
@@ -105,6 +191,32 @@ class VillagerDemandPricingTest {
                 1,
                 vanillaPriceMultiplier,
                 vanillaDemand
+        );
+    }
+
+    private static MerchantOffer emeraldPurchase(int resultCount) {
+        return new MerchantOffer(
+                new ItemCost(Items.EMERALD, 1),
+                Optional.empty(),
+                new ItemStack(Items.APPLE, resultCount),
+                0,
+                12,
+                1,
+                0.05F,
+                0
+        );
+    }
+
+    private static MerchantOffer itemPayment(int itemCount) {
+        return new MerchantOffer(
+                new ItemCost(Items.WHEAT, itemCount),
+                Optional.empty(),
+                new ItemStack(Items.EMERALD),
+                0,
+                12,
+                1,
+                0.05F,
+                0
         );
     }
 }

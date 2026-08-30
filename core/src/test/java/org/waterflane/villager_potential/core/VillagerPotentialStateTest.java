@@ -10,6 +10,7 @@ import java.util.OptionalLong;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -271,6 +272,26 @@ class VillagerPotentialStateTest {
                 1.0,
                 state.marketDemandScoreFor(librarian, paper, 104L, config).orElseThrow()
         );
+    }
+
+    @Test
+    void completedSleepClearsDemandWithoutTouchingOtherVillagerState() {
+        ProfessionId librarian = ProfessionId.parse("minecraft:librarian");
+        ProfessionId farmer = ProfessionId.parse("minecraft:farmer");
+        TradeKey paper = trade("minecraft:paper", "minecraft:emerald");
+        VillagerPotentialState state = VillagerPotentialState.createDefault()
+                .assignProfession(librarian, 10L)
+                .recordTradePurchase(librarian, paper, 100L)
+                .recordTradePurchase(farmer, paper, 120L);
+
+        VillagerPotentialState reset = state.resetMarketDemandAfterSleep();
+
+        assertTrue(reset.marketDemand().isEmpty());
+        assertEquals(state.aptitudes(), reset.aptitudes());
+        assertEquals(state.careers(), reset.careers());
+        assertEquals(state.activeProfession(), reset.activeProfession());
+        assertEquals(state.tradePalettes(), reset.tradePalettes());
+        assertSame(reset, reset.resetMarketDemandAfterSleep());
     }
 
     @Test

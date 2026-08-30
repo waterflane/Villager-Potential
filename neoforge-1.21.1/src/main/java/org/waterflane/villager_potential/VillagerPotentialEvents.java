@@ -105,6 +105,10 @@ public final class VillagerPotentialEvents {
                     serverLevel.getGameTime(),
                     Config.tradeHistoryMaximumEntries()
             );
+            if (!BulkTradeContext.active()
+                    || Config.marketDemandPriceConfig().dynamicShiftPricing()) {
+                VillagerDemandPricing.applyAndSync(villager);
+            }
         }
     }
 

@@ -253,6 +253,16 @@ public final class VillagerPotentialAttachments {
         return getOrInitialize(villager);
     }
 
+    /** Clears demand accumulated before a completed sleep cycle. */
+    public static void resetMarketDemandAfterSleep(Villager villager) {
+        Objects.requireNonNull(villager, "villager");
+        if (!Config.marketDemandConfig().enabled()) {
+            return;
+        }
+        VillagerPotentialState state = get(villager);
+        persistAndEmit(villager, state, state.resetMarketDemandAfterSleep());
+    }
+
     /** Internal persistence entry point used by the supported facade. */
     static VillagerPotentialState assignApiSpecialization(
             Villager villager,

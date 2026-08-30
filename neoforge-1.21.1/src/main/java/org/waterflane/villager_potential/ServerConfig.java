@@ -95,6 +95,10 @@ public final class ServerConfig {
     private static final ModConfigSpec.BooleanValue PRICE_INFLUENCE_ENABLED;
     private static final ModConfigSpec.DoubleValue MINIMUM_PRICE_MULTIPLIER;
     private static final ModConfigSpec.DoubleValue MAXIMUM_PRICE_MULTIPLIER;
+    private static final ModConfigSpec.DoubleValue MAXIMUM_EMERALD_PAYMENT_RESULT_REDUCTION;
+    private static final ModConfigSpec.DoubleValue MAXIMUM_ITEM_PAYMENT_INCREASE;
+    private static final ModConfigSpec.DoubleValue DEMAND_SCORE_FOR_MAXIMUM_PRICE;
+    private static final ModConfigSpec.BooleanValue DYNAMIC_SHIFT_PRICING;
     private static final ModConfigSpec.BooleanValue DEMAND_INFLUENCES_STOCK;
     private static final ModConfigSpec.DoubleValue STOCK_INFLUENCE_STRENGTH;
     private static final ModConfigSpec.IntValue MAXIMUM_ADDITIONAL_USES;
@@ -302,14 +306,56 @@ public final class ServerConfig {
         MarketDemandPriceConfig price = economy.price();
         BUILDER.push("price");
         PRICE_INFLUENCE_ENABLED = BUILDER
-                .comment("Apply demand to prices independently of stock influence; false preserves vanilla-adjusted prices.")
+                .comment(
+                        "Enable demand price changes to non-emerald product stacks.",
+                        "False disables the complete price-increase system and preserves vanilla-adjusted offers."
+                )
                 .define("enabled", price.enabled());
         MINIMUM_PRICE_MULTIPLIER = BUILDER
                 .comment("Price multiplier from 0.01 to 1.0 at minimum demand; baseline remains neutral at 1.0.")
                 .defineInRange("minimumMultiplier", price.minimumMultiplier(), 0.01, 1.0);
         MAXIMUM_PRICE_MULTIPLIER = BUILDER
-                .comment("Price multiplier from 1.0 to 64.0 at maximum demand; item stack limits still apply.")
+                .comment("Demand-curve value from 1.0 to 64.0 at maximum demand; percentage settings below are the hard price caps.")
                 .defineInRange("maximumMultiplier", price.maximumMultiplier(), 1.0, 64.0);
+        MAXIMUM_EMERALD_PAYMENT_RESULT_REDUCTION = BUILDER
+                .comment(
+                        "Maximum fractional reduction of the received product when paying emeralds.",
+                        "0.15 means at most 15%; integer rounding never exceeds this limit."
+                )
+                .defineInRange(
+                        "maximumEmeraldPaymentResultReduction",
+                        price.maximumEmeraldPaymentResultReduction(),
+                        0.0,
+                        1.0
+                );
+        MAXIMUM_ITEM_PAYMENT_INCREASE = BUILDER
+                .comment(
+                        "Maximum fractional increase of a non-emerald payment stack.",
+                        "0.20 means at most 20%; the emerald stack is never changed."
+                )
+                .defineInRange(
+                        "maximumItemPaymentIncrease",
+                        price.maximumItemPaymentIncrease(),
+                        0.0,
+                        1.0
+                );
+        DEMAND_SCORE_FOR_MAXIMUM_PRICE = BUILDER
+                .comment(
+                        "Demand points above baseline required to reach the configured percentage caps.",
+                        "The default 8.0 lets an ordinary offer reach its cap before selling out."
+                )
+                .defineInRange(
+                        "demandScoreForMaximumPrice",
+                        price.demandScoreForMaximumPrice(),
+                        Double.MIN_NORMAL,
+                        Double.MAX_VALUE
+                );
+        DYNAMIC_SHIFT_PRICING = BUILDER
+                .comment(
+                        "Recalculate price after every trade inside Shift-click bulk purchasing.",
+                        "False keeps the opening price for the entire bulk purchase."
+                )
+                .define("dynamicShiftPricing", price.dynamicShiftPricing());
         BUILDER.pop();
 
         MarketDemandStockConfig stock = economy.stock();
@@ -548,6 +594,10 @@ public final class ServerConfig {
                         PRICE_INFLUENCE_ENABLED.get(),
                         MINIMUM_PRICE_MULTIPLIER.get(),
                         MAXIMUM_PRICE_MULTIPLIER.get(),
+                        MAXIMUM_EMERALD_PAYMENT_RESULT_REDUCTION.get(),
+                        MAXIMUM_ITEM_PAYMENT_INCREASE.get(),
+                        DEMAND_SCORE_FOR_MAXIMUM_PRICE.get(),
+                        DYNAMIC_SHIFT_PRICING.get(),
                         DEMAND_INFLUENCES_STOCK.get(),
                         STOCK_INFLUENCE_STRENGTH.get(),
                         MAXIMUM_ADDITIONAL_USES.get(),
@@ -653,7 +703,11 @@ public final class ServerConfig {
                         new MarketDemandPriceConfig(
                                 economy.priceEnabled(),
                                 economy.minimumPriceMultiplier(),
-                                economy.maximumPriceMultiplier()
+                                economy.maximumPriceMultiplier(),
+                                economy.maximumEmeraldPaymentResultReduction(),
+                                economy.maximumItemPaymentIncrease(),
+                                economy.demandScoreForMaximumPrice(),
+                                economy.dynamicShiftPricing()
                         ),
                         new MarketDemandStockConfig(
                                 economy.stockEnabled(),
@@ -699,6 +753,10 @@ public final class ServerConfig {
                         economy.price().enabled(),
                         economy.price().minimumMultiplier(),
                         economy.price().maximumMultiplier(),
+                        economy.price().maximumEmeraldPaymentResultReduction(),
+                        economy.price().maximumItemPaymentIncrease(),
+                        economy.price().demandScoreForMaximumPrice(),
+                        economy.price().dynamicShiftPricing(),
                         economy.stock().enabled(),
                         economy.stock().influenceStrength(),
                         economy.stock().maximumAdditionalUses(),
@@ -814,10 +872,49 @@ public final class ServerConfig {
             boolean priceEnabled,
             double minimumPriceMultiplier,
             double maximumPriceMultiplier,
+            double maximumEmeraldPaymentResultReduction,
+            double maximumItemPaymentIncrease,
+            double demandScoreForMaximumPrice,
+            boolean dynamicShiftPricing,
             boolean stockEnabled,
             double stockInfluenceStrength,
             int maximumAdditionalUses,
             int maximumUsesPerOffer
     ) {
+        EconomyValues(
+                boolean demandEnabled,
+                double demandGainPerUse,
+                double demandDecayPerTick,
+                double demandMinimum,
+                double demandBaseline,
+                double demandMaximum,
+                boolean priceEnabled,
+                double minimumPriceMultiplier,
+                double maximumPriceMultiplier,
+                boolean stockEnabled,
+                double stockInfluenceStrength,
+                int maximumAdditionalUses,
+                int maximumUsesPerOffer
+        ) {
+            this(
+                    demandEnabled,
+                    demandGainPerUse,
+                    demandDecayPerTick,
+                    demandMinimum,
+                    demandBaseline,
+                    demandMaximum,
+                    priceEnabled,
+                    minimumPriceMultiplier,
+                    maximumPriceMultiplier,
+                    MarketDemandPriceConfig.DEFAULT.maximumEmeraldPaymentResultReduction(),
+                    MarketDemandPriceConfig.DEFAULT.maximumItemPaymentIncrease(),
+                    MarketDemandPriceConfig.DEFAULT.demandScoreForMaximumPrice(),
+                    MarketDemandPriceConfig.DEFAULT.dynamicShiftPricing(),
+                    stockEnabled,
+                    stockInfluenceStrength,
+                    maximumAdditionalUses,
+                    maximumUsesPerOffer
+            );
+        }
     }
 }

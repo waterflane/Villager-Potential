@@ -39,7 +39,10 @@ public final class MerchantOfferTradeKeys {
             Optional<TradeKey.Item> costB = costBStack.isEmpty()
                     ? Optional.empty()
                     : Optional.of(item(costBStack));
-            TradeKey key = new TradeKey.Offer(costA, costB, item(offer.getResult()));
+            ItemStack baseResult = offer instanceof DemandPriceOffer demandPriceOffer
+                    ? demandPriceOffer.villagerPotential$baseResult()
+                    : offer.getResult();
+            TradeKey key = new TradeKey.Offer(costA, costB, item(baseResult));
             return new Identity(key, isStable(key));
         } catch (RuntimeException exception) {
             return new Identity(fallbackFor(offer), false);

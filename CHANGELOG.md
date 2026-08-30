@@ -5,6 +5,28 @@ The format loosely follows [Keep a Changelog](https://keepachangelog.com/en/1.1.
 
 ## Unreleased
 
+### Trade restocking and prices
+
+- Villagers now restock used offers only after actually waking from sleep;
+  workstation activity no longer performs the vanilla twice-daily restock.
+- Completed sleep clears accumulated demand and restores demand-adjusted prices.
+- Demand never changes an emerald stack. Emerald-paid offers reduce only the
+  received product by at most 15%, while other payment stacks grow by at most
+  20%; integer rounding never exceeds either cap.
+- Fixed non-emerald payments becoming cheaper under positive demand, including
+  Forge trades such as wheat for an emerald.
+- Non-emerald payment counts are now monotonic between completed sleeps on both
+  loaders: after demand raises a payment, decay and later recalculation cannot
+  lower the already reached count.
+- Prices now update in the open merchant screen immediately after an ordinary
+  purchase. Shift-click keeps its opening batch price by default, with optional
+  per-trade bulk recalculation via `economy.price.dynamicShiftPricing`.
+- Added `economy.price.demandScoreForMaximumPrice` (default `8.0`) so frequently
+  used offers can realistically reach their configured percentage cap before
+  the villager sleeps.
+- Clarified that `economy.price.enabled` defaults to `true` and disables the
+  complete demand price-increase system when set to `false`.
+
 ### Forge 1.20.1 port
 
 - Added a Java 17 Forge module targeting Minecraft 1.20.1, Forge 47.4.23, and

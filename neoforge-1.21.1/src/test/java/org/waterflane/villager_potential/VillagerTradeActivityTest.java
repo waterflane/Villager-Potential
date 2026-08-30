@@ -5,6 +5,7 @@ import net.minecraft.world.entity.npc.Villager;
 import net.minecraft.world.entity.npc.VillagerData;
 import net.minecraft.world.entity.npc.VillagerProfession;
 import net.minecraft.world.item.trading.MerchantOffer;
+import net.minecraft.world.item.trading.MerchantOffers;
 import net.minecraft.world.item.trading.ItemCost;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
@@ -51,6 +52,8 @@ class VillagerTradeActivityTest {
                 5,
                 0.05F
         );
+        MerchantOffers offers = new MerchantOffers();
+        offers.add(offer);
 
         when(event.getAbstractVillager()).thenReturn(villager);
         when(event.getMerchantOffer()).thenReturn(offer);
@@ -59,6 +62,7 @@ class VillagerTradeActivityTest {
         when(villager.getVillagerData()).thenReturn(villagerData);
         when(villagerData.getProfession()).thenReturn(VillagerProfession.LIBRARIAN);
         when(villager.getVillagerXp()).thenReturn(37);
+        when(villager.getOffers()).thenReturn(offers);
         when(villager.getData(any(Supplier.class))).thenAnswer(ignored -> state.get());
         when(villager.setData(any(Supplier.class), any())).thenAnswer(invocation ->
                 state.getAndSet(invocation.getArgument(1))

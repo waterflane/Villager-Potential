@@ -420,6 +420,22 @@ public record VillagerPotentialState(
         );
     }
 
+    /** Clears all accumulated market demand after the villager completes sleep. */
+    public VillagerPotentialState resetMarketDemandAfterSleep() {
+        if (marketDemand.isEmpty()) {
+            return this;
+        }
+        return new VillagerPotentialState(
+                schemaVersion,
+                aptitudes,
+                careers,
+                activeProfession,
+                professionActivities,
+                tradePalettes,
+                Map.of()
+        );
+    }
+
     /** Records offers materialized for one profession using persistent palette semantics. */
     public VillagerPotentialState recordPresentedTrades(
             ProfessionId professionId,
