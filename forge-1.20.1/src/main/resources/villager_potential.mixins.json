@@ -1,0 +1,23 @@
+{
+  "required": true,
+  "minVersion": "0.8",
+  "package": "org.waterflane.villager_potential.mixin",
+  "compatibilityLevel": "JAVA_17",
+  "refmap": "villager_potential.refmap.json",
+  "mixins": [
+    "AbstractVillagerTradeSelectionMixin",
+    "EntityPortableDataMixin",
+    "MerchantOfferDemandStockMixin",
+    "VillagerBreedingMixin",
+    "VillagerDemandPricingMixin",
+    "VillagerDemandStockMixin",
+    "VillagerLevelUpMixin"
+  ],
+  "client": [
+    "client.AbstractContainerScreenMixin",
+    "client.MerchantScreenMixin"
+  ],
+  "injectors": {
+    "defaultRequire": 1
+  }
+}

@@ -1,0 +1,192 @@
+plugins {
+    id 'java-library'
+    id 'idea'
+    id 'net.minecraftforge.gradle'
+    id 'org.spongepowered.mixin'
+}
+
+base {
+    archivesName = "${mod_id}-forge-${forge_minecraft_version}"
+}
+
+java.toolchain.languageVersion = JavaLanguageVersion.of(17)
+
+minecraft {
+    mappings channel: 'official', version: forge_minecraft_version
+
+    runs {
+        configureEach {
+            workingDirectory project.file('run')
+            property 'forge.logging.markers', 'REGISTRIES'
+            property 'forge.logging.console.level', 'debug'
+            property 'forge.enabledGameTestNamespaces', mod_id
+            mods {
+                "${mod_id}" {
+                    source sourceSets.main
+                    source project(':core').sourceSets.main
+                }
+            }
+        }
+        client {}
+        server { args '--nogui' }
+        gameTestServer {}
+        data {
+            workingDirectory project.file('run-data')
+            args '--mod', mod_id, '--all', '--output', file('src/generated/resources/'),
+                    '--existing', file('src/main/resources/')
+        }
+    }
+}
+
+mixin {
+    add sourceSets.main, "${mod_id}.refmap.json"
+    config "${mod_id}.mixins.json"
+}
+
+repositories {
+    mavenCentral()
+    maven { url = 'https://repo.spongepowered.org/repository/maven-public/' }
+}
+
+dependencies {
+    minecraft "net.minecraftforge:forge:${forge_minecraft_version}-${forge_version}"
+    compileOnly project(':core')
+    testImplementation project(':core')
+    annotationProcessor 'org.spongepowered:mixin:0.8.5:processor'
+    testImplementation platform('org.junit:junit-bom:5.11.4')
+    testImplementation 'org.junit.jupiter:junit-jupiter'
+    testImplementation 'org.mockito:mockito-core:5.14.2'
+}
+
+sourceSets.main.resources.srcDir 'src/generated/resources'
+
+tasks.named('test') {
+    useJUnitPlatform()
+}
+
+tasks.register('prepareGameTestStructures', Copy) {
+    from layout.projectDirectory.dir('src/gameTest/resources')
+    into layout.projectDirectory.dir('run/gameteststructures')
+}
+
+tasks.register('cleanGameTestWorld', Delete) {
+    delete layout.projectDirectory.dir('run/world')
+}
+
+tasks.matching { it.name == 'runGameTestServer' }.configureEach {
+    dependsOn tasks.named('prepareGameTestStructures')
+    dependsOn tasks.named('cleanGameTestWorld')
+}
+
+def replaceProperties = [
+        minecraft_version_range: forge_minecraft_version_range,
+        forge_version_range: forge_version_range,
+        loader_version_range: forge_loader_version_range,
+        mod_id: mod_id,
+        mod_name: mod_name,
+        mod_license: mod_license,
+        mod_version: mod_version,
+        mod_authors: mod_authors,
+        mod_description: mod_description
+]
+
+tasks.named('processResources', ProcessResources) {
+    inputs.properties replaceProperties
+    filesMatching('META-INF/mods.toml') { expand replaceProperties }
+}
+
+tasks.named('jar', Jar) {
+    from project(':core').sourceSets.main.output
+    exclude 'org/waterflane/villager_potential/VillagerProgressionGameTests*.class'
+    manifest {
+        attributes(
+                'Implementation-Title': mod_name,
+                'Implementation-Version': project.version,
+                'Implementation-Vendor': mod_authors,
+                'MixinConfigs': "${mod_id}.mixins.json"
+        )
+    }
+    finalizedBy 'reobfJar'
+}
+
+def releaseJar = tasks.named('jar', Jar).flatMap { it.archiveFile }
+def requiredReleaseEntries = [
+        'META-INF/MANIFEST.MF',
+        'META-INF/mods.toml',
+        'pack.mcmeta',
+        'villager_potential.mixins.json',
+        'assets/villager_potential/lang/en_us.json',
+        'assets/villager_potential/lang/ru_ru.json',
+        'org/waterflane/villager_potential/forge/VillagerPotentialForge.class',
+        'org/waterflane/villager_potential/Villager_potential.class',
+        'org/waterflane/villager_potential/core/VillagerPotential.class'
+]
+
+tasks.register('checkDedicatedServerImports') {
+    group = 'verification'
+    dependsOn tasks.named('classes')
+    doLast {
+        def forbidden = ['net/minecraft/client/', 'com/mojang/blaze3d/']
+        def clientOnlyPrefixes = [
+                'org/waterflane/villager_potential/client/',
+                'org/waterflane/villager_potential/mixin/client/'
+        ]
+        sourceSets.main.output.classesDirs.files.each { classesDir ->
+            if (!classesDir.exists()) {
+                return
+            }
+            fileTree(classesDir).matching { include '**/*.class' }.files.each { classFile ->
+                def relative = classesDir.toPath().relativize(classFile.toPath())
+                        .toString().replace('\\', '/')
+                if (clientOnlyPrefixes.any { relative.startsWith(it) }) {
+                    return
+                }
+                def bytes = new String(classFile.bytes, java.nio.charset.StandardCharsets.ISO_8859_1)
+                def hit = forbidden.find { bytes.contains(it) }
+                if (hit != null) {
+                    throw new GradleException(
+                            "Dedicated-server class ${relative} references client package ${hit}"
+                    )
+                }
+            }
+        }
+    }
+}
+
+tasks.register('verifyReleaseJar') {
+    group = 'verification'
+    dependsOn tasks.named('jar')
+    inputs.file(releaseJar)
+    doLast {
+        def zip = new java.util.zip.ZipFile(releaseJar.get().asFile)
+        try {
+            def names = zip.entries().collect { it.name }
+            def missing = requiredReleaseEntries.findAll { !names.contains(it) }
+            if (!missing.isEmpty()) {
+                throw new GradleException("Missing Forge release entries: ${missing}")
+            }
+            def metadata = zip.getInputStream(zip.getEntry('META-INF/mods.toml')).getText('UTF-8')
+            ["modId=\"${mod_id}\"", "version=\"${mod_version}\"",
+             "versionRange=\"${forge_version_range}\"",
+             "versionRange=\"${forge_minecraft_version_range}\""].each { expected ->
+                if (!metadata.contains(expected)) {
+                    throw new GradleException("Forge metadata is missing: ${expected}")
+                }
+            }
+        } finally {
+            zip.close()
+        }
+    }
+}
+
+tasks.register('release', Sync) {
+    group = 'build'
+    dependsOn tasks.named('verifyReleaseJar')
+    from releaseJar
+    into rootProject.layout.buildDirectory.dir('release/forge-1.20.1')
+}
+
+tasks.named('check') {
+    dependsOn tasks.named('verifyReleaseJar')
+    dependsOn tasks.named('checkDedicatedServerImports')
+}

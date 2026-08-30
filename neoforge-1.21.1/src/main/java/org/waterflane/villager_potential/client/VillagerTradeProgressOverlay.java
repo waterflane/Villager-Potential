@@ -10,6 +10,7 @@ import net.minecraft.util.Mth;
 import org.waterflane.villager_potential.VillagerTradeProgressClientState;
 import org.waterflane.villager_potential.VillagerTradeProgressPayload;
 import org.waterflane.villager_potential.core.SkillProgression;
+import org.waterflane.villager_potential.core.TradeProgressSnapshot;
 
 import java.util.List;
 import java.util.Locale;
@@ -39,11 +40,12 @@ public final class VillagerTradeProgressOverlay {
             int mouseX,
             int mouseY
     ) {
-        VillagerTradeProgressPayload progress = VillagerTradeProgressClientState.latest()
+        VillagerTradeProgressPayload payload = VillagerTradeProgressClientState.latest()
                 .orElse(null);
-        if (progress == null) {
+        if (payload == null) {
             return;
         }
+        TradeProgressSnapshot progress = payload.progress();
 
         int x = screen.getGuiLeft() + BAR_X;
         int activityY = screen.getGuiTop() + ACTIVITY_BAR_Y;
@@ -62,24 +64,12 @@ public final class VillagerTradeProgressOverlay {
         VillagerTradeProgressClientState.clear();
     }
 
-    static double skillFraction(VillagerTradeProgressPayload progress) {
-        double span = progress.nextLevelSkill() - progress.levelStartSkill();
-        if (progress.professionLevel() >= 5 || span <= 0.0) {
-            return 0.0;
-        }
-        return Mth.clamp((progress.skill() - progress.levelStartSkill()) / span, 0.0, 1.0);
+    static double skillFraction(TradeProgressSnapshot progress) {
+        return progress.skillFraction();
     }
 
-    static double activityFraction(VillagerTradeProgressPayload progress) {
-        double span = progress.activityMaximum() - progress.activityBaseline();
-        if (span <= 0.0) {
-            return 1.0;
-        }
-        return Mth.clamp(
-                (progress.activityMultiplier() - progress.activityBaseline()) / span,
-                0.0,
-                1.0
-        );
+    static double activityFraction(TradeProgressSnapshot progress) {
+        return progress.activityFraction();
     }
 
     private static void renderGreenBar(
@@ -120,7 +110,7 @@ public final class VillagerTradeProgressOverlay {
         }
     }
 
-    static List<Component> skillTooltip(VillagerTradeProgressPayload progress) {
+    static List<Component> skillTooltip(TradeProgressSnapshot progress) {
         if (progress.professionLevel() >= 5) {
             return List.of(
                     Component.translatable("tooltip.villager_potential.skill.title")
@@ -183,18 +173,11 @@ public final class VillagerTradeProgressOverlay {
         return List.copyOf(lines);
     }
 
-    static double minutesRemaining(VillagerTradeProgressPayload progress) {
-        double remaining = Math.max(0.0, progress.nextLevelSkill() - progress.skill());
-        if (remaining == 0.0) {
-            return 0.0;
-        }
-        if (progress.skillPerMinute() <= 0.0) {
-            return Double.POSITIVE_INFINITY;
-        }
-        return remaining / progress.skillPerMinute();
+    static double minutesRemaining(TradeProgressSnapshot progress) {
+        return progress.minutesRemaining();
     }
 
-    static List<Component> activityTooltip(VillagerTradeProgressPayload progress) {
+    static List<Component> activityTooltip(TradeProgressSnapshot progress) {
         double remaining = Math.max(
                 0.0,
                 progress.activityMaximum() - progress.activityMultiplier()

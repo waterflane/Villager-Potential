@@ -234,7 +234,7 @@ public final class VillagerPotentialAttachments {
 
     private static final DeferredRegister<AttachmentType<?>> ATTACHMENT_TYPES =
             DeferredRegister.create(NeoForgeRegistries.Keys.ATTACHMENT_TYPES, Villager_potential.MODID);
-    private static final DeferredHolder<AttachmentType<?>, AttachmentType<VillagerPotentialState>> POTENTIAL =
+    static final DeferredHolder<AttachmentType<?>, AttachmentType<VillagerPotentialState>> POTENTIAL =
             ATTACHMENT_TYPES.register("potential", () -> AttachmentType.builder(VillagerPotentialState::createDefault)
                     .serialize(CODEC)
                     .copyOnDeath()
@@ -305,6 +305,13 @@ public final class VillagerPotentialAttachments {
                 skill
         );
         persistAndEmit(villager, state, updated);
+        if (villager.getVillagerData() != null) {
+            queueEarnedProfessionLevel(
+                    villager,
+                    updated,
+                    toCareerProfession(villager.getVillagerData().getProfession())
+            );
+        }
         return updated;
     }
 

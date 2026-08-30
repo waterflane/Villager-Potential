@@ -1,8 +1,8 @@
 # Villager Potential integration API
 
-The supported API is split between a platform-neutral read model and a
-NeoForge 1.21.1 facade. Integrations should not use
-`VillagerPotentialAttachments`; attachment types, codecs, and persistence
+The supported API is split between a platform-neutral read model and equivalent
+Forge 1.20.1 / NeoForge 1.21.1 facades. Integrations should not use
+`VillagerPotentialAttachments`; capability, attachment, codec, and persistence
 containers are implementation details.
 
 Consume the API by declaring a normal mod dependency on `villager_potential`
@@ -42,7 +42,7 @@ aggregate `TradeMemoryEntry(timesSeen, lastSeen, timesUsed, lastUsed)` history,
 and stored `DemandInfo(score, timesPurchased, lastPurchaseGameTime)` per trade.
 Reading `DemandInfo` never applies time decay.
 
-Calling the NeoForge facade can lazily initialize missing Potential and must be
+Calling either platform facade can lazily initialize missing Potential and must be
 done on the logical server thread. A returned snapshot can safely be retained
 and read later. Query the facade again when current state is required.
 
@@ -51,7 +51,7 @@ scoped administrative operations to set one aptitude, set one existing
 career's skill, reset one profession's derived state, regenerate one
 profession, or explicitly regenerate all Potential. These operations validate
 inputs and always pass through the persistence/event service; they never expose
-or accept attachment containers. Specialization assignment additionally checks
+or accept loader persistence containers. Specialization assignment additionally checks
 the active datapack definition and cannot replace an existing different value.
 The administrative operations are intended for trusted server tooling, not
 ordinary gameplay integrations.
@@ -121,16 +121,16 @@ cannot be restored, Villager Potential yields to the originating trade system
 instead of cancelling it or returning an incomplete palette.
 
 For a future companion bridge, use the versioned
-`core.api.VillagerPotentialService` SPI and obtain its NeoForge implementation
+`core.api.VillagerPotentialService` SPI and obtain its platform implementation
 from `VillagerPotentialServices.forServer(server)`. It looks up loaded villagers
 by UUID, returns immutable views, and exposes only supported explicit mutations.
 A bridge running in a genuinely compatible plugin or hybrid environment may
-delegate to this service. Stock NeoForge is not claimed to be Paper-compatible;
+delegate to this service. Stock Forge/NeoForge is not claimed to be Paper-compatible;
 this project contains no Bukkit or Paper API or compatibility shim.
 
 ## Administration and diagnostics
 
-All NeoForge commands use the `/villagerpotential` root. `inspect <villager>`
+All platform commands use the `/villagerpotential` root. `inspect <villager>`
 and `reload` require permission level 2. Mutations require permission level 4:
 
 - `set aptitude <villager> <profession-id> <value>`;
@@ -143,7 +143,7 @@ and `reload` require permission level 2. Mutations require permission level 4:
 profession. Regeneration is never implicit: the destructive paths exist only
 under the explicit `regenerate profession` and `regenerate all` literals.
 Commands delegate to the public versioned service rather than accessing
-attachments.
+capabilities or attachments.
 
 The server config's `[debug] enabled` option activates concise lifecycle,
 trade-processing, persistent restoration/learning, and demand/price messages.

@@ -1,6 +1,6 @@
 # Server configuration reference
 
-Villager Potential registers one NeoForge server config,
+Villager Potential registers one Forge/NeoForge server config,
 `villager_potential-server.toml`. Durations use the Minecraft clock: 20 ticks
 per second, 1,200 per minute, and 24,000 per full day. Reloaded values are
 validated together; invalid cross-field combinations are rejected instead of
@@ -8,7 +8,7 @@ being partially activated.
 
 `career.requireJobSite` and `playerFeedback.aptitudeDisplay` were removed from
 the active schema. A valid owned workstation is mandatory, and interaction
-messages no longer exist. Old files may retain these keys until NeoForge
+messages no longer exist. Old files may retain these keys until the loader
 rewrites them, but they have no runtime effect.
 
 ## Aptitude and inheritance

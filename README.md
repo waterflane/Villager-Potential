@@ -8,10 +8,13 @@ parents, earns professional skill through real work time, specializes as it
 matures, learns a durable palette of trades, and runs a local market where demand
 moves prices.
 
-Supported platform: **Minecraft 1.21.1** with **NeoForge 21.1.233–21.1.x**.
-A compatibility build matrix checks both `21.1.233` and the current pinned
-`21.1.248` toolchain; one release JAR works across that range.
-A Forge 1.20.1 port is planned; it is not supported yet.
+Supported platforms:
+
+- **Minecraft 1.21.1** with **NeoForge 21.1.233–21.1.x** (built against 21.1.248);
+- **Minecraft 1.20.1** with **Forge 47.4.10–47.x** (built against 47.4.23).
+
+Use the JAR whose loader and Minecraft version match the server. Both JARs
+embed the same Java-17-compatible domain core and use the same data format.
 
 ## How it works
 
@@ -145,7 +148,8 @@ Useful commands (all under `/villagerpotential`, output is diagnostic text):
 
 ## Integration API (developers)
 
-A small, versioned integration surface is available to other NeoForge mods:
+A small, versioned integration surface is available to other Forge and
+NeoForge mods:
 
 - read model — `VillagerPotentialApi.view(villager)` returns an immutable
   `PotentialView` snapshot (aptitudes, careers, skill, specializations,
@@ -169,8 +173,8 @@ Specialization definitions for data pack authors are documented in
 ## Compatibility philosophy
 
 - Villagers keep looking and behaving like vanilla; there is no custom block,
-  item, entity, screen, or client requirement, and the mod runs on dedicated
-  servers.
+  item, entity, or menu type. The optional client code augments the vanilla
+  merchant screen, while dedicated servers remain fully supported.
 - Vanilla systems stay authoritative: restock timing, job-site logic, and offer
   regeneration are reused, and prices layer on top of vanilla adjustments.
 - Other mods' professions and trades are handled conservatively — registered

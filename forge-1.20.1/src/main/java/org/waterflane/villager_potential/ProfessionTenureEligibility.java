@@ -1,0 +1,43 @@
+package org.waterflane.villager_potential;
+
+import net.minecraft.world.entity.npc.Villager;
+import net.minecraft.world.entity.ai.memory.MemoryModuleType;
+import net.minecraft.world.entity.schedule.Activity;
+import org.waterflane.villager_potential.core.CareerProgressionConfig;
+import org.waterflane.villager_potential.core.MinecraftTime;
+
+import java.util.Objects;
+
+/**
+ * Selects the loaded server ticks that count toward profession tenure.
+ * Additional job-site or work-activity policies can be composed here without
+ * changing the persisted career data.
+ */
+@FunctionalInterface
+interface ProfessionTenureEligibility {
+    static ProfessionTenureEligibility from(CareerProgressionConfig config) {
+        Objects.requireNonNull(config, "config");
+        return villager -> canAccumulate(villager, config);
+    }
+
+    /** Allocation-free entry point for the per-villager tick path. */
+    static boolean canAccumulate(Villager villager, CareerProgressionConfig config) {
+        Objects.requireNonNull(villager, "villager");
+        Objects.requireNonNull(config, "config");
+        return config.enabled()
+                && MinecraftTime.isDaytime(villager.level().getDayTime())
+                && (!config.adultsOnly() || !villager.isBaby())
+                && (!config.requireJobSite()
+                || villager.getBrain() == null
+                || villager.getBrain().hasMemoryValue(MemoryModuleType.JOB_SITE))
+                && (!config.requireWorkActivity()
+                || villager.getBrain().getActiveNonCoreActivity().filter(Activity.WORK::equals).isPresent());
+    }
+
+    boolean canAccumulate(Villager villager);
+
+    default ProfessionTenureEligibility and(ProfessionTenureEligibility other) {
+        Objects.requireNonNull(other, "other");
+        return villager -> canAccumulate(villager) && other.canAccumulate(villager);
+    }
+}

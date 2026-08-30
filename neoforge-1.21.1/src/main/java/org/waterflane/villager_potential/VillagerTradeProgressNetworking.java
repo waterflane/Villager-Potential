@@ -6,17 +6,10 @@ import net.neoforged.neoforge.network.PacketDistributor;
 import net.neoforged.neoforge.network.event.RegisterPayloadHandlersEvent;
 import net.neoforged.neoforge.network.registration.NetworkRegistry;
 import net.neoforged.neoforge.network.registration.PayloadRegistrar;
-import org.waterflane.villager_potential.core.ProfessionActivityConfig;
-import org.waterflane.villager_potential.core.ProfessionCareerState;
 import org.waterflane.villager_potential.core.ProfessionId;
-import org.waterflane.villager_potential.core.ProfessionLevelThresholds;
-import org.waterflane.villager_potential.core.MinecraftTime;
-import org.waterflane.villager_potential.core.SkillProgression;
-import org.waterflane.villager_potential.core.SkillProgressionConfig;
+import org.waterflane.villager_potential.core.TradeProgressSnapshot;
 import org.waterflane.villager_potential.core.VillagerPotentialConfig;
 import org.waterflane.villager_potential.core.VillagerPotentialState;
-
-import java.util.Optional;
 
 /** Synchronizes the current profession progression while a player is trading. */
 public final class VillagerTradeProgressNetworking {
@@ -55,57 +48,28 @@ public final class VillagerTradeProgressNetworking {
         ProfessionId profession = VillagerPotentialAttachments.toCareerProfession(
                 villager.getVillagerData().getProfession()
         );
-        if (profession == null || !state.activeProfession().equals(Optional.of(profession))) {
+        if (profession == null) {
             return;
         }
-        ProfessionCareerState career = state.careerFor(profession).orElse(null);
-        Double aptitude = state.aptitudes().get(profession);
-        if (career == null || aptitude == null) {
-            return;
-        }
-
         VillagerPotentialConfig config = ServerConfig.gameplayConfig();
-        SkillProgressionConfig skillConfig = config.skill();
-        ProfessionActivityConfig activityConfig = config.activity();
-        ProfessionLevelThresholds thresholds = skillConfig.professionLevelThresholds();
         int level = Math.max(1, Math.min(5, villager.getVillagerData().getLevel()));
-        double levelStart = thresholds.thresholdForLevel(level);
-        double nextLevel = level == ProfessionLevelThresholds.MASTER_LEVEL
-                ? thresholds.masterSkill()
-                : thresholds.thresholdForLevel(level + 1);
-        double activity = state.professionActivityFor(profession, gameTime, activityConfig);
         boolean eligible = VillagerJobSiteAccess.hasUsableJobSite(villager, gameTime)
                 && ProfessionTenureEligibility.canAccumulate(villager, config.career());
-        double effectiveAptitude = SkillProgression.effectiveAptitudeMultiplier(
-                aptitude,
-                skillConfig.aptitudeInfluence()
-        );
-        double configuredBaseSkillPerMinute = MinecraftTime.TICKS_PER_MINUTE
-                * skillConfig.progressionRate();
-        boolean progressionActive = skillConfig.enabled()
-                && eligible
-                && career.learnedSkill() < skillConfig.maximumSkill();
-        double baseSkillPerMinute = progressionActive
-                ? configuredBaseSkillPerMinute
-                : 0.0;
-        double skillPerMinute = baseSkillPerMinute
-                * effectiveAptitude
-                * activity
-                * SkillProgression.professionLevelRateMultiplier(level);
+        TradeProgressSnapshot progress = TradeProgressSnapshot.create(
+                state,
+                profession,
+                level,
+                gameTime,
+                eligible,
+                config
+        ).orElse(null);
+        if (progress == null) {
+            return;
+        }
 
         PacketDistributor.sendToPlayer(player, new VillagerTradeProgressPayload(
                 villager.getId(),
-                level,
-                career.learnedSkill(),
-                levelStart,
-                nextLevel,
-                baseSkillPerMinute,
-                skillPerMinute,
-                effectiveAptitude,
-                activity,
-                activityConfig.baseline(),
-                activityConfig.maximum(),
-                activityConfig.increasePerTradeForLevel(level)
+                progress
         ));
     }
 }

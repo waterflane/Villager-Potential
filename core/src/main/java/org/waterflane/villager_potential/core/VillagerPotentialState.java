@@ -19,7 +19,7 @@ public record VillagerPotentialState(
         Map<ProfessionId, TradePaletteState> tradePalettes,
         Map<ProfessionId, Map<TradeKey, MarketDemandState>> marketDemand
 ) {
-    public static final int CURRENT_SCHEMA_VERSION = 10;
+    public static final int CURRENT_SCHEMA_VERSION = 11;
 
     public VillagerPotentialState {
         if (schemaVersion < 1) {
@@ -750,14 +750,14 @@ public record VillagerPotentialState(
                     persistedTradePalettes,
                     persistedMarketDemand
             );
-            case 9 -> new VillagerPotentialState(
+            case 10, 9 -> new VillagerPotentialState(
                     CURRENT_SCHEMA_VERSION,
                     persistedAptitudes,
                     persistedCareers,
                     persistedActiveProfession,
                     persistedProfessionActivities,
-                    persistedTradePalettes,
-                    persistedMarketDemand
+                    migrateTradePalettes(persistedTradePalettes),
+                    migrateMarketDemand(persistedMarketDemand)
             );
             case 8, 7 -> new VillagerPotentialState(
                     CURRENT_SCHEMA_VERSION,
@@ -765,7 +765,7 @@ public record VillagerPotentialState(
                     persistedCareers,
                     persistedActiveProfession,
                     persistedProfessionActivities,
-                    persistedTradePalettes,
+                    migrateTradePalettes(persistedTradePalettes),
                     Map.of()
             );
             case 6, 5 -> new VillagerPotentialState(
@@ -807,6 +807,104 @@ public record VillagerPotentialState(
 
     private static VillagerPotentialState migrateWithoutAptitudesAndCareers() {
         return createDefault();
+    }
+
+    private static Map<ProfessionId, TradePaletteState> migrateTradePalettes(
+            Map<ProfessionId, TradePaletteState> palettes
+    ) {
+        Map<ProfessionId, TradePaletteState> migrated = new HashMap<>();
+        palettes.forEach((profession, palette) -> {
+            List<TradeKey> active = new java.util.ArrayList<>();
+            for (TradeKey trade : palette.activeTrades()) {
+                TradeKey converted = migrateTradeKey(trade);
+                if (!active.contains(converted)) {
+                    active.add(converted);
+                }
+            }
+            Map<TradeKey, TradeHistory> history = new HashMap<>();
+            palette.offerHistory().forEach((trade, observation) -> history.merge(
+                    migrateTradeKey(trade),
+                    observation,
+                    VillagerPotentialState::mergeTradeHistory
+            ));
+            migrated.put(profession, new TradePaletteState(active, history));
+        });
+        return migrated;
+    }
+
+    private static Map<ProfessionId, Map<TradeKey, MarketDemandState>> migrateMarketDemand(
+            Map<ProfessionId, Map<TradeKey, MarketDemandState>> demandByProfession
+    ) {
+        Map<ProfessionId, Map<TradeKey, MarketDemandState>> migrated = new HashMap<>();
+        demandByProfession.forEach((profession, demand) -> {
+            Map<TradeKey, MarketDemandState> entries = new HashMap<>();
+            demand.forEach((trade, state) -> entries.merge(
+                    migrateTradeKey(trade),
+                    state,
+                    VillagerPotentialState::mergeDemand
+            ));
+            migrated.put(profession, entries);
+        });
+        return migrated;
+    }
+
+    private static TradeKey migrateTradeKey(TradeKey trade) {
+        if (!(trade instanceof TradeKey.Offer offer)) {
+            return trade;
+        }
+        return new TradeKey.Offer(
+                migrateTradeItem(offer.costA()),
+                offer.costB().map(VillagerPotentialState::migrateTradeItem),
+                migrateTradeItem(offer.result())
+        );
+    }
+
+    private static TradeKey.Item migrateTradeItem(TradeKey.Item item) {
+        return new TradeKey.Item(
+                item.itemId(),
+                item.count(),
+                TradeMetadata.migrateLegacyComponents(item.components())
+        );
+    }
+
+    private static TradeHistory mergeTradeHistory(TradeHistory first, TradeHistory second) {
+        return new TradeHistory(
+                saturatedAdd(first.timesSeen(), second.timesSeen()),
+                latest(first.lastSeen(), second.lastSeen()),
+                saturatedAdd(first.timesUsed(), second.timesUsed()),
+                latest(first.lastUsed(), second.lastUsed())
+        );
+    }
+
+    private static MarketDemandState mergeDemand(
+            MarketDemandState first,
+            MarketDemandState second
+    ) {
+        MarketDemandState newest = first.lastPurchaseGameTime() >= second.lastPurchaseGameTime()
+                ? first
+                : second;
+        return new MarketDemandState(
+                newest.demandScore(),
+                saturatedAdd(first.timesPurchased(), second.timesPurchased()),
+                newest.lastPurchaseGameTime()
+        );
+    }
+
+    private static java.util.OptionalLong latest(
+            java.util.OptionalLong first,
+            java.util.OptionalLong second
+    ) {
+        if (first.isEmpty()) {
+            return second;
+        }
+        if (second.isEmpty()) {
+            return first;
+        }
+        return java.util.OptionalLong.of(Math.max(first.getAsLong(), second.getAsLong()));
+    }
+
+    private static long saturatedAdd(long first, long second) {
+        return Long.MAX_VALUE - first < second ? Long.MAX_VALUE : first + second;
     }
 
     private static void validateCareer(

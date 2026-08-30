@@ -7,6 +7,7 @@ import net.minecraft.core.component.DataComponentType;
 import net.minecraft.core.component.DataComponents;
 import net.minecraft.core.component.TypedDataComponent;
 import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.network.chat.Component;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.ListTag;
 import net.minecraft.nbt.NbtOps;
@@ -17,13 +18,17 @@ import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.npc.VillagerTrades;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.alchemy.PotionContents;
+import net.minecraft.world.item.armortrim.ArmorTrim;
+import net.minecraft.world.item.component.DyedItemColor;
+import net.minecraft.world.item.component.SuspiciousStewEffects;
 import net.minecraft.world.item.enchantment.Enchantment;
 import net.minecraft.world.item.enchantment.ItemEnchantments;
 import net.minecraft.world.item.trading.MerchantOffer;
 import org.waterflane.villager_potential.core.TradeKey;
+import org.waterflane.villager_potential.core.TradeMetadata;
 
 import java.util.ArrayList;
-import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -108,23 +113,16 @@ public final class MerchantOfferTradeKeys {
             return "";
         }
 
-        List<ComponentValue> values = new ArrayList<>();
+        Map<String, String> values = new java.util.LinkedHashMap<>();
         for (Map.Entry<DataComponentType<?>, Optional<?>> entry : patch.entrySet()) {
             DataComponentType<?> type = entry.getKey();
             String typeId = componentId(type);
             String value = entry.getValue()
                     .map(component -> componentValue(type, component))
                     .orElse(REMOVED);
-            values.add(new ComponentValue(typeId, value));
+            values.put(typeId, value);
         }
-        values.sort(Comparator.comparing(ComponentValue::type));
-
-        StringBuilder result = new StringBuilder();
-        for (ComponentValue value : values) {
-            appendPart(result, value.type());
-            appendPart(result, value.value());
-        }
-        return result.toString();
+        return TradeMetadata.canonicalVanilla(values);
     }
 
     private static String componentId(DataComponentType<?> type) {
@@ -139,6 +137,22 @@ public final class MerchantOfferTradeKeys {
         if ((type == DataComponents.ENCHANTMENTS || type == DataComponents.STORED_ENCHANTMENTS)
                 && value instanceof ItemEnchantments enchantments) {
             return enchantments(enchantments);
+        }
+        if (type == DataComponents.CUSTOM_NAME && value instanceof Component name) {
+            return name.getString();
+        }
+        if (type == DataComponents.DYED_COLOR && value instanceof DyedItemColor color) {
+            return Integer.toString(color.rgb());
+        }
+        if (type == DataComponents.POTION_CONTENTS && value instanceof PotionContents potion) {
+            return potionContents(potion);
+        }
+        if (type == DataComponents.SUSPICIOUS_STEW_EFFECTS
+                && value instanceof SuspiciousStewEffects stew) {
+            return stewEffects(stew);
+        }
+        if (type == DataComponents.TRIM && value instanceof ArmorTrim trim) {
+            return trim(trim);
         }
 
         try {
@@ -169,6 +183,54 @@ public final class MerchantOfferTradeKeys {
         }
         values.sort(String::compareTo);
         return String.join(",", values);
+    }
+
+    private static String potionContents(PotionContents contents) {
+        CompoundTag normalized = new CompoundTag();
+        contents.potion().flatMap(Holder::unwrapKey)
+                .ifPresent(key -> normalized.putString("potion", key.location().toString()));
+        contents.customColor().ifPresent(color -> normalized.putInt("custom_color", color));
+        ListTag effects = new ListTag();
+        contents.customEffects().forEach(effect -> effects.add(effect(effect)));
+        if (!effects.isEmpty()) {
+            normalized.put("custom_effects", effects);
+        }
+        return canonicalTag(normalized);
+    }
+
+    private static String stewEffects(SuspiciousStewEffects contents) {
+        ListTag effects = new ListTag();
+        contents.effects().forEach(entry -> {
+            CompoundTag normalized = new CompoundTag();
+            normalized.putString("id", holderId(entry.effect()));
+            normalized.putInt("duration", entry.duration());
+            effects.add(normalized);
+        });
+        return canonicalTag(effects);
+    }
+
+    private static String trim(ArmorTrim trim) {
+        CompoundTag normalized = new CompoundTag();
+        normalized.putString("material", holderId(trim.material()));
+        normalized.putString("pattern", holderId(trim.pattern()));
+        return canonicalTag(normalized);
+    }
+
+    private static CompoundTag effect(net.minecraft.world.effect.MobEffectInstance effect) {
+        CompoundTag normalized = new CompoundTag();
+        normalized.putString("id", holderId(effect.getEffect()));
+        normalized.putInt("amplifier", effect.getAmplifier());
+        normalized.putInt("duration", effect.getDuration());
+        normalized.putBoolean("ambient", effect.isAmbient());
+        normalized.putBoolean("show_particles", effect.isVisible());
+        normalized.putBoolean("show_icon", effect.showIcon());
+        return normalized;
+    }
+
+    private static String holderId(Holder<?> holder) {
+        return holder.unwrapKey()
+                .map(key -> key.location().toString())
+                .orElseGet(() -> "unregistered:" + holder.value().getClass().getName());
     }
 
     private static String holderValueType(Holder<Enchantment> holder) {
@@ -203,9 +265,6 @@ public final class MerchantOfferTradeKeys {
 
     private static TradeKey fallbackFor(MerchantOffer offer) {
         return new TradeKey.Fallback("merchant-offer:" + offer.getClass().getName());
-    }
-
-    private record ComponentValue(String type, String value) {
     }
 
     public record Identity(TradeKey key, boolean stable) {

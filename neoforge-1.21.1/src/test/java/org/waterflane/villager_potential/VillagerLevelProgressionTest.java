@@ -6,6 +6,7 @@ import net.minecraft.world.entity.npc.VillagerData;
 import net.minecraft.world.entity.npc.VillagerProfession;
 import org.junit.jupiter.api.Test;
 import org.waterflane.villager_potential.core.ProfessionId;
+import org.waterflane.villager_potential.core.ProfessionProgressBatch;
 import org.waterflane.villager_potential.core.VillagerPotentialState;
 
 import java.util.Map;
@@ -48,9 +49,9 @@ class VillagerLevelProgressionTest {
 
     @Test
     void timeProgressionQueuesTheEarnedLevel() {
-        ProgressionCarrier carrier = carrier();
+        ProgressionCarrier carrier = carrier(justBeforeApprentice());
 
-        tick(carrier, 36_000);
+        tick(carrier, (int) ProfessionProgressBatch.FLUSH_INTERVAL_TICKS);
 
         assertEquals(
                 1.5,
@@ -63,9 +64,9 @@ class VillagerLevelProgressionTest {
 
     @Test
     void skillCannotOverflowWhileVanillaAppliesTheLevelUp() {
-        ProgressionCarrier carrier = carrier();
+        ProgressionCarrier carrier = carrier(justBeforeApprentice());
 
-        tick(carrier, 40_000);
+        tick(carrier, (int) (ProfessionProgressBatch.FLUSH_INTERVAL_TICKS * 2L));
 
         assertEquals(
                 1.5,
@@ -148,6 +149,10 @@ class VillagerLevelProgressionTest {
 
     @SuppressWarnings({"unchecked", "rawtypes"})
     private static ProgressionCarrier carrier() {
+        return carrier(0.0);
+    }
+
+    private static ProgressionCarrier carrier(double initialSkill) {
         Villager villager = mock(
                 Villager.class,
                 withSettings().extraInterfaces(VillagerLevelUpAccess.class)
@@ -158,7 +163,7 @@ class VillagerLevelProgressionTest {
         VillagerPotentialState initialState = new VillagerPotentialState(
                 VillagerPotentialState.CURRENT_SCHEMA_VERSION,
                 Map.of(LIBRARIAN, 1.0)
-        ).assignProfession(LIBRARIAN, 0L);
+        ).assignProfession(LIBRARIAN, 0L).withSkill(LIBRARIAN, initialSkill);
         AtomicReference<VillagerPotentialState> state = new AtomicReference<>(initialState);
         AtomicInteger vanillaLevel = new AtomicInteger(1);
 
@@ -175,6 +180,14 @@ class VillagerLevelProgressionTest {
                 state.getAndSet(invocation.getArgument(1))
         );
         return new ProgressionCarrier(villager, levelUpAccess, state, vanillaLevel);
+    }
+
+    private static double justBeforeApprentice() {
+        return VillagerPotentialAttachments.SKILL_PROGRESSION_CONFIG
+                .professionLevelThresholds()
+                .apprenticeSkill()
+                - VillagerPotentialAttachments.SKILL_PROGRESSION_CONFIG.progressionRate()
+                * ProfessionProgressBatch.FLUSH_INTERVAL_TICKS;
     }
 
     private record ProgressionCarrier(

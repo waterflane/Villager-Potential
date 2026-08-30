@@ -2,6 +2,7 @@ package org.waterflane.villager_potential.core;
 
 import org.junit.jupiter.api.Test;
 
+import java.util.Map;
 import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -19,7 +20,9 @@ class TradeKeyTest {
                 new TradeKey.Item(
                         "minecraft:enchanted_book",
                         1,
-                        "minecraft:stored_enchantments=minecraft:mending@1"
+                        TradeMetadata.canonical(Map.of(
+                                "minecraft:stored_enchantments", "minecraft:mending@1"
+                        ))
                 )
         );
         TradeKey second = new TradeKey.Offer(
@@ -28,7 +31,9 @@ class TradeKeyTest {
                 new TradeKey.Item(
                         "minecraft:enchanted_book",
                         1,
-                        "minecraft:stored_enchantments=minecraft:mending@1"
+                        TradeMetadata.canonical(Map.of(
+                                "minecraft:stored_enchantments", "minecraft:mending@1"
+                        ))
                 )
         );
 
@@ -50,7 +55,9 @@ class TradeKeyTest {
                 new TradeKey.Item(
                         "minecraft:enchanted_book",
                         1,
-                        "minecraft:stored_enchantments=minecraft:mending@1"
+                        TradeMetadata.canonical(Map.of(
+                                "minecraft:stored_enchantments", "minecraft:mending@1"
+                        ))
                 )
         );
         TradeKey fallback = new TradeKey.Fallback("merchant-offer:example.UnknownOffer");

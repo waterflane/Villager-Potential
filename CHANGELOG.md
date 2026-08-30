@@ -3,6 +3,23 @@
 All notable changes to Villager Potential are documented here.
 The format loosely follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## Unreleased
+
+### Forge 1.20.1 port
+
+- Added a Java 17 Forge module targeting Minecraft 1.20.1, Forge 47.4.23, and
+  the supported Forge range 47.4.10 through 47.x.
+- Ported capabilities, conversion copying, lifecycle/trade hooks, commands,
+  server configuration, specialization reloads, mixins, integration events,
+  SimpleChannel synchronization, and the MerchantScreen progress overlay.
+- Added schema 11 portable entity NBT (`villager_potential:data`) shared by
+  Forge capabilities and NeoForge attachments. Equal-schema conflicts prefer
+  the portable container so externally transferred saves converge.
+- Added versioned portable trade metadata, schema-10 migration and collision
+  merging, and conservative handling of unknown modded item metadata.
+- Moved shared localization and progress calculations into `core` and added
+  Forge unit/GameTest and release-JAR verification.
+
 ## 1.0 — first public release
 
 Initial feature set for Minecraft 1.21.1 with NeoForge.

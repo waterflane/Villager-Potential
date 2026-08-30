@@ -5,6 +5,8 @@ import org.junit.jupiter.api.Test;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
+import java.util.OptionalLong;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -622,6 +624,49 @@ class VillagerPotentialStateTest {
     }
 
     @Test
+    void schemaTenCanonicalizationMergesTradeKeyCollisions() {
+        ProfessionId cartographer = ProfessionId.parse("minecraft:cartographer");
+        TradeKey first = legacyMapTrade("4");
+        TradeKey second = legacyMapTrade("91");
+        TradePaletteState palette = new TradePaletteState(
+                List.of(first, second),
+                Map.of(
+                        first, new TradeHistory(
+                                2L, OptionalLong.of(10L), 3L, OptionalLong.of(20L)),
+                        second, new TradeHistory(
+                                5L, OptionalLong.of(30L), 7L, OptionalLong.of(15L))
+                )
+        );
+
+        VillagerPotentialState migrated = VillagerPotentialState.migrate(
+                10,
+                Map.of(),
+                Map.of(),
+                Optional.empty(),
+                Map.of(),
+                Map.of(cartographer, palette),
+                Map.of(cartographer, Map.of(
+                        first, new MarketDemandState(2.0, 3L, 20L),
+                        second, new MarketDemandState(8.0, 5L, 40L)
+                ))
+        );
+
+        TradePaletteState migratedPalette = migrated.tradePaletteFor(cartographer).orElseThrow();
+        assertEquals(1, migratedPalette.activeTrades().size());
+        TradeKey canonical = migratedPalette.activeTrades().get(0);
+        TradeHistory history = migratedPalette.offerHistory().get(canonical);
+        assertEquals(7L, history.timesSeen());
+        assertEquals(OptionalLong.of(30L), history.lastSeen());
+        assertEquals(10L, history.timesUsed());
+        assertEquals(OptionalLong.of(20L), history.lastUsed());
+
+        MarketDemandState demand = migrated.marketDemandFor(cartographer, canonical).orElseThrow();
+        assertEquals(8.0, demand.demandScore());
+        assertEquals(8L, demand.timesPurchased());
+        assertEquals(40L, demand.lastPurchaseGameTime());
+    }
+
+    @Test
     void rejectsUnknownNewerSchemaVersion() {
         assertThrows(
                 IllegalArgumentException.class,
@@ -658,6 +703,16 @@ class VillagerPotentialStateTest {
         return new TradeKey.Offer(
                 new TradeKey.Item(cost, 1),
                 new TradeKey.Item(result, 1)
+        );
+    }
+
+    private static TradeKey legacyMapTrade(String mapId) {
+        String key = "minecraft:map_id";
+        String value = "3:" + mapId;
+        String components = key.length() + ":" + key + value.length() + ":" + value;
+        return new TradeKey.Offer(
+                new TradeKey.Item("minecraft:emerald", 13),
+                new TradeKey.Item("minecraft:filled_map", 1, components)
         );
     }
 }

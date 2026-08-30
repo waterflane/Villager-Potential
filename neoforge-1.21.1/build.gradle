@@ -244,10 +244,10 @@ def expectedMetadata = [
         "javaVersion = \"${java_version_range}\""
 ]
 def expectedManifestVersion = mod_version
-def englishLocalizationSource = layout.projectDirectory.file(
+def englishLocalizationSource = project(':core').layout.projectDirectory.file(
         'src/main/resources/assets/villager_potential/lang/en_us.json'
 )
-def russianLocalizationSource = layout.projectDirectory.file(
+def russianLocalizationSource = project(':core').layout.projectDirectory.file(
         'src/main/resources/assets/villager_potential/lang/ru_ru.json'
 )
 

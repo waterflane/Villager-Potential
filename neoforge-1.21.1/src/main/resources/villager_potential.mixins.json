@@ -5,6 +5,7 @@
   "compatibilityLevel": "JAVA_21",
   "mixins": [
     "AbstractVillagerTradeSelectionMixin",
+    "EntityPortableDataMixin",
     "MerchantOfferDemandStockMixin",
     "VillagerBreedingMixin",
     "VillagerDemandPricingMixin",
