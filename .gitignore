@@ -26,3 +26,4 @@ src/generated/
 !gradlew.bat
 
 /.contextforge
+/curseforge-description.md

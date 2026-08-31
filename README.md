@@ -127,15 +127,14 @@ files exactly, so missing, extra, or changed translations fail the build.
 
 Every stable logical trade carries a demand score that rises with successful
 uses. Popular trades become more expensive until the villager sleeps. Offers
-never change their emerald stack: when the player pays emeralds, the received
-product stack may shrink by at most 10%; when the player pays another item, that
-payment stack may grow by at most 12.5%. Integer rounding respects those limits,
-so `1 emerald -> 8 books` remains unchanged while `1 emerald -> 10 apples` may
-become `1 emerald -> 9 apples`. By default the percentage cap is reached after
-eight demand points, and ordinary purchases update the visible offer
-immediately after the old-price purchase finishes. Only the exact offer used by
-that result slot is repriced; the villager's other rows remain untouched. There
-is no separate Shift-click pricing branch: every successfully completed purchase
+never change an emerald stack or the received result stack. Trades paid with
+emeralds therefore retain their original item counts, while trades paid with
+another item may require up to 12.5% more of that payment item. Integer rounding
+never exceeds the cap. By default the percentage cap is reached after eight
+demand points, and ordinary purchases update the visible offer immediately
+after the old-price purchase finishes. Only the exact offer used by that result
+slot is repriced; the villager's other rows remain untouched. There is no
+separate Shift-click pricing branch: every successfully completed purchase
 action triggers one recalculation after that action. A completed sleep resets
 demand pricing and restocks used offers;
 workstation activity no longer performs the vanilla twice-daily restock.
