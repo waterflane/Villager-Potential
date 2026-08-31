@@ -9,6 +9,8 @@ The format loosely follows [Keep a Changelog](https://keepachangelog.com/en/1.1.
 
 - Villagers now restock used offers only after actually waking from sleep;
   workstation activity no longer performs the vanilla twice-daily restock.
+- Removed vanilla's obsolete "villagers restock up to twice per day" tooltip
+  from the out-of-stock arrow in the merchant screen.
 - Completed sleep clears accumulated demand and restores demand-adjusted prices.
 - Demand never changes an emerald stack or any received result stack. Only
   non-emerald payment stacks grow, by at most 12.5%; integer rounding never
