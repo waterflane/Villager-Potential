@@ -98,7 +98,6 @@ public final class ServerConfig {
     private static final ForgeConfigSpec.DoubleValue MAXIMUM_EMERALD_PAYMENT_RESULT_REDUCTION;
     private static final ForgeConfigSpec.DoubleValue MAXIMUM_ITEM_PAYMENT_INCREASE;
     private static final ForgeConfigSpec.DoubleValue DEMAND_SCORE_FOR_MAXIMUM_PRICE;
-    private static final ForgeConfigSpec.BooleanValue DYNAMIC_SHIFT_PRICING;
     private static final ForgeConfigSpec.BooleanValue DEMAND_INFLUENCES_STOCK;
     private static final ForgeConfigSpec.DoubleValue STOCK_INFLUENCE_STRENGTH;
     private static final ForgeConfigSpec.IntValue MAXIMUM_ADDITIONAL_USES;
@@ -350,12 +349,6 @@ public final class ServerConfig {
                         Double.MIN_NORMAL,
                         Double.MAX_VALUE
                 );
-        DYNAMIC_SHIFT_PRICING = BUILDER
-                .comment(
-                        "Recalculate price after every trade inside Shift-click bulk purchasing.",
-                        "False keeps the opening price for the entire bulk purchase."
-                )
-                .define("dynamicShiftPricing", price.dynamicShiftPricing());
         BUILDER.pop();
 
         MarketDemandStockConfig stock = economy.stock();
@@ -597,7 +590,6 @@ public final class ServerConfig {
                         MAXIMUM_EMERALD_PAYMENT_RESULT_REDUCTION.get(),
                         MAXIMUM_ITEM_PAYMENT_INCREASE.get(),
                         DEMAND_SCORE_FOR_MAXIMUM_PRICE.get(),
-                        DYNAMIC_SHIFT_PRICING.get(),
                         DEMAND_INFLUENCES_STOCK.get(),
                         STOCK_INFLUENCE_STRENGTH.get(),
                         MAXIMUM_ADDITIONAL_USES.get(),
@@ -706,8 +698,7 @@ public final class ServerConfig {
                                 economy.maximumPriceMultiplier(),
                                 economy.maximumEmeraldPaymentResultReduction(),
                                 economy.maximumItemPaymentIncrease(),
-                                economy.demandScoreForMaximumPrice(),
-                                economy.dynamicShiftPricing()
+                                economy.demandScoreForMaximumPrice()
                         ),
                         new MarketDemandStockConfig(
                                 economy.stockEnabled(),
@@ -756,7 +747,6 @@ public final class ServerConfig {
                         economy.price().maximumEmeraldPaymentResultReduction(),
                         economy.price().maximumItemPaymentIncrease(),
                         economy.price().demandScoreForMaximumPrice(),
-                        economy.price().dynamicShiftPricing(),
                         economy.stock().enabled(),
                         economy.stock().influenceStrength(),
                         economy.stock().maximumAdditionalUses(),
@@ -875,7 +865,6 @@ public final class ServerConfig {
             double maximumEmeraldPaymentResultReduction,
             double maximumItemPaymentIncrease,
             double demandScoreForMaximumPrice,
-            boolean dynamicShiftPricing,
             boolean stockEnabled,
             double stockInfluenceStrength,
             int maximumAdditionalUses,
@@ -909,7 +898,6 @@ public final class ServerConfig {
                     MarketDemandPriceConfig.DEFAULT.maximumEmeraldPaymentResultReduction(),
                     MarketDemandPriceConfig.DEFAULT.maximumItemPaymentIncrease(),
                     MarketDemandPriceConfig.DEFAULT.demandScoreForMaximumPrice(),
-                    MarketDemandPriceConfig.DEFAULT.dynamicShiftPricing(),
                     stockEnabled,
                     stockInfluenceStrength,
                     maximumAdditionalUses,

@@ -202,7 +202,7 @@ class MarketDemandPricingTest {
         assertThrows(
                 IllegalArgumentException.class,
                 () -> new MarketDemandPriceConfig(
-                        true, 1.0, 2.0, 0.15, 0.20, 0.0, false
+                        true, 1.0, 2.0, 0.15, 0.20, 0.0
                 )
         );
     }

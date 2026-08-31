@@ -14,8 +14,6 @@ import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
-import org.waterflane.villager_potential.BulkTradeContext;
-import org.waterflane.villager_potential.Config;
 import org.waterflane.villager_potential.VillagerDemandPricing;
 
 /** Reprices only after the current purchase has fully consumed its old payment. */
@@ -59,9 +57,7 @@ public abstract class MerchantResultSlotTradeMixin {
         MerchantOffer completedOffer = villagerPotential$activeOfferBeforePurchase;
         villagerPotential$activeOfferBeforePurchase = null;
         if (completedOffer == null
-                || completedOffer.getUses() <= villagerPotential$usesBeforePurchase
-                || BulkTradeContext.active()
-                && !Config.marketDemandPriceConfig().dynamicShiftPricing()) {
+                || completedOffer.getUses() <= villagerPotential$usesBeforePurchase) {
             return;
         }
 

@@ -158,7 +158,6 @@ class ServerConfigTest {
         assertEquals(0.10, mapped.economy().price().maximumEmeraldPaymentResultReduction());
         assertEquals(0.125, mapped.economy().price().maximumItemPaymentIncrease());
         assertEquals(8.0, mapped.economy().price().demandScoreForMaximumPrice());
-        assertFalse(mapped.economy().price().dynamicShiftPricing());
     }
 
     @Test

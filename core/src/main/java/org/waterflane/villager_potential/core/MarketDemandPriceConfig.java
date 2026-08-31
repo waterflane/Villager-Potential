@@ -7,11 +7,10 @@ public record MarketDemandPriceConfig(
         double maximumMultiplier,
         double maximumEmeraldPaymentResultReduction,
         double maximumItemPaymentIncrease,
-        double demandScoreForMaximumPrice,
-        boolean dynamicShiftPricing
+        double demandScoreForMaximumPrice
 ) {
     public static final MarketDemandPriceConfig DEFAULT =
-            new MarketDemandPriceConfig(true, 1.0, 2.0, 0.10, 0.125, 8.0, false);
+            new MarketDemandPriceConfig(true, 1.0, 2.0, 0.10, 0.125, 8.0);
 
     public MarketDemandPriceConfig(
             boolean enabled,
@@ -24,8 +23,7 @@ public record MarketDemandPriceConfig(
                 maximumMultiplier,
                 DEFAULT.maximumEmeraldPaymentResultReduction(),
                 DEFAULT.maximumItemPaymentIncrease(),
-                DEFAULT.demandScoreForMaximumPrice(),
-                DEFAULT.dynamicShiftPricing()
+                DEFAULT.demandScoreForMaximumPrice()
         );
     }
 
@@ -36,8 +34,7 @@ public record MarketDemandPriceConfig(
                 maximumMultiplier,
                 DEFAULT.maximumEmeraldPaymentResultReduction(),
                 DEFAULT.maximumItemPaymentIncrease(),
-                DEFAULT.demandScoreForMaximumPrice(),
-                DEFAULT.dynamicShiftPricing()
+                DEFAULT.demandScoreForMaximumPrice()
         );
     }
 
@@ -54,8 +51,7 @@ public record MarketDemandPriceConfig(
                 maximumMultiplier,
                 maximumEmeraldPaymentResultReduction,
                 maximumItemPaymentIncrease,
-                DEFAULT.demandScoreForMaximumPrice(),
-                DEFAULT.dynamicShiftPricing()
+                DEFAULT.demandScoreForMaximumPrice()
         );
     }
 
