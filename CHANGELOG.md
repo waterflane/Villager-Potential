@@ -19,8 +19,13 @@ The format loosely follows [Keep a Changelog](https://keepachangelog.com/en/1.1.
   loaders: after demand raises a payment, decay and later recalculation cannot
   lower the already reached count.
 - Prices now update in the open merchant screen immediately after an ordinary
-  purchase. Shift-click keeps its opening batch price by default, with optional
-  per-trade bulk recalculation via `economy.price.dynamicShiftPricing`.
+  purchase has completed at its previous price. Only the exact offer used by
+  that result slot is repriced; other rows remain untouched. Shift-click keeps
+  its opening batch price by default, with optional per-trade bulk recalculation
+  via `economy.price.dynamicShiftPricing`.
+- Percentage settings now cap the total price relative to immutable base counts,
+  including vanilla adjustments, instead of limiting only this mod's added
+  delta.
 - Added `economy.price.demandScoreForMaximumPrice` (default `8.0`) so frequently
   used offers can realistically reach their configured percentage cap before
   the villager sleeps.

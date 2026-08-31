@@ -1,5 +1,9 @@
 package org.waterflane.villager_potential;
 
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.world.entity.npc.Villager;
+import net.minecraft.world.entity.npc.VillagerData;
+import net.minecraft.world.entity.npc.VillagerProfession;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.item.trading.ItemCost;
@@ -8,13 +12,22 @@ import org.junit.jupiter.api.Test;
 import org.waterflane.villager_potential.core.MarketDemandConfig;
 import org.waterflane.villager_potential.core.MarketDemandPriceConfig;
 import org.waterflane.villager_potential.core.MarketDemandState;
+import org.waterflane.villager_potential.core.ProfessionId;
+import org.waterflane.villager_potential.core.VillagerPotentialState;
 
+import java.util.Map;
 import java.util.Optional;
+import java.util.UUID;
+import java.util.function.Supplier;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 class VillagerDemandPricingTest {
+    private static final ProfessionId FARMER = ProfessionId.parse("minecraft:farmer");
     private static final MarketDemandConfig DEMAND = new MarketDemandConfig(
             0.0,
             0.0,
@@ -178,6 +191,41 @@ class VillagerDemandPricingTest {
 
         VillagerDemandPricing.apply(offer, 8.0, DEMAND, PRICE);
         assertEquals(22, offer.getCostA().getCount());
+    }
+
+    @Test
+    @SuppressWarnings({"unchecked", "rawtypes"})
+    void completedPurchaseRepricesOnlyItsExactOffer() {
+        MerchantOffer usedOffer = itemPayment(20);
+        MerchantOffer untouchedOffer = itemPayment(32);
+        VillagerPotentialState state = new VillagerPotentialState(
+                VillagerPotentialState.CURRENT_SCHEMA_VERSION,
+                Map.of(FARMER, 1.0)
+        );
+        for (int purchase = 0; purchase < 8; purchase++) {
+            state = state.recordTradePurchase(
+                    FARMER,
+                    MerchantOfferTradeKeys.from(usedOffer),
+                    100L,
+                    Config.marketDemandConfig()
+            );
+        }
+        VillagerPotentialState stateWithDemand = state;
+
+        Villager villager = mock(Villager.class);
+        VillagerData data = mock(VillagerData.class);
+        ServerLevel level = mock(ServerLevel.class);
+        when(villager.level()).thenReturn(level);
+        when(level.getGameTime()).thenReturn(100L);
+        when(villager.getVillagerData()).thenReturn(data);
+        when(data.getProfession()).thenReturn(VillagerProfession.FARMER);
+        when(villager.getUUID()).thenReturn(UUID.randomUUID());
+        when(villager.getData(any(Supplier.class))).thenReturn(stateWithDemand);
+
+        VillagerDemandPricing.apply(villager, usedOffer);
+
+        assertEquals(22, usedOffer.getCostA().getCount());
+        assertEquals(32, untouchedOffer.getCostA().getCount());
     }
 
     @Test

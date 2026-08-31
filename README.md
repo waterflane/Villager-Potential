@@ -133,7 +133,9 @@ payment stack may grow by at most 12.5%. Integer rounding respects those limits,
 so `1 emerald -> 8 books` remains unchanged while `1 emerald -> 10 apples` may
 become `1 emerald -> 9 apples`. By default the percentage cap is reached after
 eight demand points, and ordinary purchases update the visible offer
-immediately. Shift-click keeps one opening price for the whole batch by default;
+immediately after the old-price purchase finishes. Only the exact offer used by
+that result slot is repriced; the villager's other rows remain untouched.
+Shift-click keeps one opening price for the whole batch by default;
 `economy.price.dynamicShiftPricing` can instead recalculate it after every bulk
 trade. A completed sleep resets demand pricing and restocks used offers;
 workstation activity no longer performs the vanilla twice-daily restock.

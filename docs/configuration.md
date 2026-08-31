@@ -119,12 +119,15 @@ bound save size and restoration work.
 | `economy.stock.maximumAdditionalUses` | `2` | Uses demand may add to one offer per restock. |
 | `economy.stock.maximumUsesPerOffer` | `16` | Total-use ceiling for increases; larger existing offers are not reduced. |
 
-Ordinary clicks recalculate and synchronize the offer immediately, without
-requiring the player to close and reopen the merchant screen. Positive demand
-cannot make a non-emerald payment cheaper than its base cost; vanilla prices
-that are already higher than Villager Potential's cap are left unchanged. Once
-demand has raised a non-emerald payment, its displayed item count cannot fall
-again before completed sleep, even if the underlying demand score decays.
+Ordinary clicks recalculate and synchronize only the completed offer immediately
+after its old-price purchase finishes, without requiring the player to close and
+reopen the merchant screen. Other rows in the same trade window are untouched.
+While demand pricing is enabled, total offer values are bounded from their base
+counts: emerald stacks never change, an emerald-paid result cannot fall by more
+than the configured reduction, and a non-emerald payment cannot rise by more
+than the configured increase. Once demand has raised a non-emerald payment, its
+displayed item count cannot fall again before completed sleep, even if the
+underlying demand score decays.
 
 ## Diagnostics
 
