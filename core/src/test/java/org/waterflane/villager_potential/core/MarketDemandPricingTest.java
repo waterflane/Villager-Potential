@@ -32,14 +32,11 @@ class MarketDemandPricingTest {
         assertEquals(20, MarketDemandPricing.adjustedPrice(
                 20, 20, 64, 100.0, DEMAND, disabled
         ));
-        assertEquals(
-                new MarketDemandPricing.OfferAdjustment(1, 8),
-                MarketDemandPricing.adjustedOffer(
-                        1, 1, 64, 8,
-                        MarketDemandPricing.PaymentKind.EMERALD,
-                        100.0, DEMAND, disabled
-                )
-        );
+        assertEquals(1, MarketDemandPricing.adjustedInputPrice(
+                1, 1, 64,
+                MarketDemandPricing.PaymentKind.EMERALD,
+                100.0, DEMAND, disabled
+        ));
     }
 
     @Test
@@ -65,100 +62,66 @@ class MarketDemandPricingTest {
     }
 
     @Test
-    void emeraldPaymentChangesOnlyProductWithinTenPercent() {
-        assertEquals(
-                new MarketDemandPricing.OfferAdjustment(1, 4),
-                MarketDemandPricing.adjustedOffer(
-                        1, 1, 64, 4,
-                        MarketDemandPricing.PaymentKind.EMERALD,
-                        DEMAND.maximum(), DEMAND, PRICE
-                )
-        );
-        assertEquals(
-                new MarketDemandPricing.OfferAdjustment(1, 8),
-                MarketDemandPricing.adjustedOffer(
-                        1, 1, 64, 8,
-                        MarketDemandPricing.PaymentKind.EMERALD,
-                        DEMAND.maximum(), DEMAND, PRICE
-                )
-        );
-        assertEquals(
-                new MarketDemandPricing.OfferAdjustment(1, 18),
-                MarketDemandPricing.adjustedOffer(
-                        1, 1, 64, 20,
-                        MarketDemandPricing.PaymentKind.EMERALD,
-                        DEMAND.baseline()
-                                + MarketDemandPriceConfig.DEFAULT.demandScoreForMaximumPrice(),
-                        DEMAND, MarketDemandPriceConfig.DEFAULT
-                )
-        );
+    void emeraldPaymentIsNeverChangedByDemand() {
+        assertEquals(1, MarketDemandPricing.adjustedInputPrice(
+                1, 1, 64,
+                MarketDemandPricing.PaymentKind.EMERALD,
+                DEMAND.maximum(), DEMAND, PRICE
+        ));
+        assertEquals(8, MarketDemandPricing.adjustedInputPrice(
+                8, 20, 64,
+                MarketDemandPricing.PaymentKind.EMERALD,
+                DEMAND.maximum(), DEMAND, PRICE
+        ));
     }
 
     @Test
     void emeraldPaymentKeepsCombinedCureAndRaidDiscount() {
         assertEquals(8, MarketDemandPricing.specialPriceWithoutDemand(20, -12, 64));
-        assertEquals(
-                new MarketDemandPricing.OfferAdjustment(8, 18),
-                MarketDemandPricing.adjustedOffer(
-                        8, 20, 64, 20,
-                        MarketDemandPricing.PaymentKind.EMERALD,
-                        DEMAND.maximum(), DEMAND, MarketDemandPriceConfig.DEFAULT
-                )
-        );
+        assertEquals(8, MarketDemandPricing.adjustedInputPrice(
+                8, 20, 64,
+                MarketDemandPricing.PaymentKind.EMERALD,
+                DEMAND.maximum(), DEMAND, MarketDemandPriceConfig.DEFAULT
+        ));
     }
 
     @Test
     void itemPaymentChangesOnlyProductWithinTwelveAndAHalfPercent() {
-        assertEquals(
-                new MarketDemandPricing.OfferAdjustment(22, 1),
-                MarketDemandPricing.adjustedOffer(
-                        20, 20, 64, 1,
-                        MarketDemandPricing.PaymentKind.OTHER_ITEM,
-                        DEMAND.maximum(), DEMAND, PRICE
-                )
-        );
-        assertEquals(
-                new MarketDemandPricing.OfferAdjustment(4, 1),
-                MarketDemandPricing.adjustedOffer(
-                        4, 4, 64, 1,
-                        MarketDemandPricing.PaymentKind.OTHER_ITEM,
-                        DEMAND.maximum(), DEMAND, PRICE
-                )
-        );
-        assertEquals(
-                new MarketDemandPricing.OfferAdjustment(22, 1),
-                MarketDemandPricing.adjustedOffer(
-                        25, 20, 64, 1,
-                        MarketDemandPricing.PaymentKind.OTHER_ITEM,
-                        DEMAND.maximum(), DEMAND, PRICE
-                )
-        );
+        assertEquals(22, MarketDemandPricing.adjustedInputPrice(
+                20, 20, 64,
+                MarketDemandPricing.PaymentKind.OTHER_ITEM,
+                DEMAND.maximum(), DEMAND, PRICE
+        ));
+        assertEquals(4, MarketDemandPricing.adjustedInputPrice(
+                4, 4, 64,
+                MarketDemandPricing.PaymentKind.OTHER_ITEM,
+                DEMAND.maximum(), DEMAND, PRICE
+        ));
+        assertEquals(22, MarketDemandPricing.adjustedInputPrice(
+                25, 20, 64,
+                MarketDemandPricing.PaymentKind.OTHER_ITEM,
+                DEMAND.maximum(), DEMAND, PRICE
+        ));
     }
 
     @Test
     void totalOfferValuesStayInsideAbsoluteBasePercentageBounds() {
-        assertEquals(
-                new MarketDemandPricing.OfferAdjustment(20, 1),
-                MarketDemandPricing.adjustedOffer(
-                        40, 20, 64, 1,
-                        MarketDemandPricing.PaymentKind.OTHER_ITEM,
-                        DEMAND.baseline(), DEMAND, MarketDemandPriceConfig.DEFAULT
-                )
-        );
+        assertEquals(20, MarketDemandPricing.adjustedInputPrice(
+                40, 20, 64,
+                MarketDemandPricing.PaymentKind.OTHER_ITEM,
+                DEMAND.baseline(), DEMAND, MarketDemandPriceConfig.DEFAULT
+        ));
         assertEquals(
                 22,
                 MarketDemandPricing.maximumItemPaymentPrice(
                         20, 64, MarketDemandPriceConfig.DEFAULT
                 )
         );
-        assertEquals(
-                new MarketDemandPricing.OfferAdjustment(7, 18),
-                MarketDemandPricing.adjustedOffer(
-                        7, 1, 64, 20,
-                        MarketDemandPricing.PaymentKind.EMERALD,
-                        DEMAND.maximum(), DEMAND, MarketDemandPriceConfig.DEFAULT
-                )
-        );
+        assertEquals(7, MarketDemandPricing.adjustedInputPrice(
+                7, 1, 64,
+                MarketDemandPricing.PaymentKind.EMERALD,
+                DEMAND.maximum(), DEMAND, MarketDemandPriceConfig.DEFAULT
+        ));
     }
 
     @Test
@@ -198,25 +161,19 @@ class MarketDemandPricingTest {
         );
         assertThrows(
                 IllegalArgumentException.class,
-                () -> MarketDemandPricing.adjustedOffer(
-                        1, 1, 64, 0,
+                () -> MarketDemandPricing.adjustedInputPrice(
+                        1, 1, 0,
                         MarketDemandPricing.PaymentKind.EMERALD,
                         20.0, DEMAND, PRICE
                 )
         );
         assertThrows(
                 IllegalArgumentException.class,
-                () -> new MarketDemandPriceConfig(true, 1.0, 2.0, 1.01, 0.20)
+                () -> new MarketDemandPriceConfig(true, 1.0, 2.0, 1.01, 8.0)
         );
         assertThrows(
                 IllegalArgumentException.class,
-                () -> new MarketDemandPriceConfig(true, 1.0, 2.0, 0.15, -0.01)
-        );
-        assertThrows(
-                IllegalArgumentException.class,
-                () -> new MarketDemandPriceConfig(
-                        true, 1.0, 2.0, 0.15, 0.20, 0.0
-                )
+                () -> new MarketDemandPriceConfig(true, 1.0, 2.0, 0.20, 0.0)
         );
     }
 }

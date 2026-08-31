@@ -89,59 +89,46 @@ public final class MarketDemandPricing {
     }
 
     /**
-     * Resolves both sides of one offer without ever changing an emerald stack.
-     * Emerald payments make the received product stack smaller; other payments
-     * make the paid product stack larger.
+     * Resolves an offer's input price without ever changing an emerald stack.
+     * Emerald payments remain unchanged; other payment stacks may grow.
      */
-    public static OfferAdjustment adjustedOffer(
+    public static int adjustedInputPrice(
             int vanillaPrice,
             int basePrice,
             int maximumItemCount,
-            int baseResultCount,
             PaymentKind paymentKind,
             double demandScore,
             MarketDemandConfig demandConfig,
             MarketDemandPriceConfig priceConfig
     ) {
         Objects.requireNonNull(paymentKind, "paymentKind");
-        if (maximumItemCount < 1 || baseResultCount < 1) {
-            throw new IllegalArgumentException("offer counts and limits must be positive");
+        if (maximumItemCount < 1) {
+            throw new IllegalArgumentException("maximumItemCount must be positive");
         }
 
         int boundedVanillaPrice = clamp(vanillaPrice, 1, maximumItemCount);
         int boundedBasePrice = clamp(basePrice, 1, maximumItemCount);
         if (!demandConfig.enabled() || !priceConfig.enabled()) {
-            return new OfferAdjustment(boundedVanillaPrice, baseResultCount);
+            return boundedVanillaPrice;
+        }
+        if (paymentKind == PaymentKind.EMERALD) {
+            return boundedVanillaPrice;
         }
         double pressure = positiveDemandFraction(demandScore, demandConfig, priceConfig);
-        int inputPrice = boundedVanillaPrice;
-        int resultCount = baseResultCount;
-        if (paymentKind == PaymentKind.EMERALD) {
-            double maximumReduction = priceConfig.maximumEmeraldPaymentResultReduction();
-            resultCount = Math.max(
-                    1,
-                    (int) Math.ceil(
-                            baseResultCount * (1.0 - maximumReduction * pressure)
-                                    - ROUNDING_EPSILON
-                    )
-            );
-        } else {
-            double maximumIncrease = priceConfig.maximumItemPaymentIncrease();
-            int addedItems = (int) Math.floor(
-                    boundedBasePrice * maximumIncrease * pressure + ROUNDING_EPSILON
-            );
-            int configuredMaximum = maximumItemPaymentPrice(
-                    boundedBasePrice,
-                    maximumItemCount,
-                    priceConfig
-            );
-            inputPrice = clamp(
-                    boundedBasePrice + addedItems,
-                    boundedBasePrice,
-                    configuredMaximum
-            );
-        }
-        return new OfferAdjustment(inputPrice, resultCount);
+        double maximumIncrease = priceConfig.maximumItemPaymentIncrease();
+        int addedItems = (int) Math.floor(
+                boundedBasePrice * maximumIncrease * pressure + ROUNDING_EPSILON
+        );
+        int configuredMaximum = maximumItemPaymentPrice(
+                boundedBasePrice,
+                maximumItemCount,
+                priceConfig
+        );
+        return clamp(
+                boundedBasePrice + addedItems,
+                boundedBasePrice,
+                configuredMaximum
+        );
     }
 
     /** Applies reputation and raid modifiers without vanilla's demand surcharge. */
@@ -218,14 +205,6 @@ public final class MarketDemandPricing {
 
     private static int clamp(int value, int minimum, int maximum) {
         return Math.max(minimum, Math.min(maximum, value));
-    }
-
-    public record OfferAdjustment(int inputPrice, int resultCount) {
-        public OfferAdjustment {
-            if (inputPrice < 1 || resultCount < 1) {
-                throw new IllegalArgumentException("offer counts must be positive");
-            }
-        }
     }
 
     public enum PaymentKind {

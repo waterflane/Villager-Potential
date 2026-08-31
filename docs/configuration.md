@@ -107,10 +107,9 @@ bound save size and restoration work.
 | `economy.demand.minimum` | `0.0` | Lower demand bound. |
 | `economy.demand.baseline` | `0.0` | Neutral score approached by decay. |
 | `economy.demand.maximum` | `100.0` | Upper demand bound. |
-| `economy.price.enabled` | `true` | Enables demand price changes. Set to `false` to leave both payment and result stacks unchanged by Villager Potential. |
+| `economy.price.enabled` | `true` | Enables demand price changes for non-emerald payment stacks. Set to `false` to leave payments unchanged by Villager Potential. |
 | `economy.price.minimumMultiplier` | `1.0` | Demand-curve value at minimum demand; values at or below `1.0` never make a product cheaper. |
-| `economy.price.maximumMultiplier` | `2.0` | Demand-curve value at maximum demand; the percentage limits below are the actual hard price caps. |
-| `economy.price.maximumEmeraldPaymentResultReduction` | `0.10` | When paying emeralds, the non-emerald result stack may shrink by at most 10%; the emerald count never changes. |
+| `economy.price.maximumMultiplier` | `2.0` | Demand-curve value at maximum demand; the percentage setting below is the actual hard price cap. |
 | `economy.price.maximumItemPaymentIncrease` | `0.125` | When paying another item, that payment stack may grow by at most 12.5%; an emerald result never changes. |
 | `economy.price.demandScoreForMaximumPrice` | `8.0` | Demand points above baseline needed to reach the percentage cap; lower values make prices rise faster. |
 | `economy.stock.enabled` | `false` | Lets demand add uses during the completed-sleep restock; never creates an additional restock. |
@@ -121,17 +120,17 @@ bound save size and restoration work.
 Ordinary clicks recalculate and synchronize only the completed offer immediately
 after its old-price purchase finishes, without requiring the player to close and
 reopen the merchant screen. Other rows in the same trade window are untouched.
-While demand pricing is enabled, total offer values are bounded from their base
-counts: emerald stacks never change, an emerald-paid result cannot fall by more
-than the configured reduction, and a non-emerald payment cannot rise by more
-than the configured increase. Once demand has raised a non-emerald payment, its
-displayed item count cannot fall again before completed sleep, even if the
-underlying demand score decays.
+While demand pricing is enabled, emerald payments and all received result stacks
+remain unchanged. A non-emerald payment cannot rise by more than the configured
+increase from its base count. Once demand has raised such a payment, its displayed
+item count cannot fall again before completed sleep, even if the underlying demand
+score decays.
 
 Shift-click has no special pricing rule. A successful result-slot action is
 completed at the price it displayed, then that exact offer is recalculated once.
-The former `economy.price.dynamicShiftPricing` key is ignored and may remain in
-an older TOML until Forge or NeoForge rewrites the file.
+The former `economy.price.dynamicShiftPricing` and
+`economy.price.maximumEmeraldPaymentResultReduction` keys are ignored and may
+remain in an older TOML until Forge or NeoForge rewrites the file.
 
 ## Diagnostics
 

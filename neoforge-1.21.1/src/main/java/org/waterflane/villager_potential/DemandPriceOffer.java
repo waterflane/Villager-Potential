@@ -1,13 +1,7 @@
 package org.waterflane.villager_potential;
 
-import net.minecraft.world.item.ItemStack;
-
-/** Mixin bridge for a transient demand adjustment to an offer's result count. */
+/** Mixin bridge for transient demand adjustments to an offer's input price. */
 public interface DemandPriceOffer {
-    ItemStack villagerPotential$baseResult();
-
-    int villagerPotential$baseResultCount();
-
     void villagerPotential$clearDemandPriceAdjustment();
 
     void villagerPotential$applyDemandInputDelta(int delta);
@@ -19,8 +13,6 @@ public interface DemandPriceOffer {
     );
 
     void villagerPotential$clearDemandInputPriceFloor();
-
-    void villagerPotential$setEffectiveResultCount(int resultCount);
 
     void villagerPotential$resetDemandPrice();
 }

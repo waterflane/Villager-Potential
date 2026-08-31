@@ -95,7 +95,6 @@ public final class ServerConfig {
     private static final ForgeConfigSpec.BooleanValue PRICE_INFLUENCE_ENABLED;
     private static final ForgeConfigSpec.DoubleValue MINIMUM_PRICE_MULTIPLIER;
     private static final ForgeConfigSpec.DoubleValue MAXIMUM_PRICE_MULTIPLIER;
-    private static final ForgeConfigSpec.DoubleValue MAXIMUM_EMERALD_PAYMENT_RESULT_REDUCTION;
     private static final ForgeConfigSpec.DoubleValue MAXIMUM_ITEM_PAYMENT_INCREASE;
     private static final ForgeConfigSpec.DoubleValue DEMAND_SCORE_FOR_MAXIMUM_PRICE;
     private static final ForgeConfigSpec.BooleanValue DEMAND_INFLUENCES_STOCK;
@@ -306,7 +305,7 @@ public final class ServerConfig {
         BUILDER.push("price");
         PRICE_INFLUENCE_ENABLED = BUILDER
                 .comment(
-                        "Enable demand price changes to non-emerald product stacks.",
+                        "Enable demand price changes to non-emerald payment stacks.",
                         "False disables the complete price-increase system and preserves vanilla-adjusted offers."
                 )
                 .define("enabled", price.enabled());
@@ -314,19 +313,8 @@ public final class ServerConfig {
                 .comment("Price multiplier from 0.01 to 1.0 at minimum demand; baseline remains neutral at 1.0.")
                 .defineInRange("minimumMultiplier", price.minimumMultiplier(), 0.01, 1.0);
         MAXIMUM_PRICE_MULTIPLIER = BUILDER
-                .comment("Demand-curve value from 1.0 to 64.0 at maximum demand; percentage settings below are the hard price caps.")
+                .comment("Demand-curve value from 1.0 to 64.0 at maximum demand; the percentage setting below is the hard price cap.")
                 .defineInRange("maximumMultiplier", price.maximumMultiplier(), 1.0, 64.0);
-        MAXIMUM_EMERALD_PAYMENT_RESULT_REDUCTION = BUILDER
-                .comment(
-                        "Maximum fractional reduction of the received product when paying emeralds.",
-                        "0.10 means at most 10%; integer rounding never exceeds this limit."
-                )
-                .defineInRange(
-                        "maximumEmeraldPaymentResultReduction",
-                        price.maximumEmeraldPaymentResultReduction(),
-                        0.0,
-                        1.0
-                );
         MAXIMUM_ITEM_PAYMENT_INCREASE = BUILDER
                 .comment(
                         "Maximum fractional increase of a non-emerald payment stack.",
@@ -587,7 +575,6 @@ public final class ServerConfig {
                         PRICE_INFLUENCE_ENABLED.get(),
                         MINIMUM_PRICE_MULTIPLIER.get(),
                         MAXIMUM_PRICE_MULTIPLIER.get(),
-                        MAXIMUM_EMERALD_PAYMENT_RESULT_REDUCTION.get(),
                         MAXIMUM_ITEM_PAYMENT_INCREASE.get(),
                         DEMAND_SCORE_FOR_MAXIMUM_PRICE.get(),
                         DEMAND_INFLUENCES_STOCK.get(),
@@ -696,7 +683,6 @@ public final class ServerConfig {
                                 economy.priceEnabled(),
                                 economy.minimumPriceMultiplier(),
                                 economy.maximumPriceMultiplier(),
-                                economy.maximumEmeraldPaymentResultReduction(),
                                 economy.maximumItemPaymentIncrease(),
                                 economy.demandScoreForMaximumPrice()
                         ),
@@ -744,7 +730,6 @@ public final class ServerConfig {
                         economy.price().enabled(),
                         economy.price().minimumMultiplier(),
                         economy.price().maximumMultiplier(),
-                        economy.price().maximumEmeraldPaymentResultReduction(),
                         economy.price().maximumItemPaymentIncrease(),
                         economy.price().demandScoreForMaximumPrice(),
                         economy.stock().enabled(),
@@ -862,7 +847,6 @@ public final class ServerConfig {
             boolean priceEnabled,
             double minimumPriceMultiplier,
             double maximumPriceMultiplier,
-            double maximumEmeraldPaymentResultReduction,
             double maximumItemPaymentIncrease,
             double demandScoreForMaximumPrice,
             boolean stockEnabled,
@@ -895,7 +879,6 @@ public final class ServerConfig {
                     priceEnabled,
                     minimumPriceMultiplier,
                     maximumPriceMultiplier,
-                    MarketDemandPriceConfig.DEFAULT.maximumEmeraldPaymentResultReduction(),
                     MarketDemandPriceConfig.DEFAULT.maximumItemPaymentIncrease(),
                     MarketDemandPriceConfig.DEFAULT.demandScoreForMaximumPrice(),
                     stockEnabled,

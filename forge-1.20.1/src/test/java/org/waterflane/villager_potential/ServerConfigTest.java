@@ -155,7 +155,6 @@ class ServerConfigTest {
         assertTrue(mapped.specializations().enabled());
         assertTrue(mapped.economy().demand().enabled());
         assertTrue(mapped.economy().price().enabled());
-        assertEquals(0.10, mapped.economy().price().maximumEmeraldPaymentResultReduction());
         assertEquals(0.125, mapped.economy().price().maximumItemPaymentIncrease());
         assertEquals(8.0, mapped.economy().price().demandScoreForMaximumPrice());
     }

@@ -134,17 +134,15 @@ public final class VillagerDemandPricing {
                         maximumItemCount
                 )
                 : vanillaPrice;
-        MarketDemandPricing.OfferAdjustment adjustment = MarketDemandPricing.adjustedOffer(
+        int adjustedPrice = MarketDemandPricing.adjustedInputPrice(
                 demandNeutralPrice,
                 basePrice,
                 maximumItemCount,
-                demandPriceOffer.villagerPotential$baseResultCount(),
                 paymentKind,
                 demandScore,
                 demandConfig,
                 priceConfig
         );
-        int adjustedPrice = adjustment.inputPrice();
         if (paymentKind == MarketDemandPricing.PaymentKind.OTHER_ITEM
                 && demandConfig.enabled()
                 && priceConfig.enabled()) {
@@ -162,9 +160,6 @@ public final class VillagerDemandPricing {
         }
         demandPriceOffer.villagerPotential$applyDemandInputDelta(
                 adjustedPrice - vanillaPrice
-        );
-        demandPriceOffer.villagerPotential$setEffectiveResultCount(
-                adjustment.resultCount()
         );
         return adjustedPrice;
     }

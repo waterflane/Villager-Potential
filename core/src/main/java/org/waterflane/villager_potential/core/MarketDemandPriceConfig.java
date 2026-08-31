@@ -1,16 +1,15 @@
 package org.waterflane.villager_potential.core;
 
-/** Demand curve and hard percentage caps for non-emerald product adjustments. */
+/** Demand curve and hard percentage cap for non-emerald payment adjustments. */
 public record MarketDemandPriceConfig(
         boolean enabled,
         double minimumMultiplier,
         double maximumMultiplier,
-        double maximumEmeraldPaymentResultReduction,
         double maximumItemPaymentIncrease,
         double demandScoreForMaximumPrice
 ) {
     public static final MarketDemandPriceConfig DEFAULT =
-            new MarketDemandPriceConfig(true, 1.0, 2.0, 0.10, 0.125, 8.0);
+            new MarketDemandPriceConfig(true, 1.0, 2.0, 0.125, 8.0);
 
     public MarketDemandPriceConfig(
             boolean enabled,
@@ -21,7 +20,6 @@ public record MarketDemandPriceConfig(
                 enabled,
                 minimumMultiplier,
                 maximumMultiplier,
-                DEFAULT.maximumEmeraldPaymentResultReduction(),
                 DEFAULT.maximumItemPaymentIncrease(),
                 DEFAULT.demandScoreForMaximumPrice()
         );
@@ -32,25 +30,7 @@ public record MarketDemandPriceConfig(
                 true,
                 minimumMultiplier,
                 maximumMultiplier,
-                DEFAULT.maximumEmeraldPaymentResultReduction(),
                 DEFAULT.maximumItemPaymentIncrease(),
-                DEFAULT.demandScoreForMaximumPrice()
-        );
-    }
-
-    public MarketDemandPriceConfig(
-            boolean enabled,
-            double minimumMultiplier,
-            double maximumMultiplier,
-            double maximumEmeraldPaymentResultReduction,
-            double maximumItemPaymentIncrease
-    ) {
-        this(
-                enabled,
-                minimumMultiplier,
-                maximumMultiplier,
-                maximumEmeraldPaymentResultReduction,
-                maximumItemPaymentIncrease,
                 DEFAULT.demandScoreForMaximumPrice()
         );
     }
@@ -69,10 +49,6 @@ public record MarketDemandPriceConfig(
                     "maximumMultiplier must be finite and at least 1"
             );
         }
-        validatePercentage(
-                "maximumEmeraldPaymentResultReduction",
-                maximumEmeraldPaymentResultReduction
-        );
         validatePercentage("maximumItemPaymentIncrease", maximumItemPaymentIncrease);
         if (!Double.isFinite(demandScoreForMaximumPrice)
                 || demandScoreForMaximumPrice <= 0.0) {

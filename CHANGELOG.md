@@ -10,9 +10,9 @@ The format loosely follows [Keep a Changelog](https://keepachangelog.com/en/1.1.
 - Villagers now restock used offers only after actually waking from sleep;
   workstation activity no longer performs the vanilla twice-daily restock.
 - Completed sleep clears accumulated demand and restores demand-adjusted prices.
-- Demand never changes an emerald stack. Emerald-paid offers reduce only the
-  received product by at most 10%, while other payment stacks grow by at most
-  12.5%; integer rounding never exceeds either cap.
+- Demand never changes an emerald stack or any received result stack. Only
+  non-emerald payment stacks grow, by at most 12.5%; integer rounding never
+  exceeds that cap.
 - Fixed non-emerald payments becoming cheaper under positive demand, including
   Forge trades such as wheat for an emerald.
 - Non-emerald payment counts are now monotonic between completed sleeps on both

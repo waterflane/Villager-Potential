@@ -69,7 +69,7 @@ class VillagerDemandPricingTest {
     }
 
     @Test
-    void decayLowersTheModAddedIncrease() {
+    void demandAndDecayNeverChangeReceivedProductCount() {
         MarketDemandState recentDemand = new MarketDemandState(8.0, 8L, 100L);
         MerchantOffer recent = emeraldPurchase(10);
         MerchantOffer decayed = emeraldPurchase(10);
@@ -87,7 +87,7 @@ class VillagerDemandPricingTest {
                 PRICE
         );
 
-        assertEquals(9, recent.getResult().getCount());
+        assertEquals(10, recent.getResult().getCount());
         assertEquals(10, decayed.getResult().getCount());
     }
 
@@ -102,7 +102,7 @@ class VillagerDemandPricingTest {
     }
 
     @Test
-    void fourProductsDoNotChangeWhenOneItemWouldExceedTenPercent() {
+    void fourProductsNeverChange() {
         MerchantOffer offer = emeraldPurchase(4);
 
         VillagerDemandPricing.apply(offer, DEMAND.maximum(), DEMAND, PRICE);
@@ -113,13 +113,14 @@ class VillagerDemandPricingTest {
     }
 
     @Test
-    void tenProductsCanReduceToNineWithinTenPercent() {
+    void tenProductsNeverChange() {
         MerchantOffer offer = emeraldPurchase(10);
 
         VillagerDemandPricing.apply(offer, DEMAND.maximum(), DEMAND, PRICE);
 
         assertEquals(1, offer.getCostA().getCount());
-        assertEquals(9, offer.getResult().getCount());
+        assertEquals(10, offer.getResult().getCount());
+        assertEquals(10, offer.assemble().getCount());
     }
 
     @Test
@@ -181,8 +182,8 @@ class VillagerDemandPricingTest {
                 true,
                 1.0,
                 2.0,
-                0.10,
-                0.20
+                0.20,
+                MarketDemandPriceConfig.DEFAULT.demandScoreForMaximumPrice()
         );
         MerchantOffer offer = itemPayment(20);
 

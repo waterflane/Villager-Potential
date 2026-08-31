@@ -1,6 +1,5 @@
 package org.waterflane.villager_potential.mixin;
 
-import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.trading.MerchantOffer;
 import org.spongepowered.asm.mixin.Final;
 import org.spongepowered.asm.mixin.Mixin;
@@ -27,17 +26,10 @@ public abstract class MerchantOfferDemandStockMixin implements DemandStockOffer,
     private int demand;
 
     @Shadow
-    @Final
-    private ItemStack result;
-
-    @Shadow
     private int specialPriceDiff;
 
     @Unique
     private int villagerPotential$effectiveMaximumUses;
-
-    @Unique
-    private int villagerPotential$effectiveResultCount;
 
     @Unique
     private int villagerPotential$demandInputDelta;
@@ -56,20 +48,9 @@ public abstract class MerchantOfferDemandStockMixin implements DemandStockOffer,
     }
 
     @Override
-    public ItemStack villagerPotential$baseResult() {
-        return result;
-    }
-
-    @Override
-    public int villagerPotential$baseResultCount() {
-        return result.getCount();
-    }
-
-    @Override
     public void villagerPotential$clearDemandPriceAdjustment() {
         specialPriceDiff -= villagerPotential$demandInputDelta;
         villagerPotential$demandInputDelta = 0;
-        villagerPotential$effectiveResultCount = 0;
     }
 
     @Override
@@ -100,29 +81,10 @@ public abstract class MerchantOfferDemandStockMixin implements DemandStockOffer,
     }
 
     @Override
-    public void villagerPotential$setEffectiveResultCount(int resultCount) {
-        int baseCount = villagerPotential$baseResultCount();
-        villagerPotential$effectiveResultCount = Math.max(1, Math.min(baseCount, resultCount));
-    }
-
-    @Override
     public void villagerPotential$resetDemandPrice() {
         villagerPotential$clearDemandPriceAdjustment();
         villagerPotential$clearDemandInputPriceFloor();
         demand = 0;
-    }
-
-    @Inject(method = {"getResult", "assemble"}, at = @At("RETURN"), cancellable = true)
-    private void villagerPotential$applyEffectiveResultCount(
-            CallbackInfoReturnable<ItemStack> callback
-    ) {
-        ItemStack returned = callback.getReturnValue();
-        if (villagerPotential$effectiveResultCount > 0
-                && villagerPotential$effectiveResultCount < returned.getCount()) {
-            ItemStack adjusted = returned.copy();
-            adjusted.setCount(villagerPotential$effectiveResultCount);
-            callback.setReturnValue(adjusted);
-        }
     }
 
     @Inject(method = "resetSpecialPriceDiff", at = @At("RETURN"))
