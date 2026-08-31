@@ -95,6 +95,19 @@ class MarketDemandPricingTest {
     }
 
     @Test
+    void emeraldPaymentKeepsCombinedCureAndRaidDiscount() {
+        assertEquals(8, MarketDemandPricing.specialPriceWithoutDemand(20, -12, 64));
+        assertEquals(
+                new MarketDemandPricing.OfferAdjustment(8, 18),
+                MarketDemandPricing.adjustedOffer(
+                        8, 20, 64, 20,
+                        MarketDemandPricing.PaymentKind.EMERALD,
+                        DEMAND.maximum(), DEMAND, MarketDemandPriceConfig.DEFAULT
+                )
+        );
+    }
+
+    @Test
     void itemPaymentChangesOnlyProductWithinTwelveAndAHalfPercent() {
         assertEquals(
                 new MarketDemandPricing.OfferAdjustment(22, 1),
@@ -139,7 +152,7 @@ class MarketDemandPricingTest {
                 )
         );
         assertEquals(
-                new MarketDemandPricing.OfferAdjustment(1, 18),
+                new MarketDemandPricing.OfferAdjustment(7, 18),
                 MarketDemandPricing.adjustedOffer(
                         7, 1, 64, 20,
                         MarketDemandPricing.PaymentKind.EMERALD,

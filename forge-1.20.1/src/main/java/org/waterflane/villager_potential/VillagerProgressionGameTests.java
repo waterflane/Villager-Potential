@@ -6,18 +6,21 @@ import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.gametest.framework.GameTestHelper;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.chat.Component;
+import net.minecraft.world.InteractionHand;
+import net.minecraft.world.effect.MobEffectInstance;
 import net.minecraft.world.effect.MobEffects;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.ai.memory.MemoryModuleType;
+import net.minecraft.world.entity.ai.village.ReputationEventType;
 import net.minecraft.world.entity.npc.Villager;
 import net.minecraft.world.entity.npc.VillagerProfession;
-import net.minecraft.world.item.trading.MerchantOffer;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.item.SuspiciousStewItem;
 import net.minecraft.world.item.alchemy.PotionUtils;
 import net.minecraft.world.item.alchemy.Potions;
 import net.minecraft.world.item.enchantment.Enchantments;
+import net.minecraft.world.item.trading.MerchantOffer;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraftforge.gametest.GameTestHolder;
 import net.minecraftforge.gametest.PrefixGameTestTemplate;
@@ -210,6 +213,40 @@ public final class VillagerProgressionGameTests {
 
         helper.assertTrue(offer.getMaxUses() == 15,
                 "demand stock mixin did not expose the effective maximum");
+        helper.succeed();
+    }
+
+    @GameTest(template = "empty", timeoutTicks = 40)
+    public static void cureAndRaidDiscountsDoNotStackOrDisappear(GameTestHelper helper) {
+        Villager villager = librarian(helper);
+        var player = helper.makeMockPlayer();
+        MerchantOffer offer = new MerchantOffer(
+                new ItemStack(Items.EMERALD, 20),
+                ItemStack.EMPTY,
+                new ItemStack(Items.LEATHER_LEGGINGS),
+                0,
+                12,
+                5,
+                0.05F,
+                1
+        );
+        villager.getOffers().clear();
+        villager.getOffers().add(offer);
+
+        villager.onReputationEventFrom(ReputationEventType.ZOMBIE_VILLAGER_CURED, player);
+        int reputationAfterFirstCure = villager.getPlayerReputation(player);
+        villager.onReputationEventFrom(ReputationEventType.ZOMBIE_VILLAGER_CURED, player);
+        helper.assertTrue(
+                villager.getPlayerReputation(player) == reputationAfterFirstCure,
+                "a repeated infection and cure stacked its discount"
+        );
+
+        player.addEffect(new MobEffectInstance(MobEffects.HERO_OF_THE_VILLAGE, 200, 0));
+        villager.mobInteract(player, InteractionHand.MAIN_HAND);
+        helper.assertTrue(
+                offer.getCostA().getCount() == 8,
+                "cure and raid price was changed by demand pricing"
+        );
         helper.succeed();
     }
 

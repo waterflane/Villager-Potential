@@ -58,14 +58,14 @@ class VillagerDemandPricingTest {
     }
 
     @Test
-    void emeraldPaymentIsFixedToItsBaseCountWhilePricingIsEnabled() {
+    void emeraldPaymentKeepsSpecialDiscountButRemovesVanillaDemand() {
         MerchantOffer offer = offer(20, 0.5F, 1);
         offer.setSpecialPriceDiff(-5);
         assertEquals(25, offer.getCostA().getCount());
 
         VillagerDemandPricing.apply(offer, DEMAND.maximum(), DEMAND, PRICE);
 
-        assertEquals(20, offer.getCostA().getCount());
+        assertEquals(15, offer.getCostA().getCount());
     }
 
     @Test

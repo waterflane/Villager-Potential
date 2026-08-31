@@ -3,15 +3,23 @@ package org.waterflane.villager_potential;
 import net.minecraft.core.BlockPos;
 import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.gametest.framework.GameTestHelper;
+import net.minecraft.world.InteractionHand;
+import net.minecraft.world.effect.MobEffectInstance;
 import net.minecraft.world.effect.MobEffects;
 import net.minecraft.world.entity.EntityType;
+import net.minecraft.world.entity.ai.village.ReputationEventType;
 import net.minecraft.world.entity.npc.Villager;
 import net.minecraft.world.entity.npc.VillagerProfession;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
+import net.minecraft.world.item.trading.ItemCost;
 import net.minecraft.world.item.trading.MerchantOffer;
 import net.minecraft.world.level.GameType;
 import net.neoforged.neoforge.gametest.GameTestHolder;
 import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 import org.waterflane.villager_potential.core.ProfessionId;
+
+import java.util.Optional;
 
 @GameTestHolder(Villager_potential.MODID)
 @PrefixGameTestTemplate(false)
@@ -108,6 +116,42 @@ public final class VillagerProgressionGameTests {
                     "migration invented trade memory"
             );
         });
+    }
+
+    @GameTest(template = "empty", timeoutTicks = 40)
+    public static void cureAndRaidDiscountsDoNotStackOrDisappear(GameTestHelper helper) {
+        Villager villager = librarian(helper);
+        var player = helper.makeMockPlayer(GameType.CREATIVE);
+        MerchantOffer offer = new MerchantOffer(
+                new ItemCost(Items.EMERALD, 20),
+                Optional.empty(),
+                new ItemStack(Items.LEATHER_LEGGINGS),
+                0,
+                12,
+                5,
+                0.05F,
+                1
+        );
+        villager.getOffers().clear();
+        villager.getOffers().add(offer);
+
+        villager.onReputationEventFrom(ReputationEventType.ZOMBIE_VILLAGER_CURED, player);
+        int reputationAfterFirstCure = villager.getPlayerReputation(player);
+        villager.onReputationEventFrom(ReputationEventType.ZOMBIE_VILLAGER_CURED, player);
+        helper.assertValueEqual(
+                villager.getPlayerReputation(player),
+                reputationAfterFirstCure,
+                "reputation after repeated infection and cure"
+        );
+
+        player.addEffect(new MobEffectInstance(MobEffects.HERO_OF_THE_VILLAGE, 200, 0));
+        villager.mobInteract(player, InteractionHand.MAIN_HAND);
+        helper.assertValueEqual(
+                offer.getCostA().getCount(),
+                8,
+                "cure and raid price after demand pricing"
+        );
+        helper.succeed();
     }
 
     private static Villager librarian(GameTestHelper helper) {
