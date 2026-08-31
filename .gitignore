@@ -4,6 +4,7 @@
 .vscode/
 
 build/
+bin/
 run/
 out/
 .idea/

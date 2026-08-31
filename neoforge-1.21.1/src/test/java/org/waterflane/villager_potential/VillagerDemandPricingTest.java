@@ -58,8 +58,8 @@ class VillagerDemandPricingTest {
     @Test
     void decayLowersTheModAddedIncrease() {
         MarketDemandState recentDemand = new MarketDemandState(8.0, 8L, 100L);
-        MerchantOffer recent = emeraldPurchase(8);
-        MerchantOffer decayed = emeraldPurchase(8);
+        MerchantOffer recent = emeraldPurchase(10);
+        MerchantOffer decayed = emeraldPurchase(10);
 
         VillagerDemandPricing.apply(
                 recent,
@@ -74,8 +74,8 @@ class VillagerDemandPricingTest {
                 PRICE
         );
 
-        assertEquals(7, recent.getResult().getCount());
-        assertEquals(8, decayed.getResult().getCount());
+        assertEquals(9, recent.getResult().getCount());
+        assertEquals(10, decayed.getResult().getCount());
     }
 
     @Test
@@ -89,7 +89,7 @@ class VillagerDemandPricingTest {
     }
 
     @Test
-    void fourProductsDoNotChangeWhenOneItemWouldExceedFifteenPercent() {
+    void fourProductsDoNotChangeWhenOneItemWouldExceedTenPercent() {
         MerchantOffer offer = emeraldPurchase(4);
 
         VillagerDemandPricing.apply(offer, DEMAND.maximum(), DEMAND, PRICE);
@@ -100,17 +100,17 @@ class VillagerDemandPricingTest {
     }
 
     @Test
-    void eightProductsCanReduceToSevenWithinFifteenPercent() {
-        MerchantOffer offer = emeraldPurchase(8);
+    void tenProductsCanReduceToNineWithinTenPercent() {
+        MerchantOffer offer = emeraldPurchase(10);
 
         VillagerDemandPricing.apply(offer, DEMAND.maximum(), DEMAND, PRICE);
 
         assertEquals(1, offer.getCostA().getCount());
-        assertEquals(7, offer.getResult().getCount());
+        assertEquals(9, offer.getResult().getCount());
     }
 
     @Test
-    void nonEmeraldPaymentCanIncreaseByTwentyPercent() {
+    void nonEmeraldPaymentCanIncreaseByTwelveAndAHalfPercent() {
         MerchantOffer offer = itemPayment(20);
 
         VillagerDemandPricing.apply(
@@ -120,7 +120,7 @@ class VillagerDemandPricingTest {
                 PRICE
         );
 
-        assertEquals(24, offer.getCostA().getCount());
+        assertEquals(22, offer.getCostA().getCount());
         assertEquals(1, offer.getResult().getCount());
     }
 
@@ -128,10 +128,10 @@ class VillagerDemandPricingTest {
     void repeatedLiveRecalculationDoesNotCompoundItsOwnDelta() {
         MerchantOffer offer = itemPayment(20);
 
-        VillagerDemandPricing.apply(offer, 2.0, DEMAND, PRICE);
+        VillagerDemandPricing.apply(offer, 4.0, DEMAND, PRICE);
         assertEquals(21, offer.getCostA().getCount());
 
-        VillagerDemandPricing.apply(offer, 2.0, DEMAND, PRICE);
+        VillagerDemandPricing.apply(offer, 4.0, DEMAND, PRICE);
         assertEquals(21, offer.getCostA().getCount());
     }
 
@@ -140,14 +140,14 @@ class VillagerDemandPricingTest {
         MerchantOffer offer = itemPayment(20);
 
         VillagerDemandPricing.apply(offer, 8.0, DEMAND, PRICE);
-        assertEquals(24, offer.getCostA().getCount());
+        assertEquals(22, offer.getCostA().getCount());
 
         VillagerDemandPricing.apply(offer, 4.0, DEMAND, PRICE);
-        assertEquals(24, offer.getCostA().getCount());
+        assertEquals(22, offer.getCostA().getCount());
 
         ((DemandPriceOffer) offer).villagerPotential$resetDemandPrice();
         VillagerDemandPricing.apply(offer, 4.0, DEMAND, PRICE);
-        assertEquals(22, offer.getCostA().getCount());
+        assertEquals(21, offer.getCostA().getCount());
     }
 
     @Test
@@ -156,7 +156,7 @@ class VillagerDemandPricingTest {
         MerchantOffer offer = itemPayment(20);
 
         VillagerDemandPricing.apply(offer, 8.0, DEMAND, PRICE);
-        assertEquals(24, offer.getCostA().getCount());
+        assertEquals(22, offer.getCostA().getCount());
 
         VillagerDemandPricing.apply(offer, 8.0, DEMAND, disabled);
         assertEquals(20, offer.getCostA().getCount());

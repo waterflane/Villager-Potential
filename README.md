@@ -128,10 +128,10 @@ files exactly, so missing, extra, or changed translations fail the build.
 Every stable logical trade carries a demand score that rises with successful
 uses. Popular trades become more expensive until the villager sleeps. Offers
 never change their emerald stack: when the player pays emeralds, the received
-product stack may shrink by at most 15%; when the player pays another item, that
-payment stack may grow by at most 20%. Integer rounding respects those limits,
-so `1 emerald -> 4 books` remains unchanged while `1 emerald -> 8 apples` may
-become `1 emerald -> 7 apples`. By default the percentage cap is reached after
+product stack may shrink by at most 10%; when the player pays another item, that
+payment stack may grow by at most 12.5%. Integer rounding respects those limits,
+so `1 emerald -> 8 books` remains unchanged while `1 emerald -> 10 apples` may
+become `1 emerald -> 9 apples`. By default the percentage cap is reached after
 eight demand points, and ordinary purchases update the visible offer
 immediately. Shift-click keeps one opening price for the whole batch by default;
 `economy.price.dynamicShiftPricing` can instead recalculate it after every bulk
@@ -144,7 +144,11 @@ that sleep restock.
 
 All gameplay options live in one world-scoped SERVER config with validated
 defaults, documented ranges, and safe reload semantics — invalid values reject
-the reload and keep the previous configuration. See
+the reload and keep the previous configuration. The file is created only after
+the world has been loaded: Forge and NeoForge singleplayer use
+`.minecraft/saves/<world>/serverconfig/villager_potential-server.toml`, while a
+dedicated server uses `<world>/serverconfig/villager_potential-server.toml`.
+It is intentionally not placed in the global `.minecraft/config` directory. See
 [docs/configuration.md](docs/configuration.md) for every option, its default,
 time unit, gameplay effect, and exact per-world file location.
 

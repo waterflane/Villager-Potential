@@ -11,7 +11,7 @@ public record MarketDemandPriceConfig(
         boolean dynamicShiftPricing
 ) {
     public static final MarketDemandPriceConfig DEFAULT =
-            new MarketDemandPriceConfig(true, 1.0, 2.0, 0.15, 0.20, 8.0, false);
+            new MarketDemandPriceConfig(true, 1.0, 2.0, 0.10, 0.125, 8.0, false);
 
     public MarketDemandPriceConfig(
             boolean enabled,

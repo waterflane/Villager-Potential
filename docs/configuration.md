@@ -110,8 +110,8 @@ bound save size and restoration work.
 | `economy.price.enabled` | `true` | Enables demand price changes. Set to `false` to leave both payment and result stacks unchanged by Villager Potential. |
 | `economy.price.minimumMultiplier` | `1.0` | Demand-curve value at minimum demand; values at or below `1.0` never make a product cheaper. |
 | `economy.price.maximumMultiplier` | `2.0` | Demand-curve value at maximum demand; the percentage limits below are the actual hard price caps. |
-| `economy.price.maximumEmeraldPaymentResultReduction` | `0.15` | When paying emeralds, the non-emerald result stack may shrink by at most 15%; the emerald count never changes. |
-| `economy.price.maximumItemPaymentIncrease` | `0.20` | When paying another item, that payment stack may grow by at most 20%; an emerald result never changes. |
+| `economy.price.maximumEmeraldPaymentResultReduction` | `0.10` | When paying emeralds, the non-emerald result stack may shrink by at most 10%; the emerald count never changes. |
+| `economy.price.maximumItemPaymentIncrease` | `0.125` | When paying another item, that payment stack may grow by at most 12.5%; an emerald result never changes. |
 | `economy.price.demandScoreForMaximumPrice` | `8.0` | Demand points above baseline needed to reach the percentage cap; lower values make prices rise faster. |
 | `economy.price.dynamicShiftPricing` | `false` | When `false`, Shift-click buys the available batch at its opening price. When `true`, the price is recalculated after every trade in the batch. |
 | `economy.stock.enabled` | `false` | Lets demand add uses during the completed-sleep restock; never creates an additional restock. |

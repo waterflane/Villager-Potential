@@ -11,8 +11,8 @@ The format loosely follows [Keep a Changelog](https://keepachangelog.com/en/1.1.
   workstation activity no longer performs the vanilla twice-daily restock.
 - Completed sleep clears accumulated demand and restores demand-adjusted prices.
 - Demand never changes an emerald stack. Emerald-paid offers reduce only the
-  received product by at most 15%, while other payment stacks grow by at most
-  20%; integer rounding never exceeds either cap.
+  received product by at most 10%, while other payment stacks grow by at most
+  12.5%; integer rounding never exceeds either cap.
 - Fixed non-emerald payments becoming cheaper under positive demand, including
   Forge trades such as wheat for an emerald.
 - Non-emerald payment counts are now monotonic between completed sleeps on both

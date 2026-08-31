@@ -65,7 +65,7 @@ class MarketDemandPricingTest {
     }
 
     @Test
-    void emeraldPaymentChangesOnlyProductWithinFifteenPercent() {
+    void emeraldPaymentChangesOnlyProductWithinTenPercent() {
         assertEquals(
                 new MarketDemandPricing.OfferAdjustment(1, 4),
                 MarketDemandPricing.adjustedOffer(
@@ -75,7 +75,7 @@ class MarketDemandPricingTest {
                 )
         );
         assertEquals(
-                new MarketDemandPricing.OfferAdjustment(1, 7),
+                new MarketDemandPricing.OfferAdjustment(1, 8),
                 MarketDemandPricing.adjustedOffer(
                         1, 1, 64, 8,
                         MarketDemandPricing.PaymentKind.EMERALD,
@@ -83,7 +83,7 @@ class MarketDemandPricingTest {
                 )
         );
         assertEquals(
-                new MarketDemandPricing.OfferAdjustment(1, 17),
+                new MarketDemandPricing.OfferAdjustment(1, 18),
                 MarketDemandPricing.adjustedOffer(
                         1, 1, 64, 20,
                         MarketDemandPricing.PaymentKind.EMERALD,
@@ -95,9 +95,9 @@ class MarketDemandPricingTest {
     }
 
     @Test
-    void itemPaymentChangesOnlyProductWithinTwentyPercent() {
+    void itemPaymentChangesOnlyProductWithinTwelveAndAHalfPercent() {
         assertEquals(
-                new MarketDemandPricing.OfferAdjustment(24, 1),
+                new MarketDemandPricing.OfferAdjustment(22, 1),
                 MarketDemandPricing.adjustedOffer(
                         20, 20, 64, 1,
                         MarketDemandPricing.PaymentKind.OTHER_ITEM,

@@ -320,7 +320,7 @@ public final class ServerConfig {
         MAXIMUM_EMERALD_PAYMENT_RESULT_REDUCTION = BUILDER
                 .comment(
                         "Maximum fractional reduction of the received product when paying emeralds.",
-                        "0.15 means at most 15%; integer rounding never exceeds this limit."
+                        "0.10 means at most 10%; integer rounding never exceeds this limit."
                 )
                 .defineInRange(
                         "maximumEmeraldPaymentResultReduction",
@@ -331,7 +331,7 @@ public final class ServerConfig {
         MAXIMUM_ITEM_PAYMENT_INCREASE = BUILDER
                 .comment(
                         "Maximum fractional increase of a non-emerald payment stack.",
-                        "0.20 means at most 20%; the emerald stack is never changed."
+                        "0.125 means at most 12.5%; the emerald stack is never changed."
                 )
                 .defineInRange(
                         "maximumItemPaymentIncrease",
