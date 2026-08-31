@@ -1,5 +1,7 @@
 # Villager Potential
 
+<img width="800" height="450" alt="village potential" src="https://github.com/user-attachments/assets/98192a88-ba37-46d0-bbba-1c5c04d68b99" />
+
 **Individual skills, professions and evolving trades for Minecraft villagers.**
 
 Villager Potential replaces anonymous, trade-XP-driven villagers with individuals:
@@ -17,6 +19,8 @@ Use the JAR whose loader and Minecraft version match the server. Both JARs
 embed the same Java-17-compatible domain core and use the same data format.
 
 ## How it works
+
+<img width="1919" height="1079" alt="blue_day" src="https://github.com/user-attachments/assets/54db6390-e2b3-4901-ba96-2e5379ffff99" />
 
 ### Individual aptitudes
 
