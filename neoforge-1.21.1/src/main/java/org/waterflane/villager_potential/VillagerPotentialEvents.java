@@ -105,9 +105,6 @@ public final class VillagerPotentialEvents {
                     serverLevel.getGameTime(),
                     Config.tradeHistoryMaximumEntries()
             );
-            if (villager.getTradingPlayer() != null) {
-                CompletedTradeContext.record(villager, event.getMerchantOffer());
-            }
         }
     }
 
