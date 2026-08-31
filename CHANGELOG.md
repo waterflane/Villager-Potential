@@ -20,9 +20,10 @@ The format loosely follows [Keep a Changelog](https://keepachangelog.com/en/1.1.
   lower the already reached count.
 - Prices now update in the open merchant screen immediately after an ordinary
   purchase has completed at its previous price. Only the exact offer used by
-  that result slot is repriced; other rows remain untouched. Shift-click keeps
-  its opening batch price by default, with optional per-trade bulk recalculation
-  via `economy.price.dynamicShiftPricing`.
+  that result slot is repriced; other rows remain untouched.
+- Removed the special Shift-click pricing context and its config toggle. Every
+  successful result-slot action now follows the same single post-purchase
+  recalculation path.
 - Percentage settings now cap the total price relative to immutable base counts,
   including vanilla adjustments, instead of limiting only this mod's added
   delta.

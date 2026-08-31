@@ -113,7 +113,6 @@ bound save size and restoration work.
 | `economy.price.maximumEmeraldPaymentResultReduction` | `0.10` | When paying emeralds, the non-emerald result stack may shrink by at most 10%; the emerald count never changes. |
 | `economy.price.maximumItemPaymentIncrease` | `0.125` | When paying another item, that payment stack may grow by at most 12.5%; an emerald result never changes. |
 | `economy.price.demandScoreForMaximumPrice` | `8.0` | Demand points above baseline needed to reach the percentage cap; lower values make prices rise faster. |
-| `economy.price.dynamicShiftPricing` | `false` | When `false`, Shift-click buys the available batch at its opening price. When `true`, the price is recalculated after every trade in the batch. |
 | `economy.stock.enabled` | `false` | Lets demand add uses during the completed-sleep restock; never creates an additional restock. |
 | `economy.stock.influenceStrength` | `1.0` | Blend from no stock effect to the full additional-use cap. |
 | `economy.stock.maximumAdditionalUses` | `2` | Uses demand may add to one offer per restock. |
@@ -128,6 +127,11 @@ than the configured reduction, and a non-emerald payment cannot rise by more
 than the configured increase. Once demand has raised a non-emerald payment, its
 displayed item count cannot fall again before completed sleep, even if the
 underlying demand score decays.
+
+Shift-click has no special pricing rule. A successful result-slot action is
+completed at the price it displayed, then that exact offer is recalculated once.
+The former `economy.price.dynamicShiftPricing` key is ignored and may remain in
+an older TOML until Forge or NeoForge rewrites the file.
 
 ## Diagnostics
 
