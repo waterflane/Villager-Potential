@@ -4,6 +4,7 @@ import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.InteractionResult;
+import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.monster.ZombieVillager;
 import net.minecraft.world.entity.npc.Villager;
@@ -30,6 +31,8 @@ public final class VillagerPotentialEvents {
     private static final Set<Villager> NEW_VILLAGERS = Collections.synchronizedSet(
             Collections.newSetFromMap(new WeakHashMap<>())
     );
+    private static final ForgeConversionStateSnapshots<Entity> CONVERSION_STATES =
+            new ForgeConversionStateSnapshots<>();
 
     private VillagerPotentialEvents() {
     }
@@ -139,10 +142,16 @@ public final class VillagerPotentialEvents {
         if (event.getEntity() instanceof Villager villager
                 && event.getOutcome() == EntityType.ZOMBIE_VILLAGER) {
             VillagerPotentialAttachments.flushProfessionProgress(villager);
-            VillagerPotentialAttachments.get(villager);
+            CONVERSION_STATES.remember(
+                    villager,
+                    VillagerPotentialAttachments.get(villager)
+            );
         } else if (event.getEntity() instanceof ZombieVillager zombieVillager
                 && event.getOutcome() == EntityType.VILLAGER) {
-            VillagerPotentialAttachments.get(zombieVillager);
+            CONVERSION_STATES.remember(
+                    zombieVillager,
+                    VillagerPotentialAttachments.get(zombieVillager)
+            );
         }
     }
 
@@ -155,9 +164,8 @@ public final class VillagerPotentialEvents {
                 && event.getOutcome() instanceof ZombieVillager)
                 || (event.getEntity() instanceof ZombieVillager
                 && event.getOutcome() instanceof Villager)) {
-            VillagerPotentialAttachments.store(
-                    event.getOutcome(),
-                    VillagerPotentialAttachments.stored(event.getEntity())
+            CONVERSION_STATES.take(event.getEntity()).ifPresent(state ->
+                    VillagerPotentialAttachments.store(event.getOutcome(), state)
             );
         }
     }

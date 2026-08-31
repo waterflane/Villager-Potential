@@ -35,6 +35,8 @@ The format loosely follows [Keep a Changelog](https://keepachangelog.com/en/1.1.
 
 ### Forge 1.20.1 port
 
+- Fixed a ticking-entity crash when a zombie infects a villager after Forge has
+  already invalidated the discarded villager's capabilities.
 - Added a Java 17 Forge module targeting Minecraft 1.20.1, Forge 47.4.23, and
   the supported Forge range 47.4.10 through 47.x.
 - Ported capabilities, conversion copying, lifecycle/trade hooks, commands,
