@@ -127,8 +127,15 @@ public final class VillagerDemandPricing {
         MarketDemandPricing.PaymentKind paymentKind = offer.getBaseCostA().is(Items.EMERALD)
                 ? MarketDemandPricing.PaymentKind.EMERALD
                 : MarketDemandPricing.PaymentKind.OTHER_ITEM;
+        int demandNeutralPrice = paymentKind == MarketDemandPricing.PaymentKind.EMERALD
+                ? MarketDemandPricing.specialPriceWithoutDemand(
+                        basePrice,
+                        offer.getSpecialPriceDiff(),
+                        maximumItemCount
+                )
+                : vanillaPrice;
         MarketDemandPricing.OfferAdjustment adjustment = MarketDemandPricing.adjustedOffer(
-                vanillaPrice,
+                demandNeutralPrice,
                 basePrice,
                 maximumItemCount,
                 demandPriceOffer.villagerPotential$baseResultCount(),

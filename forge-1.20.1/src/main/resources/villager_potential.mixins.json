@@ -10,6 +10,7 @@
     "MerchantOfferDemandStockMixin",
     "MerchantResultSlotTradeMixin",
     "VillagerBreedingMixin",
+    "VillagerCureDiscountMixin",
     "VillagerDemandPricingMixin",
     "VillagerDemandStockMixin",
     "VillagerLevelUpMixin"

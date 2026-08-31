@@ -114,7 +114,7 @@ public final class MarketDemandPricing {
             return new OfferAdjustment(boundedVanillaPrice, baseResultCount);
         }
         double pressure = positiveDemandFraction(demandScore, demandConfig, priceConfig);
-        int inputPrice = boundedBasePrice;
+        int inputPrice = boundedVanillaPrice;
         int resultCount = baseResultCount;
         if (paymentKind == PaymentKind.EMERALD) {
             double maximumReduction = priceConfig.maximumEmeraldPaymentResultReduction();
@@ -142,6 +142,19 @@ public final class MarketDemandPricing {
             );
         }
         return new OfferAdjustment(inputPrice, resultCount);
+    }
+
+    /** Applies reputation and raid modifiers without vanilla's demand surcharge. */
+    public static int specialPriceWithoutDemand(
+            int basePrice,
+            int specialPriceDifference,
+            int maximumItemCount
+    ) {
+        if (maximumItemCount < 1) {
+            throw new IllegalArgumentException("maximumItemCount must be positive");
+        }
+        int boundedBasePrice = clamp(basePrice, 1, maximumItemCount);
+        return clamp(boundedBasePrice + specialPriceDifference, 1, maximumItemCount);
     }
 
     /** Absolute payment ceiling relative to the offer's immutable base cost. */
