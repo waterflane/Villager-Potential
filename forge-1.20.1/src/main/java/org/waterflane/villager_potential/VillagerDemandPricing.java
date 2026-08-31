@@ -38,39 +38,33 @@ public final class VillagerDemandPricing {
         MarketDemandPriceConfig priceConfig = Config.marketDemandPriceConfig();
 
         for (MerchantOffer offer : villager.getOffers()) {
-            DemandPriceOffer demandPriceOffer = (DemandPriceOffer) offer;
-            demandPriceOffer.villagerPotential$clearDemandPriceAdjustment();
-            MerchantOfferTradeKeys.Identity identity = MerchantOfferTradeKeys.identify(offer);
-            OptionalDouble demandScore = identity.stable()
-                    ? state.marketDemandScoreFor(
-                    profession,
-                    identity.key(),
-                    gameTime,
-                    demandConfig
-            )
-                    : OptionalDouble.empty();
-            double score = demandScore.orElse(demandConfig.baseline());
-            int vanillaPrice = offer.getCostA().getCount();
-            int adjustedPrice = apply(
-                    offer,
-                    score,
-                    demandConfig,
-                    priceConfig
-            );
-            VillagerPotentialDiagnostics.price(
-                    villager.getUUID(),
-                    profession,
-                    identity.key(),
-                    score,
-                    vanillaPrice,
-                    adjustedPrice
-            );
+            apply(villager, offer, profession, state, gameTime, demandConfig, priceConfig);
         }
     }
 
-    /** Applies the new price immediately and refreshes an already open trade menu. */
-    public static void applyAndSync(Villager villager) {
-        apply(villager);
+    /** Reprices only the offer completed by the current trade action. */
+    public static void apply(Villager villager, MerchantOffer offer) {
+        Objects.requireNonNull(villager, "villager");
+        Objects.requireNonNull(offer, "offer");
+        VillagerProfession minecraftProfession = villager.getVillagerData().getProfession();
+        if (villager.level().isClientSide()
+                || minecraftProfession == VillagerProfession.NONE
+                || minecraftProfession == VillagerProfession.NITWIT) {
+            return;
+        }
+        apply(
+                villager,
+                offer,
+                VillagerProfessionIds.fromMinecraft(minecraftProfession),
+                VillagerPotentialAttachments.get(villager),
+                villager.level().getGameTime(),
+                Config.marketDemandConfig(),
+                Config.marketDemandPriceConfig()
+        );
+    }
+
+    /** Sends current offers after the result slot has completed the old-price purchase. */
+    public static void syncOpenMenu(Villager villager) {
         Player player = villager.getTradingPlayer();
         if (player == null || villager.getOffers().isEmpty()) {
             return;
@@ -82,6 +76,39 @@ public final class VillagerDemandPricing {
                 villager.getVillagerXp(),
                 villager.showProgressBar(),
                 villager.canRestock()
+        );
+    }
+
+    private static void apply(
+            Villager villager,
+            MerchantOffer offer,
+            ProfessionId profession,
+            VillagerPotentialState state,
+            long gameTime,
+            MarketDemandConfig demandConfig,
+            MarketDemandPriceConfig priceConfig
+    ) {
+        DemandPriceOffer demandPriceOffer = (DemandPriceOffer) offer;
+        demandPriceOffer.villagerPotential$clearDemandPriceAdjustment();
+        MerchantOfferTradeKeys.Identity identity = MerchantOfferTradeKeys.identify(offer);
+        OptionalDouble demandScore = identity.stable()
+                ? state.marketDemandScoreFor(
+                profession,
+                identity.key(),
+                gameTime,
+                demandConfig
+        )
+                : OptionalDouble.empty();
+        double score = demandScore.orElse(demandConfig.baseline());
+        int vanillaPrice = offer.getCostA().getCount();
+        int adjustedPrice = apply(offer, score, demandConfig, priceConfig);
+        VillagerPotentialDiagnostics.price(
+                villager.getUUID(),
+                profession,
+                identity.key(),
+                score,
+                vanillaPrice,
+                adjustedPrice
         );
     }
 

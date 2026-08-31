@@ -9,6 +9,7 @@
     "EntityPortableDataMixin",
     "MerchantOfferDemandStockMixin",
     "MerchantMenuBulkTradeMixin",
+    "MerchantResultSlotTradeMixin",
     "VillagerBreedingMixin",
     "VillagerDemandPricingMixin",
     "VillagerDemandStockMixin",
