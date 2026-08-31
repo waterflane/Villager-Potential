@@ -110,8 +110,11 @@ public final class MarketDemandPricing {
 
         int boundedVanillaPrice = clamp(vanillaPrice, 1, maximumItemCount);
         int boundedBasePrice = clamp(basePrice, 1, maximumItemCount);
+        if (!demandConfig.enabled() || !priceConfig.enabled()) {
+            return new OfferAdjustment(boundedVanillaPrice, baseResultCount);
+        }
         double pressure = positiveDemandFraction(demandScore, demandConfig, priceConfig);
-        int inputPrice = boundedVanillaPrice;
+        int inputPrice = boundedBasePrice;
         int resultCount = baseResultCount;
         if (paymentKind == PaymentKind.EMERALD) {
             double maximumReduction = priceConfig.maximumEmeraldPaymentResultReduction();
@@ -127,24 +130,43 @@ public final class MarketDemandPricing {
             int addedItems = (int) Math.floor(
                     boundedBasePrice * maximumIncrease * pressure + ROUNDING_EPSILON
             );
-            int configuredMaximum = Math.max(
+            int configuredMaximum = maximumItemPaymentPrice(
                     boundedBasePrice,
-                    (int) Math.floor(
-                            boundedBasePrice * (1.0 + maximumIncrease) + ROUNDING_EPSILON
-                    )
+                    maximumItemCount,
+                    priceConfig
             );
-            int startingPrice = pressure > 0.0
-                    ? Math.max(boundedVanillaPrice, boundedBasePrice)
-                    : boundedVanillaPrice;
-            inputPrice = startingPrice >= configuredMaximum
-                    ? startingPrice
-                    : clamp(
-                            Math.min(configuredMaximum, startingPrice + addedItems),
-                            1,
-                            maximumItemCount
-                    );
+            inputPrice = clamp(
+                    boundedBasePrice + addedItems,
+                    boundedBasePrice,
+                    configuredMaximum
+            );
         }
         return new OfferAdjustment(inputPrice, resultCount);
+    }
+
+    /** Absolute payment ceiling relative to the offer's immutable base cost. */
+    public static int maximumItemPaymentPrice(
+            int basePrice,
+            int maximumItemCount,
+            MarketDemandPriceConfig priceConfig
+    ) {
+        Objects.requireNonNull(priceConfig, "priceConfig");
+        if (maximumItemCount < 1) {
+            throw new IllegalArgumentException("maximumItemCount must be positive");
+        }
+        int boundedBasePrice = clamp(basePrice, 1, maximumItemCount);
+        return clamp(
+                Math.max(
+                        boundedBasePrice,
+                        (int) Math.floor(
+                                boundedBasePrice
+                                        * (1.0 + priceConfig.maximumItemPaymentIncrease())
+                                        + ROUNDING_EPSILON
+                        )
+                ),
+                boundedBasePrice,
+                maximumItemCount
+        );
     }
 
     private static double positiveDemandFraction(

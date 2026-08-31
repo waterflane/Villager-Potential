@@ -12,7 +12,11 @@ public interface DemandPriceOffer {
 
     void villagerPotential$applyDemandInputDelta(int delta);
 
-    int villagerPotential$retainDemandInputPrice(int proposedPrice, boolean demandActive);
+    int villagerPotential$retainDemandInputPrice(
+            int proposedPrice,
+            int maximumPrice,
+            boolean demandActive
+    );
 
     void villagerPotential$clearDemandInputPriceFloor();
 

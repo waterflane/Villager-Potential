@@ -113,11 +113,37 @@ class MarketDemandPricingTest {
                 )
         );
         assertEquals(
-                new MarketDemandPricing.OfferAdjustment(25, 1),
+                new MarketDemandPricing.OfferAdjustment(22, 1),
                 MarketDemandPricing.adjustedOffer(
                         25, 20, 64, 1,
                         MarketDemandPricing.PaymentKind.OTHER_ITEM,
                         DEMAND.maximum(), DEMAND, PRICE
+                )
+        );
+    }
+
+    @Test
+    void totalOfferValuesStayInsideAbsoluteBasePercentageBounds() {
+        assertEquals(
+                new MarketDemandPricing.OfferAdjustment(20, 1),
+                MarketDemandPricing.adjustedOffer(
+                        40, 20, 64, 1,
+                        MarketDemandPricing.PaymentKind.OTHER_ITEM,
+                        DEMAND.baseline(), DEMAND, MarketDemandPriceConfig.DEFAULT
+                )
+        );
+        assertEquals(
+                22,
+                MarketDemandPricing.maximumItemPaymentPrice(
+                        20, 64, MarketDemandPriceConfig.DEFAULT
+                )
+        );
+        assertEquals(
+                new MarketDemandPricing.OfferAdjustment(1, 18),
+                MarketDemandPricing.adjustedOffer(
+                        7, 1, 64, 20,
+                        MarketDemandPricing.PaymentKind.EMERALD,
+                        DEMAND.maximum(), DEMAND, MarketDemandPriceConfig.DEFAULT
                 )
         );
     }

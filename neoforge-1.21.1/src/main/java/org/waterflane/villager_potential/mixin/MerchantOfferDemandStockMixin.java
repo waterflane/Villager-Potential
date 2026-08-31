@@ -81,14 +81,15 @@ public abstract class MerchantOfferDemandStockMixin implements DemandStockOffer,
     @Override
     public int villagerPotential$retainDemandInputPrice(
             int proposedPrice,
+            int maximumPrice,
             boolean demandActive
     ) {
         if (!demandActive && villagerPotential$demandInputPriceFloor == 0) {
             return proposedPrice;
         }
-        villagerPotential$demandInputPriceFloor = Math.max(
-                villagerPotential$demandInputPriceFloor,
-                proposedPrice
+        villagerPotential$demandInputPriceFloor = Math.min(
+                maximumPrice,
+                Math.max(villagerPotential$demandInputPriceFloor, proposedPrice)
         );
         return villagerPotential$demandInputPriceFloor;
     }

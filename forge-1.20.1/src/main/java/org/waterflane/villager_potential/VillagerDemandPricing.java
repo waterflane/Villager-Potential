@@ -143,6 +143,11 @@ public final class VillagerDemandPricing {
                 && priceConfig.enabled()) {
             adjustedPrice = demandPriceOffer.villagerPotential$retainDemandInputPrice(
                     adjustedPrice,
+                    MarketDemandPricing.maximumItemPaymentPrice(
+                            basePrice,
+                            maximumItemCount,
+                            priceConfig
+                    ),
                     demandScore > demandConfig.baseline()
             );
         } else {

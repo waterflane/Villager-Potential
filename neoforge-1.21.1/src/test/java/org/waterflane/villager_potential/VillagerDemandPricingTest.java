@@ -45,14 +45,14 @@ class VillagerDemandPricingTest {
     }
 
     @Test
-    void vanillaDiscountStillApplies() {
+    void emeraldPaymentIsFixedToItsBaseCountWhilePricingIsEnabled() {
         MerchantOffer offer = offer(20, 0.5F, 1);
         offer.setSpecialPriceDiff(-5);
         assertEquals(25, offer.getCostA().getCount());
 
         VillagerDemandPricing.apply(offer, DEMAND.maximum(), DEMAND, PRICE);
 
-        assertEquals(25, offer.getCostA().getCount());
+        assertEquals(20, offer.getCostA().getCount());
     }
 
     @Test
@@ -160,6 +160,24 @@ class VillagerDemandPricingTest {
 
         VillagerDemandPricing.apply(offer, 8.0, DEMAND, disabled);
         assertEquals(20, offer.getCostA().getCount());
+    }
+
+    @Test
+    void loweringConfiguredCapClampsPreviouslyRetainedPrice() {
+        MarketDemandPriceConfig twentyPercent = new MarketDemandPriceConfig(
+                true,
+                1.0,
+                2.0,
+                0.10,
+                0.20
+        );
+        MerchantOffer offer = itemPayment(20);
+
+        VillagerDemandPricing.apply(offer, 8.0, DEMAND, twentyPercent);
+        assertEquals(24, offer.getCostA().getCount());
+
+        VillagerDemandPricing.apply(offer, 8.0, DEMAND, PRICE);
+        assertEquals(22, offer.getCostA().getCount());
     }
 
     @Test
