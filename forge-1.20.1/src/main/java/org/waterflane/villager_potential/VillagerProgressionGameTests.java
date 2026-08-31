@@ -5,6 +5,7 @@ import net.minecraft.core.GlobalPos;
 import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.gametest.framework.GameTestHelper;
 import net.minecraft.nbt.CompoundTag;
+import net.minecraft.nbt.NbtOps;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.effect.MobEffectInstance;
@@ -14,6 +15,7 @@ import net.minecraft.world.entity.ai.memory.MemoryModuleType;
 import net.minecraft.world.entity.ai.village.ReputationEventType;
 import net.minecraft.world.entity.npc.Villager;
 import net.minecraft.world.entity.npc.VillagerProfession;
+import net.minecraft.world.entity.npc.VillagerTrades;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.item.SuspiciousStewItem;
@@ -21,10 +23,16 @@ import net.minecraft.world.item.alchemy.PotionUtils;
 import net.minecraft.world.item.alchemy.Potions;
 import net.minecraft.world.item.enchantment.Enchantments;
 import net.minecraft.world.item.trading.MerchantOffer;
+import net.minecraft.world.item.trading.MerchantOffers;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraftforge.gametest.GameTestHolder;
 import net.minecraftforge.gametest.PrefixGameTestTemplate;
 import org.waterflane.villager_potential.core.ProfessionId;
+import org.waterflane.villager_potential.core.TradeKey;
+import org.waterflane.villager_potential.core.TradePaletteState;
+import org.waterflane.villager_potential.core.VillagerPotentialState;
+
+import java.util.List;
 
 @GameTestHolder(Villager_potential.MODID)
 @PrefixGameTestTemplate(false)
@@ -213,6 +221,54 @@ public final class VillagerProgressionGameTests {
 
         helper.assertTrue(offer.getMaxUses() == 15,
                 "demand stock mixin did not expose the effective maximum");
+        helper.succeed();
+    }
+
+    @GameTest(template = "empty", timeoutTicks = 40)
+    public static void soldOutTradeSurvivesProfessionRecreation(GameTestHelper helper) {
+        MerchantOffer template = resultOffer(new ItemStack(Items.APPLE, 4));
+        TradeKey trade = MerchantOfferTradeKeys.from(template);
+        VillagerPotentialState state = VillagerPotentialState.createDefault()
+                .recordPresentedTrades(
+                        LIBRARIAN,
+                        List.of(trade),
+                        List.of(trade),
+                        100L,
+                        16
+                );
+        for (int use = 0; use < template.getMaxUses(); use++) {
+            state = state.recordTradeUse(LIBRARIAN, trade, 101L + use, 16);
+        }
+        var saved = VillagerPotentialAttachments.CODEC
+                .encodeStart(NbtOps.INSTANCE, state)
+                .result()
+                .orElseThrow();
+        VillagerPotentialState loaded = VillagerPotentialAttachments.CODEC
+                .parse(NbtOps.INSTANCE, saved)
+                .result()
+                .orElseThrow();
+        TradePaletteState palette = loaded.tradePaletteFor(LIBRARIAN).orElseThrow();
+        MerchantOffers restored = new MerchantOffers();
+
+        SpecializedTradeSelection.restorePersistentOffers(
+                helper.spawn(EntityType.VILLAGER, new BlockPos(1, 1, 1)),
+                restored,
+                palette.activeTrades(),
+                palette.usesSinceRestock(),
+                List.<VillagerTrades.ItemListing[]>of(
+                        new VillagerTrades.ItemListing[]{
+                                (villager, random) -> resultOffer(new ItemStack(Items.APPLE, 4))
+                        }
+                ),
+                helper.getLevel().random
+        );
+
+        helper.assertTrue(restored.size() == 1, "remembered trade was not restored");
+        helper.assertTrue(
+                restored.get(0).getUses() == template.getMaxUses(),
+                "restored trade lost its current stock usage"
+        );
+        helper.assertTrue(restored.get(0).isOutOfStock(), "restored trade was reopened");
         helper.succeed();
     }
 

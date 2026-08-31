@@ -153,6 +153,13 @@ public final class VillagerPotentialAttachments {
                     TRADE_HISTORY_CODEC.fieldOf("history")
                             .forGetter(PersistedTradeHistory::history)
             ).apply(instance, PersistedTradeHistory::new));
+    private static final Codec<PersistedTradeRestockUses> TRADE_RESTOCK_USES_ENTRY_CODEC =
+            RecordCodecBuilder.create(instance -> instance.group(
+                    TRADE_KEY_CODEC.fieldOf("trade")
+                            .forGetter(PersistedTradeRestockUses::trade),
+                    Codec.INT.fieldOf("uses")
+                            .forGetter(PersistedTradeRestockUses::uses)
+            ).apply(instance, PersistedTradeRestockUses::new));
     private static final Codec<TradePaletteState> TRADE_PALETTE_CODEC =
             RecordCodecBuilder.<PersistedTradePalette>create(instance -> instance.group(
                     TRADE_KEY_CODEC.listOf().fieldOf("active_trades")
@@ -160,7 +167,10 @@ public final class VillagerPotentialAttachments {
                     TRADE_KEY_CODEC.listOf().optionalFieldOf("selection_history", List.of())
                             .forGetter(PersistedTradePalette::selectionHistory),
                     TRADE_HISTORY_ENTRY_CODEC.listOf().optionalFieldOf("offer_history", List.of())
-                            .forGetter(PersistedTradePalette::offerHistory)
+                            .forGetter(PersistedTradePalette::offerHistory),
+                    TRADE_RESTOCK_USES_ENTRY_CODEC.listOf()
+                            .optionalFieldOf("uses_since_restock", List.of())
+                            .forGetter(PersistedTradePalette::usesSinceRestock)
             ).apply(instance, PersistedTradePalette::new)).xmap(
                     PersistedTradePalette::toState,
                     PersistedTradePalette::fromState
@@ -253,12 +263,9 @@ public final class VillagerPotentialAttachments {
         return getOrInitialize(villager);
     }
 
-    /** Clears demand accumulated before a completed sleep cycle. */
+    /** Clears demand and remembered stock usage after a completed sleep cycle. */
     public static void resetMarketDemandAfterSleep(Villager villager) {
         Objects.requireNonNull(villager, "villager");
-        if (!Config.marketDemandConfig().enabled()) {
-            return;
-        }
         VillagerPotentialState state = get(villager);
         persistAndEmit(villager, state, state.resetMarketDemandAfterSleep());
     }
@@ -1166,27 +1173,52 @@ public final class VillagerPotentialAttachments {
     private record PersistedTradeHistory(TradeKey trade, TradeHistory history) {
     }
 
+    private record PersistedTradeRestockUses(TradeKey trade, int uses) {
+    }
+
     private record PersistedTradePalette(
             List<TradeKey> activeTrades,
             List<TradeKey> selectionHistory,
-            List<PersistedTradeHistory> offerHistory
+            List<PersistedTradeHistory> offerHistory,
+            List<PersistedTradeRestockUses> usesSinceRestock
     ) {
         private TradePaletteState toState() {
+            Map<TradeKey, Integer> restockUses = new LinkedHashMap<>();
+            for (PersistedTradeRestockUses entry : usesSinceRestock) {
+                restockUses.merge(entry.trade(), entry.uses(), Math::max);
+            }
             if (!offerHistory.isEmpty()) {
                 Map<TradeKey, TradeHistory> histories = new LinkedHashMap<>();
                 for (PersistedTradeHistory entry : offerHistory) {
                     histories.put(entry.trade(), entry.history());
                 }
-                return new TradePaletteState(activeTrades, histories);
+                return new TradePaletteState(activeTrades, histories, restockUses);
             }
-            return new TradePaletteState(activeTrades, selectionHistory);
+            TradePaletteState migrated = new TradePaletteState(activeTrades, selectionHistory);
+            return new TradePaletteState(
+                    migrated.activeTrades(),
+                    migrated.offerHistory(),
+                    restockUses
+            );
         }
 
         private static PersistedTradePalette fromState(TradePaletteState state) {
             List<PersistedTradeHistory> histories = state.offerHistory().entrySet().stream()
                     .map(entry -> new PersistedTradeHistory(entry.getKey(), entry.getValue()))
                     .toList();
-            return new PersistedTradePalette(state.activeTrades(), List.of(), histories);
+            List<PersistedTradeRestockUses> restockUses = state.usesSinceRestock().entrySet()
+                    .stream()
+                    .map(entry -> new PersistedTradeRestockUses(
+                            entry.getKey(),
+                            entry.getValue()
+                    ))
+                    .toList();
+            return new PersistedTradePalette(
+                    state.activeTrades(),
+                    List.of(),
+                    histories,
+                    restockUses
+            );
         }
     }
 }

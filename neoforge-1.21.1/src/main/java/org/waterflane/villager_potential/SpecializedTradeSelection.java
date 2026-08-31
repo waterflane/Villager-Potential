@@ -72,10 +72,10 @@ public final class SpecializedTradeSelection {
         var potential = VillagerPotentialAttachments.get(villager);
         TradePaletteRerollStrategy strategy = Config.tradePaletteRerollStrategy();
         int firstGeneratedIndex = offers.size();
-        List<TradeKey> learnedTrades = potential
+        TradePaletteState palette = potential
                 .tradePaletteFor(professionId)
-                .map(palette -> palette.activeTrades())
-                .orElse(List.of());
+                .orElse(TradePaletteState.empty());
+        List<TradeKey> learnedTrades = palette.activeTrades();
         if (strategy == TradePaletteRerollStrategy.PERSISTENT
                 && offers.isEmpty()
                 && !learnedTrades.isEmpty()) {
@@ -83,6 +83,7 @@ public final class SpecializedTradeSelection {
                     villager,
                     offers,
                     learnedTrades,
+                    palette.usesSinceRestock(),
                     profession,
                     villager.getVillagerData().getLevel(),
                     candidates,
@@ -123,10 +124,7 @@ public final class SpecializedTradeSelection {
                 professionDefinition,
                 specializationId
         );
-        Map<TradeKey, TradeHistory> offerHistory = potential
-                .tradePaletteFor(professionId)
-                .map(palette -> palette.offerHistory())
-                .orElse(Map.of());
+        Map<TradeKey, TradeHistory> offerHistory = palette.offerHistory();
         var career = potential.careerFor(professionId);
         addWeightedOffers(
                 villager,
@@ -650,6 +648,7 @@ public final class SpecializedTradeSelection {
             Villager villager,
             MerchantOffers offers,
             List<TradeKey> learnedTrades,
+            Map<TradeKey, Integer> usesSinceRestock,
             VillagerProfession profession,
             int maximumLevel,
             VillagerTrades.ItemListing[] currentCandidates,
@@ -687,6 +686,7 @@ public final class SpecializedTradeSelection {
                 villager,
                 offers,
                 learnedTrades,
+                usesSinceRestock,
                 unlockedPools,
                 random,
                 remainingGenerationBudget
@@ -705,15 +705,35 @@ public final class SpecializedTradeSelection {
             List<VillagerTrades.ItemListing[]> unlockedPools,
             RandomSource random
     ) {
+        restorePersistentOffers(
+                villager,
+                offers,
+                learnedTrades,
+                Map.of(),
+                unlockedPools,
+                random
+        );
+    }
+
+    static void restorePersistentOffers(
+            Villager villager,
+            MerchantOffers offers,
+            List<TradeKey> learnedTrades,
+            Map<TradeKey, Integer> usesSinceRestock,
+            List<VillagerTrades.ItemListing[]> unlockedPools,
+            RandomSource random
+    ) {
         Objects.requireNonNull(villager, "villager");
         Objects.requireNonNull(offers, "offers");
         Objects.requireNonNull(learnedTrades, "learnedTrades");
+        Objects.requireNonNull(usesSinceRestock, "usesSinceRestock");
         Objects.requireNonNull(unlockedPools, "unlockedPools");
         Objects.requireNonNull(random, "random");
         restorePersistentOffersInternal(
                 villager,
                 offers,
                 learnedTrades,
+                usesSinceRestock,
                 unlockedPools,
                 random,
                 new int[]{PERSISTENT_RESTORE_GENERATION_BUDGET}
@@ -724,6 +744,7 @@ public final class SpecializedTradeSelection {
             Villager villager,
             MerchantOffers offers,
             List<TradeKey> learnedTrades,
+            Map<TradeKey, Integer> usesSinceRestock,
             List<VillagerTrades.ItemListing[]> unlockedPools,
             RandomSource random,
             int[] remainingGenerationBudget
@@ -742,11 +763,19 @@ public final class SpecializedTradeSelection {
             if (match.isPresent()) {
                 MatchedOffer restored = match.orElseThrow();
                 consumed.add(restored.slot());
+                restoreUses(restored.offer(), usesSinceRestock.getOrDefault(learnedTrade, 0));
                 offers.add(restored.offer());
                 restoredCount++;
             }
         }
         return restoredCount;
+    }
+
+    private static void restoreUses(MerchantOffer offer, int rememberedUses) {
+        int targetUses = Math.min(Math.max(rememberedUses, 0), offer.getMaxUses());
+        while (offer.getUses() < targetUses) {
+            offer.increaseUses();
+        }
     }
 
     private static Optional<MatchedOffer> findPersistentOffer(

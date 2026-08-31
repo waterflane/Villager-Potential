@@ -3,6 +3,7 @@ package org.waterflane.villager_potential.core;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
+import java.util.Map;
 import java.util.OptionalLong;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -44,6 +45,27 @@ class TradePaletteStateTest {
         assertEquals(1L, paper.timesUsed());
         assertEquals(OptionalLong.of(160L), paper.lastUsed());
         assertEquals(1L, state.offerHistory().get(BOOK).timesSeen());
+    }
+
+    @Test
+    void currentStockUsageSurvivesPaletteRecreationUntilSleepRestock() {
+        TradePaletteState used = TradePaletteState.empty()
+                .recordPresented(List.of(PAPER), List.of(PAPER), 100L, 16)
+                .recordUsed(PAPER, 120L, 16)
+                .recordUsed(PAPER, 140L, 16);
+
+        TradePaletteState recreated = new TradePaletteState(
+                used.activeTrades(),
+                used.offerHistory(),
+                used.usesSinceRestock()
+        );
+        assertEquals(Map.of(PAPER, 2), recreated.usesSinceRestock());
+
+        TradePaletteState restocked = recreated.resetRestockUses();
+        assertTrue(restocked.usesSinceRestock().isEmpty());
+        assertEquals(recreated.activeTrades(), restocked.activeTrades());
+        assertEquals(recreated.offerHistory(), restocked.offerHistory());
+        assertSame(restocked, restocked.resetRestockUses());
     }
 
     @Test

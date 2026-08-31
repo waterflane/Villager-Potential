@@ -274,9 +274,16 @@ class TradeMemoryRerollTest {
         generated.add(mending);
         VillagerPotentialAttachments.recordGeneratedOffers(villager, generated, 0, 150L, 16);
 
+        VillagerPotentialState exhausted = state.get();
+        for (int use = 0; use < mending.getMaxUses(); use++) {
+            exhausted = exhausted.recordTradeUse(LIBRARIAN, mendingKey, 151L + use, 16);
+        }
+        state.set(exhausted);
+
         TradePaletteState learned = state.get().tradePaletteFor(LIBRARIAN).orElseThrow();
         assertEquals(List.of(mendingKey), learned.activeTrades());
-        assertEquals(0L, learned.offerHistory().get(mendingKey).timesUsed());
+        assertEquals(mending.getMaxUses(), learned.offerHistory().get(mendingKey).timesUsed());
+        assertEquals(mending.getMaxUses(), learned.usesSinceRestock().get(mendingKey));
 
         generated.clear();
         state.set(state.get().clearActiveProfession().assignProfession(LIBRARIAN, 200L));
@@ -305,6 +312,7 @@ class TradeMemoryRerollTest {
                 villager,
                 restored,
                 learned.activeTrades(),
+                learned.usesSinceRestock(),
                 List.<VillagerTrades.ItemListing[]>of(
                         new VillagerTrades.ItemListing[]{mendingListing, unrelated}
                 ),
@@ -315,6 +323,8 @@ class TradeMemoryRerollTest {
                 List.of(mendingKey),
                 restored.stream().map(MerchantOfferTradeKeys::from).toList()
         );
+        assertEquals(mending.getMaxUses(), restored.getFirst().getUses());
+        assertTrue(restored.getFirst().isOutOfStock());
         assertEquals(0, unrelatedCandidateCalls.get());
 
         AtomicInteger generatedEvents = new AtomicInteger();

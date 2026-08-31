@@ -275,12 +275,20 @@ class VillagerPotentialStateTest {
     }
 
     @Test
-    void completedSleepClearsDemandWithoutTouchingOtherVillagerState() {
+    void completedSleepClearsDemandAndRestockUsesWithoutTouchingCareerOrTradeMemory() {
         ProfessionId librarian = ProfessionId.parse("minecraft:librarian");
         ProfessionId farmer = ProfessionId.parse("minecraft:farmer");
         TradeKey paper = trade("minecraft:paper", "minecraft:emerald");
         VillagerPotentialState state = VillagerPotentialState.createDefault()
                 .assignProfession(librarian, 10L)
+                .recordPresentedTrades(
+                        librarian,
+                        List.of(paper),
+                        List.of(paper),
+                        80L,
+                        16
+                )
+                .recordTradeUse(librarian, paper, 90L, 16)
                 .recordTradePurchase(librarian, paper, 100L)
                 .recordTradePurchase(farmer, paper, 120L);
 
@@ -290,7 +298,12 @@ class VillagerPotentialStateTest {
         assertEquals(state.aptitudes(), reset.aptitudes());
         assertEquals(state.careers(), reset.careers());
         assertEquals(state.activeProfession(), reset.activeProfession());
-        assertEquals(state.tradePalettes(), reset.tradePalettes());
+        TradePaletteState beforeSleep = state.tradePaletteFor(librarian).orElseThrow();
+        TradePaletteState afterSleep = reset.tradePaletteFor(librarian).orElseThrow();
+        assertEquals(Map.of(paper, 1), beforeSleep.usesSinceRestock());
+        assertTrue(afterSleep.usesSinceRestock().isEmpty());
+        assertEquals(beforeSleep.activeTrades(), afterSleep.activeTrades());
+        assertEquals(beforeSleep.offerHistory(), afterSleep.offerHistory());
         assertSame(reset, reset.resetMarketDemandAfterSleep());
     }
 

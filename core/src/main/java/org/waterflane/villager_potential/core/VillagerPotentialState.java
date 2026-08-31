@@ -19,7 +19,7 @@ public record VillagerPotentialState(
         Map<ProfessionId, TradePaletteState> tradePalettes,
         Map<ProfessionId, Map<TradeKey, MarketDemandState>> marketDemand
 ) {
-    public static final int CURRENT_SCHEMA_VERSION = 11;
+    public static final int CURRENT_SCHEMA_VERSION = 12;
 
     public VillagerPotentialState {
         if (schemaVersion < 1) {
@@ -420,9 +420,13 @@ public record VillagerPotentialState(
         );
     }
 
-    /** Clears all accumulated market demand after the villager completes sleep. */
+    /** Clears demand and restock-cycle uses after the villager completes sleep. */
     public VillagerPotentialState resetMarketDemandAfterSleep() {
-        if (marketDemand.isEmpty()) {
+        Map<ProfessionId, TradePaletteState> resetPalettes = new HashMap<>();
+        tradePalettes.forEach((profession, palette) ->
+                resetPalettes.put(profession, palette.resetRestockUses())
+        );
+        if (marketDemand.isEmpty() && resetPalettes.equals(tradePalettes)) {
             return this;
         }
         return new VillagerPotentialState(
@@ -431,7 +435,7 @@ public record VillagerPotentialState(
                 careers,
                 activeProfession,
                 professionActivities,
-                tradePalettes,
+                resetPalettes,
                 Map.of()
         );
     }
@@ -766,6 +770,15 @@ public record VillagerPotentialState(
                     persistedTradePalettes,
                     persistedMarketDemand
             );
+            case 11 -> new VillagerPotentialState(
+                    CURRENT_SCHEMA_VERSION,
+                    persistedAptitudes,
+                    persistedCareers,
+                    persistedActiveProfession,
+                    persistedProfessionActivities,
+                    persistedTradePalettes,
+                    persistedMarketDemand
+            );
             case 10, 9 -> new VillagerPotentialState(
                     CURRENT_SCHEMA_VERSION,
                     persistedAptitudes,
@@ -843,7 +856,13 @@ public record VillagerPotentialState(
                     observation,
                     VillagerPotentialState::mergeTradeHistory
             ));
-            migrated.put(profession, new TradePaletteState(active, history));
+            Map<TradeKey, Integer> restockUses = new HashMap<>();
+            palette.usesSinceRestock().forEach((trade, uses) -> restockUses.merge(
+                    migrateTradeKey(trade),
+                    uses,
+                    Math::max
+            ));
+            migrated.put(profession, new TradePaletteState(active, history, restockUses));
         });
         return migrated;
     }

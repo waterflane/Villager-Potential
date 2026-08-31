@@ -10,13 +10,15 @@ import java.util.Set;
 /**
  * Persistent, platform-independent trade selection state for one profession.
  *
- * <p>Only portable trade identities and aggregate observations are retained.
- * Merchant-offer instances, prices, demand, and other Minecraft runtime state
- * deliberately remain outside this record.</p>
+ * <p>Only portable trade identities, aggregate observations, and the number
+ * of uses in the current restock cycle are retained. Merchant-offer instances,
+ * prices, demand, and other Minecraft runtime state deliberately remain outside
+ * this record.</p>
  */
 public record TradePaletteState(
         List<TradeKey> activeTrades,
-        Map<TradeKey, TradeHistory> offerHistory
+        Map<TradeKey, TradeHistory> offerHistory,
+        Map<TradeKey, Integer> usesSinceRestock
 ) {
     public TradePaletteState {
         Objects.requireNonNull(activeTrades, "activeTrades");
@@ -29,6 +31,23 @@ public record TradePaletteState(
             Objects.requireNonNull(history, "tradeHistory");
         });
         offerHistory = Map.copyOf(offerHistory);
+
+        Objects.requireNonNull(usesSinceRestock, "usesSinceRestock");
+        usesSinceRestock.forEach((trade, uses) -> {
+            Objects.requireNonNull(trade, "restockTrade");
+            Objects.requireNonNull(uses, "restockUses");
+            if (uses < 1) {
+                throw new IllegalArgumentException("restock uses must be positive");
+            }
+        });
+        usesSinceRestock = Map.copyOf(usesSinceRestock);
+    }
+
+    public TradePaletteState(
+            List<TradeKey> activeTrades,
+            Map<TradeKey, TradeHistory> offerHistory
+    ) {
+        this(activeTrades, offerHistory, Map.of());
     }
 
     /**
@@ -36,11 +55,11 @@ public record TradePaletteState(
      * saves did not retain timestamps, so their last-seen values remain empty.
      */
     public TradePaletteState(List<TradeKey> activeTrades, List<TradeKey> selectionHistory) {
-        this(activeTrades, aggregateLegacyHistory(selectionHistory));
+        this(activeTrades, aggregateLegacyHistory(selectionHistory), Map.of());
     }
 
     public static TradePaletteState empty() {
-        return new TradePaletteState(List.of(), Map.of());
+        return new TradePaletteState(List.of(), Map.of(), Map.of());
     }
 
     public TradePaletteState recordPresented(
@@ -97,7 +116,8 @@ public record TradePaletteState(
             }
             learnedTrades = List.copyOf(appended);
         }
-        return new TradePaletteState(learnedTrades, updatedHistory);
+        Map<TradeKey, Integer> retainedUses = retainKnownUses(updatedHistory);
+        return new TradePaletteState(learnedTrades, updatedHistory, retainedUses);
     }
 
     public TradePaletteState recordUsed(
@@ -115,7 +135,10 @@ public record TradePaletteState(
                         : history.recordUsed(gameTime)
         );
         pruneToCapacity(updatedHistory, trade, maximumHistoryEntries);
-        return new TradePaletteState(activeTrades, updatedHistory);
+        Map<TradeKey, Integer> updatedUses = new HashMap<>(usesSinceRestock);
+        updatedUses.compute(trade, (ignored, uses) -> increment(uses == null ? 0 : uses));
+        updatedUses.keySet().retainAll(updatedHistory.keySet());
+        return new TradePaletteState(activeTrades, updatedHistory, updatedUses);
     }
 
     /** Resets only CYCLIC seen counts; learned trades and use history are retained. */
@@ -131,7 +154,14 @@ public record TradePaletteState(
         ));
         return updatedHistory.equals(offerHistory)
                 ? this
-                : new TradePaletteState(activeTrades, updatedHistory);
+                : new TradePaletteState(activeTrades, updatedHistory, usesSinceRestock);
+    }
+
+    /** Clears stock usage only after a completed villager sleep/restock cycle. */
+    public TradePaletteState resetRestockUses() {
+        return usesSinceRestock.isEmpty()
+                ? this
+                : new TradePaletteState(activeTrades, offerHistory, Map.of());
     }
 
     /**
@@ -198,5 +228,20 @@ public record TradePaletteState(
 
     private static long increment(long value) {
         return value == Long.MAX_VALUE ? Long.MAX_VALUE : value + 1L;
+    }
+
+    private static int increment(int value) {
+        return value == Integer.MAX_VALUE ? Integer.MAX_VALUE : value + 1;
+    }
+
+    private Map<TradeKey, Integer> retainKnownUses(
+            Map<TradeKey, TradeHistory> updatedHistory
+    ) {
+        if (usesSinceRestock.isEmpty()) {
+            return Map.of();
+        }
+        Map<TradeKey, Integer> retained = new HashMap<>(usesSinceRestock);
+        retained.keySet().retainAll(updatedHistory.keySet());
+        return retained;
     }
 }
